@@ -2,7 +2,7 @@
 <title>Siyasat · Citation checker</title>
 <meta name="description" content="Check whether the references in your paper are real, correct, and not retracted.">
 <style>
-:root{--maroon:#771712;--maroon-dark:#5A110D;--maroon-soft:#F6E9E7;--gold:#F5C544;--gold-dark:#B8860B;--gold-soft:#FDF4D9;
+:root{--maroon:#771712;--maroon-dark:#5A110D;--maroon-soft:#F7F1E6;--gold:#F5C544;--gold-dark:#B8860B;--gold-soft:#FDF4D9;
  --paper:#FBF8F3;--surface:#FFF;--ink:#2A1C1A;--ink-soft:#5B4A47;--line:#E8DED6;
  --ok:#1E6B3A;--ok-bg:#E5F2E9;--warn:#7A4A00;--warn-bg:#FCEFCF;--bad:#A3201B;--bad-bg:#FBE5E3;--ret:#6B2A6E;--ret-bg:#F3E6F3;--unc:#44505E;--unc-bg:#E9EDF1;
  --shadow:0 1px 3px rgba(42,28,26,.08),0 10px 30px rgba(42,28,26,.06);--r:14px}
@@ -102,7 +102,33 @@ mark{background:var(--gold-soft);color:var(--ink);border-bottom:2px solid var(--
 [hidden]{display:none!important}
 .drop{cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;padding:26px 16px}.drop:hover,.drop.over{background:#FBE7A8;border-color:var(--maroon)}
 .drop .dicon{font-size:30px}.drop small{color:var(--ink-soft)}.fakebtn{display:inline-block;background:var(--maroon);color:#fff;border-radius:8px;padding:6px 14px;font-weight:700;margin:4px 0}
-.chip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:2px solid var(--maroon);background:var(--maroon-soft);border-radius:12px;padding:12px 14px}.chip .dicon{font-size:28px}
+.chip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1.5px solid #E8D9A8;background:#fff;border-left:5px solid var(--gold);border-radius:12px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.05)}.ficon{display:grid;place-items:center;width:44px;height:44px;border-radius:10px;background:var(--gold-soft);flex:none}
+.ready{display:inline-block;background:var(--ok-bg);color:var(--ok);font-weight:750;border-radius:99px;padding:1px 9px;margin-right:4px;font-size:13px}.quiet{color:var(--ink-soft)}.quiet:hover{color:var(--ink)}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:6px 0 14px}.stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px}.stat .n{font-size:26px;font-weight:800}.stat .l{font-size:13.5px;color:var(--ink-soft)}.stat .l small{display:block;font-size:11.5px}
+.stat.ok .n{color:var(--ok)}.stat.bad .n{color:var(--bad)}.stat.na .n{color:var(--unc)}.stat.wait .n{color:var(--gold-dark)}
+.pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap;flex:none}.pill .yc{text-transform:none;font-weight:600;letter-spacing:0}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.bad{background:var(--bad-bg);color:var(--bad)}.pill.na{background:var(--unc-bg);color:var(--unc)}.pill.ret{background:var(--ret-bg);color:var(--ret)}.pill.wait{background:var(--gold-soft);color:var(--warn);border:1px solid #EBD38A}
+.drows{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.drow{display:flex;gap:14px;align-items:flex-start;width:100%;text-align:left;background:#fff;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:14px 16px;color:var(--ink);font-weight:400;min-height:0;cursor:pointer}.drow:last-child{border-bottom:0}.drow:hover{background:#FFFBF2}
+.r-cite{flex:1;min-width:0;font-size:14.5px;line-height:1.5}.r-by{color:var(--ink-soft)}.r-verdict{display:block;color:var(--ink-soft);font-size:13.5px;margin-top:3px}.r-open{color:var(--maroon);font-weight:750;font-size:13.5px;white-space:nowrap}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.93em}
+.scrim{position:fixed;inset:0;background:rgba(30,10,8,.28);z-index:40}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);background:#fff;z-index:50;box-shadow:-8px 0 30px rgba(0,0,0,.15);overflow:auto;transform:translateX(100%);transition:transform .2s}.drawer.open{transform:none}
+.drawer-inner{padding:22px 24px 40px;position:relative}.d-close{position:absolute;top:12px;right:12px;width:40px;height:40px;border-radius:50%;background:#fff;border:1px solid var(--line);color:var(--ink);font-size:22px;padding:0;min-height:0}
+.d-cite{font-size:15px;line-height:1.55;margin:12px 44px 6px 0}.d-verdict{color:var(--ink-soft);font-size:14px;margin:0 0 12px}
+.diff{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}.diff th,.diff td{text-align:left;vertical-align:top;padding:8px 6px;border-bottom:1px solid var(--line)}.diff thead th{font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-soft)}.diff tbody th{font-weight:700;width:24%}
+.val-bad{color:var(--bad);font-weight:650}.val-fix{color:var(--ok);font-weight:750}.d-note{font-size:14px;color:var(--ink-soft)}
+.d-links{display:flex;gap:8px;flex-wrap:wrap}.d-links a{background:var(--ok-bg);color:var(--ok);border-radius:99px;padding:5px 12px;font-weight:700;font-size:13.5px;text-decoration:none}
+.dsrc+.dsrc{border-top:3px solid var(--gold-soft);margin-top:18px;padding-top:6px}
+.reader{border-top:1px solid var(--line);margin-top:16px;padding-top:12px}.rd-h{font-size:12px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-soft);display:flex;gap:8px;align-items:center;flex-wrap:wrap}.rp-oa{background:var(--ok-bg);color:var(--ok);border-radius:99px;padding:1px 8px}.rp-src{text-transform:none;font-weight:600}
+.rd-t{font-weight:750;margin:6px 0}.rd-sec b{font-size:12px;text-transform:uppercase;color:var(--maroon);letter-spacing:.4px}.rd-sec p{margin:4px 0;font-size:14.5px;line-height:1.6}.rd-foot{font-size:12.5px;color:var(--ink-soft);margin-top:8px}
+.judge{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#FFFBF2;border:1px solid #EBD38A;border-radius:12px;padding:12px;margin:6px 0 14px}.jq{width:100%;font-weight:750;color:var(--maroon)}
+.judge button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;flex:1 1 140px;background:#fff;border:1.5px solid var(--line);color:var(--ink);border-radius:10px;padding:8px 10px}.judge button small{font-weight:400;color:var(--ink-soft);font-size:12px}
+.judge .meta{width:100%}
+.stepper{display:flex;gap:8px;margin-top:16px}.step{flex:1}.step .track{height:6px;border-radius:99px;background:#EFE6D3;overflow:hidden}.step .track i{display:block;height:100%;width:0;background:var(--gold);transition:width .5s}.step.active .track i{width:60%}.step.done .track i{width:100%;background:var(--maroon)}.step .name{font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-top:5px}.step.active .name{color:var(--maroon)}
+.stage-status{display:flex;align-items:center;gap:8px;margin-top:8px;color:var(--ink-soft);font-size:14px;min-height:20px}.spin{width:14px;height:14px;border:2px solid #EBD38A;border-top-color:var(--maroon);border-radius:50%;animation:sp 1s linear infinite;flex:none}@keyframes sp{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.spin{animation:none}.drawer{transition:none}}
+@media(max-width:860px){.stats{grid-template-columns:repeat(2,1fr)}.stats .stat:last-child{grid-column:span 2}.drow{flex-wrap:wrap;gap:8px}.r-cite{flex-basis:100%;order:2}.r-open{margin-left:auto}.drawer-inner{padding:18px 16px 40px}.stepper .name{font-size:11px}}
 .chipt{flex:1;min-width:160px;word-break:break-word}.chipt small{display:block;color:var(--ink-soft)}
 .choice{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
 .jobctl{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
@@ -179,7 +205,7 @@ function dashboard(){
 function recentList(cs){ if(!cs.length) return '<div class="empty">No checks yet.</div>';
   return `<ul class="recent">${cs.map(c=>{const k=counts(c.results);return `<li><div class="t"><b>${esc(c.name)}</b><small>${fmtDate(c.date)} · ${c.type==='draft'?`Draft check · ${c.claims.length} claims · ${c.sources.length} sources`:(c.total||c.results.length).toLocaleString()+' references'+(c.type==='corpus'?' · corpus':'')}</small></div>
    <div class="mini">${['verified','correction','uncertain','not_found','retracted'].filter(v=>k[v]).map(v=>`<span class="badge ${v}" title="${esc(LABEL[v])}">${LABEL[v].split(' ')[0]} ${k[v]}</span>`).join('')}</div>
-   ${c.total&&c.results.length<c.total&&c.status!=='done'?`<span class="status-chip">${STATE.job&&STATE.job.id===c.id?'Checking':'Paused'} · ${c.results.length} of ${c.total}</span>${STATE.job&&STATE.job.id===c.id?'':`<button class="ghost" data-resume="${c.id}">▶ Resume</button>`}`:''}<span class="score-chip" title="Integrity score">${c.score}/100</span>
+   ${c.total&&c.results.length<c.total&&c.status!=='done'?`<span class="status-chip">${STATE.job&&STATE.job.id===c.id?'Checking':'Paused'} · ${c.results.length} of ${c.total}</span>${STATE.job&&STATE.job.id===c.id?'':`<button class="ghost" data-resume="${c.id}">▶ Resume</button>`}`:''}${c.type==='draft'?`<span class="pill ${draftSummary(c).cls}">${esc(draftSummary(c).t)}</span>`:''}<span class="score-chip" title="Integrity score">${c.score}/100</span>
    <a class="btn ghost" href="#/results/${c.id}">Open<span class="sr"> ${esc(c.name)}</span></a>
    <button class="link danger" data-del="${c.id}">Delete<span class="sr"> ${esc(c.name)}</span></button></li>`}).join('')}</ul>`;}
 function typeCards(asLinks){
@@ -205,29 +231,33 @@ function newCheck(){
    <input type="file" id="file" class="sr" tabindex="-1" aria-hidden="true" accept=".ris,.bib,.bibtex,.csv,.txt,.nbib,.enw">
    <div class="drop" id="drop" role="button" tabindex="0" aria-describedby="dropHelp" aria-label="Choose a file, or drag and drop it here">
     <span class="dicon" aria-hidden="true">📂</span><b>Drag your file here</b> or <span class="fakebtn">Choose a file</span><small id="dropHelp">.ris, .bib (BibTeX) or .csv · any size</small></div>
-   <div class="chip" id="chip" hidden><span class="dicon" aria-hidden="true">📄</span><div class="chipt"><b id="chipName"></b><small id="chipCount"></small></div>
-    <button class="ghost" id="changeFile" type="button">Change file</button><button class="link danger" id="removeFile" type="button">✕ Remove file</button></div>
+   <div class="chip" id="chip" hidden><span class="ficon" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M6 2h8l6 6v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" fill="#fff" stroke="#771712" stroke-width="1.6"/><path d="M14 2v6h6" fill="#FDF4D9" stroke="#771712" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 13h8M8 16.5h8M8 9.5h3" stroke="#B8860B" stroke-width="1.6" stroke-linecap="round"/></svg></span><div class="chipt"><b id="chipName"></b><small><span class="ready">✓ Ready</span> <span id="chipCount"></span></small></div>
+    <button class="ghost" id="changeFile" type="button">Change file</button><button class="link quiet" id="removeFile" type="button">✕ Remove file</button></div>
    <label class="big" for="input" style="margin-top:12px">Records found in your file <span class="meta">(you can edit them)</span></label><textarea id="input" placeholder="Records from your file will appear here."></textarea>`}
    <div class="actions"><button class="primary" id="run">Check my references</button>${refs?'<button class="ghost" id="sample">Try an example</button>':''}<button class="link" id="clear">${refs?'Clear':'Clear records'}</button><button class="link" id="startOver">↺ Start over</button><span class="count" id="count" aria-live="polite">0 references detected</span></div>
    <div id="msg" role="alert"></div>
    ${progressHTML()}
   </section>`;}
 function draftForm(){
-  return `<h1 class="page-h">New check</h1><p class="oneline">Siyasat shows you what each source actually says. You decide if it backs up your sentence.</p>
-  <ol class="steps" aria-label="Progress"><li id="s1" class="done">Choose type</li><li id="s2" class="on">Add sources</li><li id="s3">Verify</li></ol>
+  return `<h1 class="page-h">New check</h1><p class="lead">Choose what you're verifying, paste it, and run.</p>
+  <ol class="steps" aria-label="Progress"><li id="s1" class="done">Choose type</li><li id="s2" class="on">Add your sources</li><li id="s3">Verify</li></ol>
   <section class="card"><h2>Step 1 · What are you checking?</h2>${typeCards(false)}</section>
   <section class="card"><h2>Step 2 · Paste your draft</h2>
-   <label class="big" for="name">Name this check <span class="meta">(optional)</span></label><input type="text" id="name" placeholder="e.g. Literature review draft">
-   <p class="help" style="margin-top:12px">Paste paragraphs that cite sources, like <b>(Navarro &amp; Kim, 2020)</b>, <b>LeCun et al. (2015)</b> or <b>[1]</b>. If your reference list is at the end under a <b>References</b> heading, we'll find it automatically.</p>
-   <label class="big" for="input">Your draft</label><textarea id="input" style="min-height:240px" placeholder="Paste your paragraphs here…"></textarea>
+   <p class="oneline">Siyasat shows you what each source actually says. You decide if it backs up your sentence.</p>
+   <label class="big" for="name">Name this check <span class="meta">(optional)</span></label><input type="text" id="name" placeholder="e.g. Results section draft">
+   <p class="help" style="margin-top:12px">Paste prose with in-text citations, like <b>(Ji et al., 2023)</b>, <b>Dela Cruz (2022)</b> or <b>[1]</b>. A reference list under a <b>References</b> heading makes matching more reliable, but it's optional.</p>
+   <label class="big" for="input">Your draft</label><textarea id="input" style="min-height:220px" spellcheck="false" placeholder="Paste your paragraphs here…"></textarea>
    <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:650;color:var(--maroon)">My reference list is separate (optional)</summary>
     <label class="big" for="refsIn" style="margin-top:8px">Reference list</label><textarea id="refsIn" style="min-height:120px" placeholder="One reference per line"></textarea></details>
-   <div class="actions"><button class="primary" id="run">Check my draft</button><button class="ghost" id="sample">Try an example</button><button class="link" id="clear">Clear</button><button class="link" id="startOver">↺ Start over</button><span class="count" id="count" aria-live="polite">0 citations found</span></div>
+   <div class="actions wiz-run"><button class="primary" id="run">Check claims</button><span class="count hint" id="count" aria-live="polite">0 in-text citations detected</span></div>
+   <div class="actions" style="margin-top:4px"><button class="ghost" id="sample">Try the example</button><button class="ghost" id="sample2">Example with a reference list</button><button class="link" id="clear">Clear</button><button class="link" id="startOver">↺ Start over</button></div>
    <div id="msg" role="alert"></div>
-   <div class="progress" id="progress" hidden><div class="ptrack" role="progressbar" aria-label="Checking sources" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="pbar"><i id="pfill"></i></div><div class="ptext" id="ptext" aria-live="polite"></div>
-   <ol class="pipe" aria-hidden="true"><li data-p="0">Find citations</li><li data-p="1">Match reference list</li><li data-p="2">Verify source</li><li data-p="3">Get abstract</li><li data-p="4">Compare side by side</li></ol></div>
+   <div class="stepper" id="stepper" hidden aria-hidden="true">${DSTAGES.map(s=>`<div class="step"><div class="track"><i></i></div><div class="name">${s[0]}</div></div>`).join('')}</div>
+   <div class="stage-status" id="ptext" aria-live="polite"></div>
   </section>`;}
-const DRAFT_SAMPLE=`AI-assisted writing can make literature reviews faster, but every citation still needs checking. During COVID-19 lockdowns, depressive symptoms rose by 27% across twelve countries (Navarro & Kim, 2020). Deep learning allows computational models that are composed of multiple processing layers to learn representations of data with multiple levels of abstraction (LeCun et al., 2015). Deep learning has already replaced every traditional method in speech recognition and drug discovery (LeCun et al., 2015). Some early clinical work linked the MMR vaccine to developmental disorders in 12 children (Wakefield et al., 1998). Array programming with NumPy underpins most scientific computing in Python (Harris et al., 2020).
+const DSTAGES=[['1 · Parse','Extracting sentences and their in-text citations…'],['2 · Link','Linking citations to resolved references…'],['3 · Retrieve','Retrieving abstracts (OpenAlex, Crossref, Europe PMC, Semantic Scholar)…'],['4 · Lay out','Putting each claim next to what its source says, for you to judge…'],['5 · Report','Compiling report…']];
+const DRAFT_CONCEPT="Recent surveys show that fine-tuning on domain data eliminates hallucination entirely in large language models (Ji et al., 2023). Transformer architectures, which rely on attention rather than recurrence, underpin most modern language models (Vaswani et al., 2017). Scaling these models further raises documented environmental and bias concerns (Bender et al., 2021). Locally, Dela Cruz (2022) reports that over 40% of Filipino graduate students now use AI tools in literature review work.";
+const DRAFT_SAMPLE=`During COVID-19 lockdowns, depressive symptoms rose by 27% across twelve countries (Navarro & Kim, 2020). Deep learning allows computational models that are composed of multiple processing layers to learn representations of data with multiple levels of abstraction (LeCun et al., 2015). Deep learning has already replaced every traditional method in speech recognition and drug discovery (LeCun et al., 2015). Some early clinical work linked the MMR vaccine to developmental disorders in 12 children (Wakefield et al., 1998). Array programming with NumPy underpins most scientific computing in Python (Harris et al., 2020).
 
 References
 Navarro, R. T., & Kim, S. (2020). Psychological distress and depressive symptoms during COVID-19 lockdowns: A longitudinal study of twelve countries. International Journal of Pandemic Mental Health, 8(2), 145–162.
@@ -236,63 +266,115 @@ Wakefield, A. J., Murch, S. H., Anthony, A., et al. (1998). Ileal-lymphoid-nodul
 Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, L., & Polosukhin, I. (2017). Attention is all you need. Advances in Neural Information Processing Systems, 30.`;
 function bindDraft(){
   document.querySelectorAll('[data-type]').forEach(b=>b.onclick=()=>{if(b.disabled)return;STATE.type=b.dataset.type;location.hash='#/new/'+STATE.type;});
-  const inp=$('input'),ri=$('refsIn'),upd=()=>{const a=DRAFT.analyze(inp.value,ri.value);const n=a.claims.reduce((s,c)=>s+c.cites.length,0);$('count').textContent=`${n} citation${n===1?'':'s'} in ${a.claims.length} sentence${a.claims.length===1?'':'s'}`+(a.hasRefs?' · reference list found':'');};
+  const inp=$('input'),ri=$('refsIn'),upd=()=>{const a=DRAFT.analyze(inp.value,ri.value);const n=a.claims.reduce((s,c)=>s+c.cites.length,0);const paras=DRAFT.splitDraft(inp.value).prose.split(/\n\s*\n/).filter(x=>x.trim()).length;
+    $('count').textContent=`${n} in-text citation${n===1?'':'s'} detected in ${paras} paragraph${paras===1?'':'s'}`+(a.hasRefs?' · reference list found':'');};
   inp.addEventListener('input',upd);ri.addEventListener('input',upd);
-  $('sample').onclick=()=>{inp.value=DRAFT_SAMPLE;if(!$('name').value)$('name').value='Example draft';upd();$('msg').innerHTML='';$('run').focus();};
+  $('sample').onclick=()=>{inp.value=DRAFT_CONCEPT;ri.value='';if(!$('name').value)$('name').value='Results section draft';upd();$('msg').innerHTML='';$('run').focus();};
+  $('sample2').onclick=()=>{inp.value=DRAFT_SAMPLE;ri.value='';if(!$('name').value)$('name').value='Example draft';upd();$('msg').innerHTML='';$('run').focus();};
   $('clear').onclick=()=>{inp.value='';ri.value='';upd();inp.focus();};
   $('run').onclick=runDraft;
 }
+function stage(i){const st=[...document.querySelectorAll('#stepper .step')];st.forEach((s,j)=>s.className='step'+(j<i?' done':j===i?' active':''));if(DSTAGES[i])$('ptext').innerHTML=`<span class="spin" aria-hidden="true"></span>${esc(DSTAGES[i][1])}`;}
+const dslim=r=>!r.match?{raw:r.raw,verdict:r.verdict,confidence:r.confidence,note:r.note,linked:r.linked||null,orphan:!!r.orphan,weak:!!r.weak}:({raw:r.raw,verdict:r.verdict,confidence:r.confidence,note:r.note,diffs:r.diffs,apa:r.apa,linked:r.linked||null,orphan:!!r.orphan,weak:!!r.weak,
+  match:r.match&&{doi:r.match.doi,title:r.match.title,source:r.match.source,year:r.match.year,venue:r.match.venue}});
 async function runDraft(){
   if(STATE.running)return; $('msg').innerHTML=''; const a=DRAFT.analyze($('input').value,$('refsIn').value);
-  if(!$('input').value.trim()){$('msg').innerHTML='<div class="msg info">Paste a paragraph with citations first, or click <b>Try an example</b>.</div>';$('input').focus();return;}
-  if(!a.claims.length){$('msg').innerHTML='<div class="msg info">We couldn\'t find any in-text citations. Siyasat looks for forms like <b>(Navarro &amp; Kim, 2020)</b>, <b>Smith et al. (2019)</b>, or <b>[1]</b> with a numbered reference list.</div>';return;}
+  if(!$('input').value.trim()){$('msg').innerHTML='<div class="msg info">Paste a paragraph with citations first, or click <b>Try the example</b>.</div>';$('input').focus();return;}
+  if(!a.claims.length){$('msg').innerHTML='<div class="msg info">We couldn\'t find any in-text citations. Siyasat looks for forms like <b>(Ji et al., 2023)</b>, <b>Dela Cruz (2022)</b>, or <b>[1]</b> with a numbered reference list.</div>';return;}
   if(a.sources.length>60){$('msg').innerHTML='<div class="msg info">That draft cites more than 60 sources. Please check one section at a time.</div>';return;}
-  STATE.running=true;$('run').disabled=true;$('run').textContent='Checking…';$('s2').className='done';$('s3').className='on';$('progress').hidden=false;
-  const pipe=[...document.querySelectorAll('.pipe li')];const tick=setInterval(()=>{const on=pipe.findIndex(l=>l.classList.contains('on'));pipe.forEach((l,j)=>l.className=j<(on+1)%5?'done':j===(on+1)%5?'on':'');},700);
+  STATE.running=true;$('run').disabled=true;$('run').textContent='Checking…';$('s2').className='done';$('s3').className='on';$('stepper').hidden=false;
+  stage(0); await new Promise(r=>setTimeout(r,300)); stage(1);
   let errs=0;
-  for(let i=0;i<a.sources.length;i++){const s=a.sources[i];const pct=Math.round(i/a.sources.length*100);$('pfill').style.width=pct+'%';$('pbar').setAttribute('aria-valuenow',pct);
-    $('ptext').textContent=`Checking source ${i+1} of ${a.sources.length}: ${s.label}…`;
+  for(let i=0;i<a.sources.length;i++){const s=a.sources[i];
+    $('ptext').innerHTML=`<span class="spin" aria-hidden="true"></span>Source ${i+1} of ${a.sources.length}: ${esc(s.label)} · linking and retrieving its abstract…`; if(i===Math.floor(a.sources.length/2)) stage(2);
     const claim=a.claims.find(c=>c.cites.some(x=>x.key===s.key)).sentence;
-    try{const r=await DRAFT.checkSource(s,claim);s.result=slim(r.result);s.abstract=r.abstract;}catch(e){s.result={raw:s.ref||s.label,verdict:'error',note:e.message};errs++;}}
-  clearInterval(tick);pipe.forEach(l=>l.className='done');$('pfill').style.width='100%';STATE.running=false;
-  if(errs===a.sources.length){$('msg').innerHTML='<div class="msg err">We couldn\'t reach the databases. Check your internet connection and try again in a minute.</div>';$('run').disabled=false;$('run').textContent='Try again';return;}
+    try{const r=await DRAFT.checkSource(s,claim,a.hasRefs);s.result=dslim(r.result);s.abstract=r.abstract;}catch(e){s.result={raw:s.ref||s.label,verdict:'error',note:e.message};errs++;}}
+  stage(3); await new Promise(r=>setTimeout(r,250)); stage(4);
+  STATE.running=false;
+  if(errs===a.sources.length){$('msg').innerHTML='<div class="msg err">We couldn\'t reach the databases. Check your internet connection and try again in a minute.</div>';$('run').disabled=false;$('run').textContent='Try again';$('ptext').innerHTML='';return;}
   const results=a.sources.map(s=>s.result);
-  const c={id:Date.now().toString(36),name:($('name').value.trim()||('Draft check '+new Date().toLocaleDateString())),type:'draft',date:new Date().toISOString(),
+  const c={id:Date.now().toString(36),name:($('name').value.trim()||('Draft check '+new Date().toLocaleDateString())),type:'draft',v:2,date:new Date().toISOString(),
     results,score:SIY.integrity(results),claims:a.claims.map(cl=>({sentence:cl.sentence,cites:cl.cites.map(x=>({label:x.label,key:x.key})),judgment:null})),
-    sources:a.sources.map(s=>({key:s.key,label:s.label,ref:s.ref,abstract:s.abstract})),orphans:a.orphans,uncited:a.uncited,hasRefs:a.hasRefs};
+    sources:a.sources.map(s=>({key:s.key,label:s.label,ref:s.ref,year:s.year,abstract:s.abstract})),orphans:a.orphans,uncited:a.uncited,hasRefs:a.hasRefs};
   const cs=load();cs.unshift(c);try{save(cs);}catch(e){} location.hash='#/results/'+c.id;
 }
-const JLAB={match:'✓ Matches',nomatch:"✕ Doesn't match",unsure:'? Not sure'};
-function claimCards(c,interactive){
-  return c.claims.map((cl,i)=>cl.cites.map((ct,k)=>{const si=c.sources.findIndex(s=>s.key===ct.key);const s=c.sources[si],r=c.results[si]||{verdict:'error'};
-    const abs=s&&s.abstract&&s.abstract.text;const cmp=DRAFT.compare(cl.sentence,abs);const m=r.match;
-    return `<article class="claim" aria-label="Claim ${i+1}${cl.cites.length>1?', source '+(k+1):''}">
-     <div class="claim-h"><b>Claim ${i+1}</b><span class="meta">cites ${esc(ct.label)}</span><span class="badge ${r.verdict}">${LABEL[r.verdict]}</span>
-      ${m?`<a class="meta" href="https://doi.org/${esc(m.doi)}" target="_blank" rel="noopener">Open article<span class="sr"> (new tab)</span></a>`:''}</div>
-     <div class="pair"><div><h3>Your sentence</h3><div class="txt">${cmp.sentenceHTML}</div>
-       ${abs&&cmp.missing.length?`<div class="warnnum">ⓘ ${cmp.missing.map(esc).join(', ')} ${cmp.missing.length>1?"don't":"doesn't"} appear in the abstract. Check the full paper.</div>`:''}</div>
-      <div><h3>What the source says${abs?` <span style="text-transform:none;font-weight:500">(abstract, via ${esc(s.abstract.from)})</span>`:''}</h3>
-       ${r.verdict==='not_found'?`<div class="txt" style="color:var(--bad)">We couldn't find this source in any database, so there is no abstract to show. It may not exist.</div>${r.note?`<div class="meta">${esc(r.note)}</div>`:''}`
-        :abs?`<div class="txt abs" tabindex="0" aria-label="Source abstract">${cmp.abstractHTML}</div>${m?`<div class="meta" style="margin-top:6px">${esc(m.title)}</div>`:''}`
-        :`<div class="txt">No abstract is available for this source in Crossref or OpenAlex. ${m?`<a href="https://doi.org/${esc(m.doi)}" target="_blank" rel="noopener">Read the article</a> to check it yourself.`:''}</div>`}
-       ${r.verdict==='retracted'?'<div class="warnnum" style="color:var(--ret);background:var(--ret-bg)">⚠ This paper was retracted. It should not be used as evidence.</div>':''}</div></div>
-     ${k===0?(interactive?`<div class="judge" role="group" aria-label="Your judgment for claim ${i+1}"><span class="meta">Does the source back up your sentence?</span>${Object.entries(JLAB).map(([j,l])=>`<button data-claim="${i}" data-j="${j}" aria-pressed="${cl.judgment===j}">${l}</button>`).join('')}</div>`
-       :`<div class="judge"><span class="meta">Your judgment:</span> <b>${cl.judgment?JLAB[cl.judgment]:'Not reviewed yet'}</b></div>`):''}
-    </article>`}).join('')).join('');}
+/* --- the user's own verdicts (concept names; the author picks them, never Siyasat) --- */
+const JV={match:{t:'Supported',cls:'ok'},nomatch:{t:'Contradicted',cls:'bad'},unsure:{t:'Unverifiable',cls:'na'}};
+const JHELP={match:'The source says what my sentence says',nomatch:'The source says something different or the opposite',unsure:"I can't tell from what's available"};
+function srcInfo(c,key){const si=c.sources.findIndex(s=>s.key===key);const s=c.sources[si]||{},r=c.results[si]||{verdict:'error'};
+  const m=r.match;const cy=s.year||+(key.split('|')[1]||0);const ry=m&&m.year;
+  let flag=null;
+  if(r.verdict==='retracted')flag={t:'Retracted source',cls:'ret',line:'This paper was retracted. It should not be used as evidence.'};
+  else if(r.verdict==='not_found'&&!r.orphan&&/no reference list entry/.test(r.raw||''))flag={t:"Couldn't confirm",cls:'na',line:"Couldn't confirm. An author-and-year search found no clear match. Add the full reference so Siyasat can check the exact paper"};
+  else if(r.verdict==='not_found')flag={t:"Can't find it",cls:'bad',line:'Not found in global indexes. Siyasat abstains rather than guessing.'};
+  else if(r.verdict==='error')flag={t:"Couldn't check",cls:'na',line:"We couldn't reach the databases for this source. Try again later."};
+  else if(r.weak)flag={t:"Couldn't confirm",cls:'na',line:r.note&&/unavailable/.test(r.note)?"Couldn't confirm. A database was unavailable. Try again later, or add it to your reference list":`Couldn't confirm. Papers by this author and year exist, but none clearly matches your sentence. Add it to your reference list`};
+  else if(r.orphan)flag={t:"Couldn't confirm",cls:'na',line:"Couldn't confirm. Add it to your reference list."};
+  return {s,r,m,cy,ry,flag,yearDiff:!!(m&&ry&&cy&&ry!==cy&&!/^#/.test(key)),abs:s.abstract&&s.abstract.text};}
+function evidence(c,cl,ct){const x=srcInfo(c,ct.key);const bits=[];
+  if(x.flag)bits.push(x.flag.line);
+  else if(x.r.linked&&x.m)bits.push(`Matched by author and year to “${x.m.title.slice(0,70)}${x.m.title.length>70?'…':''}”. Confirm it's the paper you meant`);
+  if(x.abs){const cmp=DRAFT.compare(cl.sentence,x.abs);bits.push(`abstract via ${x.s.abstract.from} · ${cmp.shared} shared term${cmp.shared===1?'':'s'}`);
+    const nums=DRAFT.terms(cl.sentence).nums;if(cmp.missing.length)bits.push(`${cmp.missing.join(', ')} not in the abstract`);else if(nums.length)bits.push('numbers appear in the abstract');}
+  else if(x.m&&x.r.verdict!=='not_found')bits.push('no free abstract. Open the article to read it');
+  if(x.yearDiff)bits.push(`in-text year should be ${x.ry}`);
+  return bits.join(' · ');}
+function claimPill(c,cl){ if(cl.judgment){const j=JV[cl.judgment];return `<span class="pill ${j.cls}">${j.t}<span class="yc"> · your call</span></span>`;}
+  const fl=cl.cites.map(ct=>srcInfo(c,ct.key).flag).filter(Boolean);const order=['ret','bad','na'];fl.sort((a,b)=>order.indexOf(a.cls)-order.indexOf(b.cls));
+  return fl.length?`<span class="pill ${fl[0].cls}">${fl[0].t}</span>`:'<span class="pill wait">Your call</span>';}
+const clab=l=>l.startsWith('(')&&l.endsWith(')')?l.slice(1,-1):l;
+const quote=s=>{const t=s.replace(/\s*\([^()]*\b(19|20)\d{2}[a-z]?[^()]*\)/g,'').replace(/\s*\[[\d,\s–-]+\]/g,'').trim();return '“'+(t.length>150?t.slice(0,140).replace(/\s+\S*$/,'')+'…':t)+'”';};
+function claimRows(c){return c.claims.map((cl,i)=>`<button class="drow" data-open="${i}" aria-haspopup="dialog">${claimPill(c,cl)}
+  <span class="r-cite"><span class="mono">${esc(quote(cl.sentence))}</span> <span class="r-by">· cites ${cl.cites.map(x=>esc(clab(x.label))).join('; ')}</span>
+  <span class="r-verdict">${cl.judgment?'<b>Your verdict.</b> ':''}${esc(cl.cites.map(ct=>evidence(c,cl,ct)).join(' | '))}</span></span><span class="r-open">Details →</span></button>`).join('');}
+function dstats(c){const n=k=>c.claims.filter(x=>x.judgment===k).length,w=c.claims.filter(x=>!x.judgment).length;
+  return `<div class="stat ok"><div class="n">${n('match')}</div><div class="l">Supported <small>(your call)</small></div></div><div class="stat bad"><div class="n">${n('nomatch')}</div><div class="l">Contradicted <small>(your call)</small></div></div><div class="stat na"><div class="n">${n('unsure')}</div><div class="l">Unverifiable <small>(your call)</small></div></div><div class="stat wait"><div class="n">${w}</div><div class="l">Waiting for you</div></div><div class="stat"><div class="n">${c.claims.length}</div><div class="l">Claims checked</div></div>`;}
 function draftResults(c,cs){
-  const done=c.claims.filter(x=>x.judgment).length,k=counts(c.results);
-  return `<div class="rowh"><div><h1 class="page-h">Results · Draft check</h1><p class="lead">${esc(c.name)} · ${fmtDate(c.date)}</p></div>${cs.length>1?`<label class="meta">Other checks: <select id="pick">${cs.map(x=>`<option value="${x.id}" ${x.id===c.id?'selected':''}>${esc(x.name)} (${fmtDate(x.date)})</option>`).join('')}</select></label>`:''}</div>
-  <p class="oneline">Siyasat shows you what each source actually says. You decide if it backs up your sentence.</p>
-  <section class="card"><h2 id="rh" tabindex="-1">Summary</h2>
-   <div class="summary"><div class="tile score"><small>Your review ${tip('Mark each claim yourself after reading the source. Siyasat never decides this for you.')}</small><b id="revn">${done} of ${c.claims.length}</b><small>claims reviewed</small><div class="sbar"><i id="revbar" style="width:${c.claims.length?done/c.claims.length*100:0}%"></i></div></div>
-    ${['verified','correction','uncertain','not_found','retracted'].map(v=>`<div class="tile"><span class="badge ${v}">${LABEL[v]}</span><b>${k[v]}</b><small class="meta">sources</small></div>`).join('')}</div>
-   <p class="help" style="margin-top:12px"><mark>Highlighted words</mark> appear in both your sentence and the abstract. <mark class="num">Numbers</mark> are highlighted when they match. This is a reading aid only. Shared words don't prove a source supports you, and a short abstract may leave out details that are in the full paper.</p>
-   ${c.orphans&&c.orphans.length?`<div class="msg err"><b>Cited but missing from your reference list:</b> ${c.orphans.map(o=>esc(o.label)).join(', ')}</div>`:''}
-   ${c.uncited&&c.uncited.length?`<div class="msg info"><b>In your reference list but never cited in the text:</b><ul style="margin:4px 0 0">${c.uncited.map(u=>`<li>${esc(u.slice(0,140))}</li>`).join('')}</ul></div>`:''}
-   ${!c.hasRefs?'<div class="msg info">No reference list was found, so we searched by author and year. Add your reference list for a more reliable match.</div>':''}
-  </section>
-  <section class="card"><h2>Claim by claim</h2>${claimCards(c,true)}
-   <div class="actions"><button class="ghost" data-rep="${c.id}">Download report</button><button class="link" data-json="${c.id}">Download data (JSON)</button></div></section>`;}
+  return `<div class="rowh res-head"><div><h1 class="page-h" id="rh" tabindex="-1">Draft check: claims vs. sources</h1><p class="lead">${esc(c.name)} · ${fmtDate(c.date)}</p></div>
+   <div class="actions" style="margin:0"><button class="ghost" data-rep="${c.id}">Download report</button><button class="link" data-json="${c.id}">Data (JSON)</button>${cs.length>1?`<label class="meta">Other checks: <select id="pick">${cs.map(x=>`<option value="${x.id}" ${x.id===c.id?'selected':''}>${esc(x.name)} (${fmtDate(x.date)})</option>`).join('')}</select></label>`:''}</div></div>
+  <p class="oneline">Siyasat shows you what each source actually says. You decide if it backs up your sentence. The verdicts below are yours.</p>
+  <div class="stats" id="dstats">${dstats(c)}</div>
+  ${c.orphans&&c.orphans.length?`<div class="msg info"><b>Cited but not in your reference list:</b> ${c.orphans.map(o=>esc(o.label)).join(', ')}. We matched these by author and year. Add them to your reference list to confirm.</div>`:''}
+  ${c.uncited&&c.uncited.length?`<div class="msg info"><b>In your reference list but never cited in the text:</b><ul style="margin:4px 0 0">${c.uncited.map(u=>`<li>${esc(u.slice(0,140))}</li>`).join('')}</ul></div>`:''}
+  <div class="drows" id="drows">${claimRows(c)}</div>
+  <p class="help" style="margin-top:12px">Open a claim with <b>Details →</b> to read the source's abstract next to your sentence and give your verdict. <mark>Highlighted words</mark> appear in both; <mark class="num">numbers</mark> are highlighted when they match. Shared words are a reading aid, not proof.</p>`;}
+function drawerHTML(c,i){const cl=c.claims[i];
+  const blocks=cl.cites.map(ct=>{const x=srcInfo(c,ct.key);const cmp=DRAFT.compare(cl.sentence,x.abs);const best=x.abs&&DRAFT.closest(cl.sentence,x.abs);const nums=DRAFT.terms(cl.sentence).nums;
+    const rows=[['Source',esc(clab(ct.label)),x.m?`${esc(x.m.title)}${x.m.venue?` · <i>${esc(x.m.venue)}</i>`:''}${x.ry?` (${x.ry})`:''} <span class="badge ${x.r.verdict}">${LABEL[x.r.verdict]}</span>`:(x.flag?`<span class="pill ${x.flag.cls}">${esc(x.flag.t)}</span>`:'—')]];
+    if(x.r.linked&&x.m)rows.push(['How we linked it','No reference list entry',x.r.weak?'<span class="val-bad">Possible match only</span> (same author and year, few shared words)':'Matched by author + year search. Confirm it\'s the paper you meant']);
+    if(x.m&&x.ry)rows.push(['Year',String(x.cy||'—'),x.yearDiff?`<span class="val-fix">${x.ry}</span> <span class="meta">(in-text year should be ${x.ry})</span>`:'✓ '+x.ry]);
+    if(nums.length)rows.push(['Numbers',esc(nums.join(', ')),x.abs?(cmp.missing.length?`<span class="val-bad">Not in abstract: ${esc(cmp.missing.join(', '))}</span>`:'✓ Found in the abstract'):'— no abstract to compare']);
+    if(x.abs)rows.push(['Closest abstract sentence','<span class="meta">by shared words</span>',best?`<span class="cl">${DRAFT.compare(cl.sentence,best.text).abstractHTML}</span>`:'<span class="meta">No sentence shares words with your claim</span>']);
+    const links=[];if(x.m&&x.m.doi)links.push([`DOI record`,'https://doi.org/'+x.m.doi]);const ab=x.s.abstract||{};if(ab.openalex)links.push(['OpenAlex record',ab.openalex]);if(ab.oaUrl)links.push(['Free full text',ab.oaUrl]);
+    const note=x.r.verdict==='not_found'&&!x.r.orphan&&/no reference list entry/.test(x.r.raw||'')?esc(x.r.note)+' Siyasat abstains rather than guessing: without a reference list it only knows the author and year.'
+      :x.r.verdict==='not_found'?esc(x.r.note||'Marked for manual checking: try your university repository or the national library.')
+      :x.r.verdict==='retracted'?'Real source, but retracted. Don\'t cite it as valid evidence; cite the retraction notice if you discuss it.'
+      :x.r.weak&&/unavailable/.test(x.r.note||'')?esc(x.r.note):x.r.weak?"Couldn't confirm. Siyasat found papers by this author and year, but none whose title fits your sentence, so it shows nothing rather than guess. Add the full reference to your reference list (or check your university repository) and run the check again."
+      :x.r.orphan?"Couldn't confirm. Add it to your reference list so Siyasat can check the exact paper you meant."
+      :x.abs?'Read the abstract below, then give your verdict. Abstracts can oversell; if it matters, read the results and discussion in the full article.'
+      :'No free abstract is available for this source. Open the article to check it yourself.';
+    return `<section class="dsrc"><table class="diff"><thead><tr><th scope="col">Check</th><th scope="col">Your draft</th><th scope="col">The record</th></tr></thead><tbody>${rows.map(r=>`<tr><th scope="row">${r[0]}</th><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</tbody></table>
+     <p class="d-note">${note}</p>${links.length?`<div class="d-links">${links.map(l=>`<a href="${esc(l[1])}" target="_blank" rel="noopener">${esc(l[0])} ↗<span class="sr"> (opens in a new tab)</span></a>`).join('')}</div>`:''}
+     ${x.abs?`<div class="reader"><div class="rd-h">Built-in reader ${ab.isOA?'<span class="rp-oa">Open access</span>':''}<span class="rp-src">Abstract via ${esc(ab.from)}</span></div>
+      ${x.m?`<div class="rd-t">${esc(x.m.title)}${x.ry?` (${x.ry})`:''}</div>`:''}<div class="rd-sec"><b>Abstract</b><p tabindex="0" aria-label="Source abstract">${cmp.abstractHTML}</p></div>
+      <div class="rd-foot">Only the abstract is free to show here. To read the results and discussion (where abstracts sometimes oversell), ${ab.oaUrl?`open the <a href="${esc(ab.oaUrl)}" target="_blank" rel="noopener">free full text</a>`:'open the article'}. Reading stays your job; Siyasat just removes the friction.</div></div>`:''}</section>`;}).join('');
+  return `<button class="d-close" type="button" aria-label="Close details">×</button>
+   ${claimPill(c,cl)}<p class="d-cite mono" id="dTitle">${DRAFT.compare(cl.sentence,cl.cites.map(ct=>srcInfo(c,ct.key).abs).filter(Boolean).join(' ')).sentenceHTML}</p>
+   <p class="d-verdict">${esc(cl.cites.map(ct=>evidence(c,cl,ct)).join(' | '))}</p>
+   <div class="judge" role="group" aria-label="Your verdict for this claim"><span class="jq">Your verdict: does the source back up your sentence?</span>
+    ${Object.entries(JV).map(([k,v])=>`<button type="button" data-claim="${i}" data-j="${k}" aria-pressed="${cl.judgment===k}"><b>${v.t}</b><small>${JHELP[k]}</small></button>`).join('')}
+    <span class="meta">Siyasat never decides this for you. Click again to undo.</span></div>
+   ${blocks}`;}
+function openDrawer(c,i,from){const d=$('drawer');d.innerHTML=`<div class="drawer-inner">${drawerHTML(c,i)}</div>`;d.hidden=false;$('scrim').hidden=false;requestAnimationFrame(()=>d.classList.add('open'));
+  STATE.dfrom=from;STATE.dopen=i;d.querySelector('.d-close').onclick=closeDrawer;d.querySelector('.d-close').focus();bindJudge(c.id);}
+function closeDrawer(){const d=$('drawer');if(!d||d.hidden)return;d.classList.remove('open');d.hidden=true;$('scrim').hidden=true;STATE.dopen=null;if(STATE.dfrom&&document.body.contains(STATE.dfrom))STATE.dfrom.focus();}
+function bindJudge(id){document.querySelectorAll('#drawer [data-claim]').forEach(b=>b.onclick=()=>{const cs=load();const c=cs.find(x=>x.id===id);const i=+b.dataset.claim;
+  c.claims[i].judgment=c.claims[i].judgment===b.dataset.j?null:b.dataset.j;save(cs);
+  document.querySelectorAll('#drawer [data-claim]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.j===c.claims[i].judgment));
+  const p=$('drawer').querySelector('.drawer-inner > .pill');if(p)p.outerHTML=claimPill(c,c.claims[i]);
+  if($('dstats'))$('dstats').innerHTML=dstats(c);if($('drows')){$('drows').innerHTML=claimRows(c);bindRows(id);STATE.dfrom=$('drows').querySelector(`[data-open="${i}"]`);}
+  $('live').textContent=c.claims[i].judgment?`Your verdict saved: ${JV[c.claims[i].judgment].t}`:'Verdict cleared';});}
+function bindRows(id){document.querySelectorAll('#drows [data-open]').forEach(b=>b.onclick=()=>{const c=load().find(x=>x.id===id);openDrawer(c,+b.dataset.open,b);});}
 function bindNew(){
   if($('startOver')) $('startOver').onclick=startOver;
   if(STATE.type==='draft') return bindDraft();
@@ -468,21 +550,36 @@ function bib(c){const seen=new Set();const ok=c.results.filter(r=>r.apa&&r.verdi
 /* ---------- Reports ---------- */
 function reports(){const cs=load();
   return `<h1 class="page-h">Reports</h1><p class="lead">Timestamped verification reports you can show your adviser or panel. Each verdict links to its evidence.</p>
-  <section class="card">${cs.length?`<ul class="recent">${cs.map(c=>{const k=counts(c.results);return `<li><div class="t"><b>Verification report · ${esc(c.name)}</b><small>${fmtDate(c.date)} · ${c.type==='draft'?`Draft check · ${c.claims.length} claims · ${c.sources.length} sources`:c.results.length+' references'} · ${k.not_found} possibly fake · ${k.retracted} retracted</small></div><span class="score-chip">${c.score}/100</span>
+  <section class="card">${cs.length?`<ul class="recent">${cs.map(c=>{const k=counts(c.results);return `<li><div class="t">${c.type==='draft'?`<b>Claim-faithfulness report · ${esc(c.name)}</b><small>${fmtDate(c.date)} · ${c.claims.length} claims · verdicts by you</small></div><span class="pill ${draftSummary(c).cls}">${esc(draftSummary(c).t)}</span>`:`<b>Verification report · ${esc(c.name)}</b><small>${fmtDate(c.date)} · ${c.results.length} references · ${k.not_found} possibly fake · ${k.retracted} retracted</small></div><span class="score-chip">${c.score}/100</span>`}
    <button class="ghost" data-rep="${c.id}">Download report<span class="sr"> for ${esc(c.name)}</span></button><button class="link" data-json="${c.id}">JSON</button></li>`}).join('')}</ul>
    <p class="help" style="margin-top:12px">Tip: open the downloaded report and use your browser's <b>Print → Save as PDF</b>.</p>`
    :`<div class="empty"><span class="big" aria-hidden="true">📄</span>No reports yet. Every check you run creates a report here.<div class="actions" style="justify-content:center"><a class="btn primary" href="#/new">Start a check</a></div></div>`}</section>`;}
 function dl(name,data,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;document.body.appendChild(a);a.click();a.remove();}
 const fname=(c,ext)=>`siyasat-report-${c.name.replace(/[^\w-]+/g,'-').slice(0,40)}-${c.date.replace(/[:.]/g,'-')}.${ext}`;
+function draftSummary(c){const n=k=>c.claims.filter(x=>x.judgment===k).length,w=c.claims.filter(x=>!x.judgment).length;
+  if(w===c.claims.length)return {t:'Not reviewed yet',cls:'wait'};if(w)return {t:`${c.claims.length-w} of ${c.claims.length} reviewed`,cls:'wait'};
+  if(n('nomatch'))return {t:`${n('nomatch')} contradicted`,cls:'bad'};if(n('unsure'))return {t:`${n('unsure')} unverifiable`,cls:'na'};return {t:'All supported',cls:'ok'};}
+function draftReport(c,css){const when=new Date(c.date);
+  const rows=c.claims.map((cl,i)=>{const j=cl.judgment?JV[cl.judgment]:null;
+    return `<article class="rclaim"><div class="rc-h"><b>Claim ${i+1}</b> ${j?`<span class="pill ${j.cls}">${j.t}</span> <span class="meta">author's verdict</span>`:'<span class="pill wait">Not reviewed by the author</span>'}</div>
+    <p class="mono">${esc(cl.sentence)}</p>
+    ${cl.cites.map(ct=>{const x=srcInfo(c,ct.key);const ab=x.s.abstract||{};return `<div class="rc-src"><b>${esc(ct.label)}</b> → ${x.m?`${esc(x.m.title)}${x.ry?` (${x.ry})`:''} · <a href="https://doi.org/${esc(x.m.doi)}">doi.org/${esc(x.m.doi)}</a>`:'no matching record'} · <span class="badge ${x.r.verdict}">${LABEL[x.r.verdict]}</span>${x.flag?` <span class="pill ${x.flag.cls}">${esc(x.flag.t)}</span>`:''}
+      <div class="meta">Evidence: ${esc(evidence(c,cl,ct))}</div>${x.abs?`<details><summary>Abstract (via ${esc(ab.from)})</summary><p>${esc(x.abs)}</p></details>`:''}</div>`;}).join('')}</article>`;}).join('');
+  const sm=draftSummary(c);
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Claim-faithfulness report · ${esc(c.name)}</title>${css}<style>.rclaim{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:12px;break-inside:avoid}.rc-src{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}</style></head><body><div class="mhead" style="display:flex"><div class="mark">S</div><b>Siyasat</b></div><main style="margin:0 auto">
+  <h1 class="page-h">Claim-faithfulness report: ${esc(c.name)}</h1>
+  <p class="lead">Verified ${esc(when.toLocaleString())} (${esc(when.toISOString())}) · ${c.claims.length} claims · ${c.sources.length} sources · <span class="pill ${sm.cls}">${esc(sm.t)}</span></p>
+  <div class="stats">${dstats(c)}</div>
+  <p class="oneline">Every Supported / Contradicted / Unverifiable verdict in this report was chosen by the author after reading the source. Siyasat retrieved the sources and abstracts; it did not judge the claims.</p>
+  <p class="help">Databases queried: Crossref REST API (including Retraction Watch data), OpenAlex, Europe PMC, Semantic Scholar. Each source links to its record so anyone can re-check it. To save as PDF: File → Print → Save as PDF.</p>
+  ${c.orphans&&c.orphans.length?`<p><b>Cited but not in the reference list:</b> ${c.orphans.map(o=>esc(o.label)).join(', ')}</p>`:''}${c.uncited&&c.uncited.length?`<p><b>Listed but never cited:</b> ${c.uncited.map(esc).join(' · ')}</p>`:''}
+  ${rows}</main></body></html>`;}
 function report(c){const css=document.querySelector('style').outerHTML;
-  if(c.type==='draft') return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Siyasat draft report · ${esc(c.name)}</title>${css}</head><body><div class="mhead" style="display:flex"><div class="mark">S</div><b>Siyasat draft check report</b></div><main style="margin:0 auto">
-  <h1 class="page-h">${esc(c.name)}</h1><p class="lead">Checked ${esc(new Date(c.date).toString())} · ${c.claims.length} claims · ${c.sources.length} sources · ${c.claims.filter(x=>x.judgment).length} claims reviewed by the author<br>Abstracts from OpenAlex/Crossref. Judgments below were made by the author, not by Siyasat. To save as PDF: File → Print → Save as PDF.</p>
-  ${c.orphans.length?`<p><b>Cited but missing from reference list:</b> ${c.orphans.map(o=>esc(o.label)).join(', ')}</p>`:''}${c.uncited.length?`<p><b>Listed but never cited:</b> ${c.uncited.map(esc).join(' · ')}</p>`:''}
-  <section class="card">${claimCards(c,false)}</section></main></body></html>`;
+  if(c.type==='draft') return draftReport(c,css);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Siyasat verification report · ${esc(c.name)}</title>${css}</head><body><div class="mhead" style="display:flex"><div class="mark">S</div><b>Siyasat verification report</b></div><main style="margin:0 auto">
   <h1 class="page-h">${esc(c.name)}</h1><p class="lead">Checked ${esc(new Date(c.date).toString())} · ${c.type==='draft'?`Draft check · ${c.claims.length} claims · ${c.sources.length} sources`:c.results.length+' references'} · Integrity score <b>${c.score}/100</b><br>Sources queried: Crossref REST API (incl. Retraction Watch data) and OpenAlex. To save as PDF: File → Print → Save as PDF.</p>
   <section class="card"><h2>Each reference</h2>${c.results.map((r,i)=>itemHTML(r,r.i!=null?r.i:i)).join('')}</section><section class="card"><h2>Corrected bibliography (APA 7)</h2>${bib(c)}</section></main></body></html>`;}
-function json(c){if(c.type==='draft')return JSON.stringify({tool:'Siyasat',type:'draft',name:c.name,checked_at:c.date,claims:c.claims.map(cl=>({sentence:cl.sentence,citations:cl.cites.map(x=>x.label),author_judgment:cl.judgment,sources:cl.cites.map(x=>{const i=c.sources.findIndex(s=>s.key===x.key);const r=c.results[i]||{};return {citation:x.label,reference:c.sources[i].ref,verdict:r.verdict,doi:r.match&&r.match.doi,abstract:c.sources[i].abstract&&c.sources[i].abstract.text,abstract_from:c.sources[i].abstract&&c.sources[i].abstract.from};})})),cited_not_listed:c.orphans,listed_not_cited:c.uncited},null,2);
+function json(c){if(c.type==='draft')return JSON.stringify({tool:'Siyasat',type:'draft',name:c.name,checked_at:c.date,claims:c.claims.map(cl=>({sentence:cl.sentence,citations:cl.cites.map(x=>x.label),author_verdict:cl.judgment?JV[cl.judgment].t:null,author_verdict_note:'chosen by the author, not by Siyasat',sources:cl.cites.map(x=>{const i=c.sources.findIndex(s=>s.key===x.key);const r=c.results[i]||{};return {citation:x.label,reference:c.sources[i].ref,verdict:r.verdict,doi:r.match&&r.match.doi,abstract:c.sources[i].abstract&&c.sources[i].abstract.text,abstract_from:c.sources[i].abstract&&c.sources[i].abstract.from};})})),cited_not_listed:c.orphans,listed_not_cited:c.uncited},null,2);
   return JSON.stringify({tool:'Siyasat',name:c.name,checked_at:c.date,integrity:c.score,results:c.results.map(r=>({input:r.raw,verdict:r.verdict,confidence:r.confidence,doi:r.match&&r.match.doi,matched_title:r.match&&r.match.title,differences:r.diffs,note:r.note,apa:r.apa}))},null,2);}
 
 /* ---------- Router ---------- */
@@ -501,10 +598,7 @@ function bindCommon(arg){
   M.querySelectorAll('[data-json]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.json);dl(fname(c,'json'),json(c),'application/json');});
   M.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.del);if(STATE.job&&STATE.job.active&&STATE.job.id===c.id){alert('This check is still running. Pause it first.');return;}if(confirm(`Delete "${c.name}"? This can't be undone.`)){save(load().filter(x=>x.id!==c.id));route();}});
   if($('clearAll'))$('clearAll').onclick=()=>{if(confirm('Delete all your saved checks from this browser? This can\'t be undone.')){localStorage.removeItem(KEY);route();}};
-  M.querySelectorAll('[data-claim]').forEach(b=>b.onclick=()=>{const cs=load();const c=cs.find(x=>x.id===(arg||cs[0].id));const i=+b.dataset.claim;
-    c.claims[i].judgment=c.claims[i].judgment===b.dataset.j?null:b.dataset.j;save(cs);
-    M.querySelectorAll(`[data-claim="${i}"]`).forEach(x=>x.setAttribute('aria-pressed',x.dataset.j===c.claims[i].judgment));
-    const d=c.claims.filter(x=>x.judgment).length;$('revn').textContent=`${d} of ${c.claims.length}`;$('revbar').style.width=(d/c.claims.length*100)+'%';});
+  if($('drows')) bindRows(arg||load()[0].id);
   M.querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{STATE.page=+b.dataset.pg;const c=byId(arg||load()[0].id);$('list').innerHTML=itemList(c);bindCommon(arg);$('list').scrollIntoView({block:'start'});const f=$('list').querySelector('article');if(f){f.tabIndex=-1;f.focus({preventScroll:true});}});
   M.querySelectorAll('[data-resume]').forEach(b=>b.onclick=()=>resumeJob(b.dataset.resume));
   M.querySelectorAll('[data-finish]').forEach(b=>b.onclick=()=>{updateCheck(b.dataset.finish,x=>{x.status='done';x.stoppedEarly=true;});route();});
@@ -516,5 +610,8 @@ function bindCommon(arg){
     $('copied').textContent='✓ Copied! Paste it into your document.';setTimeout(()=>$('copied').textContent='',4000);};
 }
 (()=>{const cs=load();let ch=false;cs.forEach(c=>{if(c.status==='running'){c.status='paused';ch=true;}});if(ch)try{save(cs)}catch(e){}})();
-window.addEventListener('hashchange',route); route();
+document.body.insertAdjacentHTML('beforeend','<div class="scrim" id="scrim" hidden></div><aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dTitle" hidden></aside><div class="sr" id="live" aria-live="polite"></div>');
+$('scrim').onclick=closeDrawer;
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();if(e.key==='Tab'&&!$('drawer').hidden){const f=[...$('drawer').querySelectorAll('button,a,[tabindex="0"]')];if(!f.length)return;const a=f[0],z=f[f.length-1];if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus();}else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus();}}});
+window.addEventListener('hashchange',()=>{closeDrawer();route();}); route();
 </script></body></html>

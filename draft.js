@@ -39,28 +39,49 @@ function analyze(text, extraRefs){
   return {claims, sources:Object.values(sources), orphans, uncited:refs.filter(r=>!r.cited).map(r=>r.raw), hasRefs:refs.length>0};
 }
 async function j(u){ for(let i=0;i<2;i++){ try{const r=await fetch(u); if(r.status===404) return null; if(r.ok) return await r.json();}catch(e){} await new Promise(r=>setTimeout(r,700)); } return null; }
+const fold=s=>(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'');
 async function findByAuthorYear(src, claim){
-  const q=`${src.authors} ${claim.replace(/\([^)]*\)/g,' ').slice(0,200)}`;
-  const d=await j(`https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(q)}&filter=from-pub-date:${src.year},until-pub-date:${src.year}&rows=10&mailto=${MAILTO}`);
-  const hit=d&&d.message.items.find(w=>(w.author||[]).length&&SIY.parse('x').constructor&&(w.author[0].family||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'')===src.first.normalize('NFKD').replace(/[\u0300-\u036f]/g,''));
-  return hit?hit.DOI:null; }
+  const words=claim.replace(/\([^)]*\)/g,' ').replace(/\[[^\]]*\]/g,' ').slice(0,220);
+  const ct=terms(claim).stems, fam0=fold(src.first);
+  const fit=title=>{const tt=[...terms(title||'').stems];if(!tt.length)return 0;return tt.filter(x=>ct.has(x)).length/tt.length;};
+  const surname=src.authors.replace(/\s+et al\.?/,'').split(/\s*(?:,|&|\band\b)\s*/)[0];
+  let weak=null;
+  for(const slack of [0,1]){
+    const d=await j(`https://api.crossref.org/works?query.author=${encodeURIComponent(surname)}&query.bibliographic=${encodeURIComponent(words)}&filter=from-pub-date:${src.year-slack},until-pub-date:${src.year+slack}&rows=15&select=DOI,title,author,issued&mailto=${MAILTO}`);
+    const items=((d&&d.message&&d.message.items)||[]).filter(w=>(w.author||[]).some((a,k)=>k<1&&fold(a.family).includes(fam0)));
+    const sc=items.map(w=>({w,f:fit((w.title||[''])[0])})).sort((x,y)=>y.f-x.f);
+    if(sc[0]&&sc[0].f>=0.3) return {doi:sc[0].w.DOI,title:(sc[0].w.title||[''])[0],strength:'strong'};
+    if(!weak&&items[0]) weak={doi:items[0].DOI,title:(items[0].title||[''])[0],strength:'weak'};
+  }
+  const oa=await j(`https://api.openalex.org/works?search=${encodeURIComponent(surname+' '+words)}&filter=publication_year:${src.year-1}-${src.year+1}&per-page=10&select=doi,title,authorships&mailto=${MAILTO}`);
+  const hit=oa&&oa.results&&oa.results.map(p=>({p,f:fit(p.title)})).filter(x=>(x.p.authorships||[]).slice(0,1).some(a=>fold(a.author&&a.author.display_name).includes(fam0))).sort((x,y)=>y.f-x.f)[0];
+  if(hit&&hit.f>=0.25&&hit.p.doi) return {doi:hit.p.doi.replace('https://doi.org/',''),title:hit.p.title,strength:'strong'};
+  if(!oa&&!weak) return {strength:'weak',partial:true};
+  return weak; }
 async function abstract(doi){
-  if(!doi) return null;
-  const oa=await j(`https://api.openalex.org/works/doi:${encodeURIComponent(doi)}?select=abstract_inverted_index&mailto=${MAILTO}`);
-  if(oa&&oa.abstract_inverted_index){ const w=[]; for(const [k,ps] of Object.entries(oa.abstract_inverted_index)) ps.forEach(p=>w[p]=k); const t=w.filter(x=>x!=null).join(' ').trim(); if(t.length>40) return {text:t,from:'OpenAlex'}; }
+  if(!doi) return null; let info={};
+  const oa=await j(`https://api.openalex.org/works/doi:${encodeURIComponent(doi)}?select=id,open_access,abstract_inverted_index&mailto=${MAILTO}`);
+  if(oa){ info={openalex:oa.id||null, isOA:!!(oa.open_access&&oa.open_access.is_oa), oaUrl:(oa.open_access&&oa.open_access.oa_url)||null}; }
+  if(oa&&oa.abstract_inverted_index){ const w=[]; for(const [k,ps] of Object.entries(oa.abstract_inverted_index)) ps.forEach(p=>w[p]=k); const t=w.filter(x=>x!=null).join(' ').trim(); if(t.length>40) return {text:t,from:'OpenAlex',...info}; }
   const cr=await j(`https://api.crossref.org/works/${encodeURIComponent(doi)}?mailto=${MAILTO}`);
-  const a=cr&&cr.message.abstract; if(a){ const t=a.replace(/<jats:title>[^<]*<\/jats:title>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim(); if(t.length>40) return {text:t,from:'Crossref'}; }
+  const a=cr&&cr.message.abstract; if(a){ const t=a.replace(/<jats:title>[^<]*<\/jats:title>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim(); if(t.length>40) return {text:t,from:'Crossref',...info}; }
   const ep=await j(`https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent('DOI:"'+doi+'"')}&resultType=core&format=json`);
   const er=ep&&ep.resultList&&ep.resultList.result&&ep.resultList.result[0];
-  if(er&&er.abstractText){ const t=er.abstractText.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim(); if(t.length>40) return {text:t,from:'Europe PMC'}; }
+  if(er&&er.abstractText){ const t=er.abstractText.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim(); if(t.length>40) return {text:t,from:'Europe PMC',...info}; }
   const ss=await j(`https://api.semanticscholar.org/graph/v1/paper/DOI:${encodeURIComponent(doi)}?fields=abstract`);
-  if(ss&&ss.abstract&&ss.abstract.length>40) return {text:ss.abstract,from:'Semantic Scholar'};
-  return null; }
-async function checkSource(src, claim){
-  let input=src.ref, res;
-  if(!input){ const doi=await findByAuthorYear(src, claim); if(!doi) return {result:{raw:`${src.label} (no reference list entry)`,verdict:'not_found',confidence:0,note:`We couldn't identify a real paper by ${src.authors} from ${src.year} that fits this sentence. Add your reference list for a more reliable check.`},abstract:null};
-    input=doi; }
+  if(ss&&ss.abstract&&ss.abstract.length>40) return {text:ss.abstract,from:'Semantic Scholar',...info};
+  return info.openalex?{text:null,from:null,...info}:null; }
+/* hasRefs: the draft came with a reference list (so a missing entry is an "orphan") */
+async function checkSource(src, claim, hasRefs){
+  let input=src.ref, res, linked=null;
+  if(!input){ const hit=await findByAuthorYear(src, claim);
+    if(!hit) return {result:{raw:`${src.label} (no reference list entry)`,verdict:'not_found',confidence:0,orphan:!!hasRefs,
+      note:`We searched Crossref and OpenAlex for a paper by ${src.authors} from ${src.year} (and a year either side) and found nothing plausible. It may be a local thesis or report that global indexes don't cover, or it may not exist. Check your university repository or library.`},abstract:null};
+    if(hit.strength==='weak') return {result:{raw:`${src.label} (no reference list entry)`,verdict:'uncertain',confidence:0,linked:'author-year',weak:true,orphan:!!hasRefs,
+      note:hit.partial?`OpenAlex was unavailable, so we could only search Crossref, which found no match for ${src.authors} (${src.year}). Try again later or add it to your reference list.`:`We found papers by ${src.authors} from ${src.year}, but none clearly matches this sentence.`},abstract:null};
+    input=hit.doi; linked=hit.strength; }
   res=await SIY.verify(input);
+  if(linked){ res.linked='author-year'; res.weak=linked==='weak'; res.orphan=!!hasRefs; if(res.weak&&res.verdict==='verified') res.verdict='uncertain'; }
   const ab=(res.match&&res.verdict!=='not_found')?await abstract(res.match.doi):null;
   return {result:res, abstract:ab}; }
 /* reading aid: shared terms + numbers */
@@ -81,5 +102,7 @@ function compare(sentence, abs){
   const missing=t.nums.filter(n=>!an.includes(n.replace('%','')));
   const presentNums=t.nums.filter(n=>!missing.includes(n));
   return {sentenceHTML:highlight(sentence,shared,presentNums), abstractHTML:abs?highlight(abs,shared,presentNums):'', shared:[...shared].length, missing}; }
-return {analyze, checkSource, compare, splitDraft, sentences, citations, abstract};
+function closest(sentence, abs){ if(!abs) return null; const st=terms(sentence).stems; let best=null,bs=0;
+  sentences(abs).forEach(x=>{const n=[...terms(x).stems].filter(w=>st.has(w)).length; if(n>bs){bs=n;best=x;}}); return best?{text:best,shared:bs}:null; }
+return {analyze, checkSource, compare, closest, terms, splitDraft, sentences, citations, abstract};
 })();
