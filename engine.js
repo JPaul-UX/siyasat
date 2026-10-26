@@ -53,7 +53,7 @@ function diffs(p, c){
   const out=[]; const fam=c.authors.map(a=>norm(a.family));
   if(p.surnames.length){ const miss=p.surnames.filter(s=>!fam.includes(norm(s)));
     if(miss.length || (c.authors[0] && norm(p.surnames[0])!==norm(c.authors[0].family))) out.push({field:'Authors', cited:p.authorsText||p.surnames.join(', '), actual:c.authors.slice(0,6).map(a=>a.family+(a.given?', '+a.given[0]+'.':'')).join('; ')+(c.authors.length>6?' et al.':'')}); }
-  if(p.year && c.year && p.year!==c.year) out.push({field:'Year', cited:String(p.year), actual:String(c.year), note: (c.type==="posted-content")?'Matched record looks like a later repost; the original may not be indexed in Crossref. Double-check before changing.':''});
+  if(p.year && c.year && p.year!==c.year) out.push({field:'Year', cited:String(p.year), actual:String(c.year), suspect: c.year>p.year && (/^(posted-content|preprint|other|dataset)$/.test(c.type||'') || (c.year-p.year>2 && (c.cites||0)<50)), note: (c.year>p.year && (/^(posted-content|preprint|other|dataset)$/.test(c.type||'') || (c.year-p.year>2 && (c.cites||0)<50)))?'The only record found is a much later repost or preprint. The original is probably not indexed, so your year may be right. Please double-check.':''});
   if(p.title && sim(p.title,c.title)<0.9) out.push({field:'Title', cited:p.title, actual:c.title});
   if(p.venue && c.venue && sim(p.venue,c.venue)<0.6 && coverage(c.venue,p.raw)<0.8) out.push({field:'Venue', cited:p.venue, actual:c.venue});
   if(p.volume && c.volume && p.volume!==String(c.volume)) out.push({field:'Volume', cited:p.volume, actual:String(c.volume)});
@@ -85,16 +85,19 @@ async function verify(raw, fetchFn = (u)=>fetch(u)){
     if(oa) cands.push(...oa.results.filter(r=>r.title).map(fromOpenAlex)); }
   if(best && bs.tSim>=0.85){ // among strong title matches, prefer the record that agrees with the citation most
     const strong=cands.map(c=>({c,s:score(p,c)})).filter(x=>x.s.tSim>=0.85 && x.s.total>=bs.total-0.15);
-    const W=c=>diffs(p,c).reduce((n,d)=>n+(/Authors|Year/.test(d.field)?2:1),0)-Math.log10(1+(c.cites||0))*0.5;
+    const W=c=>(p.year&&c.year&&c.year-p.year>2?3:0)+(c.type==='posted-content'?1:0)+diffs(p,c).reduce((n,d)=>n+(/Authors|Year/.test(d.field)?2:1),0)-Math.log10(1+(c.cites||0))*0.5;
     strong.sort((x,y)=>W(x.c)-W(y.c)); if(strong.length){best=strong[0].c;bs=strong[0].s;} }
   const res = {raw, parsed:p, match:best, score:bs};
   if(!best || bs.total<0.62 || (bs.tSim<0.6 && !bs.doiOk)){ res.verdict='not_found'; res.confidence=bs?bs.total:0;
     res.note = best ? `Closest record in Crossref/OpenAlex is a different work ("${best.title}"), title similarity ${(bs.tSim*100|0)}%. No real publication matches this citation.` : 'No candidate records found.'; res.match=null; res.closest=best; return res; }
   res.retracted = await checkRetraction(best, fetchFn); res.diffs = diffs(p,best); res.apa = apa(best); res.confidence=bs.total;
+  const real = res.diffs.filter(d=>!d.suspect);
+  if(!res.retracted && res.diffs.some(d=>d.suspect)){ res.apa = apa({...best, year:p.year}); res.diffs = real.concat(res.diffs.filter(d=>d.suspect)); res.confidence=Math.min(res.confidence,0.6);
+    res.verdict = 'uncertain'; res.note='We found this title, but only as a much later repost or preprint, so we could not confirm the original publication details. Check it yourself before citing.'; return res; }
   res.verdict = res.retracted ? 'retracted' : res.diffs.length ? 'correction' : 'verified';
   return res;
 }
-function integrity(results){ if(!results.length) return 0; const w={verified:1,correction:0.6,retracted:0,not_found:0,error:0.5}; return Math.round(100*results.reduce((s,r)=>s+(w[r.verdict]??0),0)/results.length); }
+function integrity(results){ if(!results.length) return 0; const w={verified:1,correction:0.6,uncertain:0.7,retracted:0,not_found:0,error:0.5}; return Math.round(100*results.reduce((s,r)=>s+(w[r.verdict]??0),0)/results.length); }
 return {verify, parse, splitEntries, integrity, apa, sim};
 })();
 if (typeof module!=='undefined') module.exports = SIY;
