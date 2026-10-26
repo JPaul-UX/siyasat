@@ -139,15 +139,19 @@ mark{background:var(--gold-soft);color:var(--ink);border-bottom:2px solid var(--
  .app{grid-template-columns:1fr}
  nav.side{position:fixed;bottom:0;top:auto;left:0;right:0;height:auto;z-index:50;padding:4px 6px calc(4px + env(safe-area-inset-bottom));border-right:0;border-top:4px solid var(--gold);flex-direction:row}
  .brand,.side .foot{display:none}.nav{display:flex;width:100%}.nav a{flex:1;flex-direction:column;gap:2px;font-size:11.5px;padding:7px 2px;margin:0;text-align:center}
- .mhead{display:flex!important}main{padding:16px 16px 100px}
+ .mhead{display:flex!important;position:sticky;top:0;z-index:30}main{padding:16px 16px 100px}.backbar .back{display:none}.backbar{margin-top:-4px}
  .stats{grid-template-columns:repeat(2,1fr)}.stats .stat.hl{grid-column:1/-1}.types,.how{grid-template-columns:1fr}
  .summary{grid-template-columns:repeat(2,1fr)}.tile.score{grid-column:1/-1}.steps li{font-size:12.5px;padding:8px;flex-direction:column;text-align:center;gap:4px}.primary{width:100%}.count{margin-left:0}.card{padding:16px}
 }
+.back{display:inline-flex;align-items:center;min-height:44px;padding:8px 14px 8px 8px;background:none;border:0;color:var(--maroon);font-weight:750;font-size:15px;border-radius:10px;cursor:pointer;text-decoration:none}.back:hover{background:var(--gold-soft)}.back:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.backbar{display:flex;flex-direction:column;align-items:flex-start;gap:0;margin:-6px 0 10px -8px}.crumbs ol{list-style:none;display:flex;flex-wrap:wrap;gap:4px;margin:0;padding:0 0 0 8px;font-size:13.5px;color:var(--ink-soft)}.crumbs li+li::before{content:'›';margin-right:4px;color:var(--ink-soft)}.crumbs a{color:var(--maroon);display:inline-block;padding:4px 2px;min-height:24px}
+.mhead .mback{color:#fff;margin-left:-8px;padding-right:10px}.mhead .mback:hover{background:rgba(255,255,255,.12)}.mhead .mback:not([hidden])~.mark{display:none}
+.d-back{margin:-6px 0 6px -8px}.drawer-inner>.pill{display:inline-flex}
 .mhead{display:none;align-items:center;gap:10px;background:var(--maroon);color:#fff;padding:12px 16px;border-bottom:4px solid var(--gold)}.mhead .mark{width:34px;height:34px;font-size:18px}
 @media print{nav.side,.mhead,.actions,.filters{display:none}.app{display:block}.card{box-shadow:none}}
 </style></head><body>
 <a class="skip" href="#main">Skip to content</a>
-<div class="mhead"><div class="mark" aria-hidden="true">S</div><b>Siyasat</b></div>
+<div class="mhead"><button type="button" class="back mback" id="mback" hidden>← Back</button><div class="mark" aria-hidden="true">S</div><b>Siyasat</b></div>
 <div class="app">
 <nav class="side" aria-label="Main">
  <div class="brand"><div class="mark" aria-hidden="true">S</div><div><b>Siyasat</b><small>verify · validate · gate</small></div></div>
@@ -180,7 +184,7 @@ const counts=rs=>{const c={verified:0,correction:0,uncertain:0,not_found:0,retra
 const fmtDate=s=>new Date(s).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
 const tip=t=>`<button class="tip" type="button" aria-label="${esc(t)}">?<span aria-hidden="true">${esc(t)}</span></button>`;
 const slim=r=>({raw:r.raw,verdict:r.verdict,confidence:r.confidence,note:r.note,diffs:r.diffs,apa:r.apa,match:r.match&&{doi:r.match.doi,title:r.match.title,source:r.match.source}});
-let STATE={type:'refs',filter:'all',running:false};
+let STATE={type:'refs',filter:'all',running:false,forms:{}};
 
 /* ---------- Dashboard ---------- */
 function dashboard(){
@@ -358,7 +362,7 @@ function drawerHTML(c,i){const cl=c.claims[i];
      ${x.abs?`<div class="reader"><div class="rd-h">Built-in reader ${ab.isOA?'<span class="rp-oa">Open access</span>':''}<span class="rp-src">Abstract via ${esc(ab.from)}</span></div>
       ${x.m?`<div class="rd-t">${esc(x.m.title)}${x.ry?` (${x.ry})`:''}</div>`:''}<div class="rd-sec"><b>Abstract</b><p tabindex="0" aria-label="Source abstract">${cmp.abstractHTML}</p></div>
       <div class="rd-foot">Only the abstract is free to show here. To read the results and discussion (where abstracts sometimes oversell), ${ab.oaUrl?`open the <a href="${esc(ab.oaUrl)}" target="_blank" rel="noopener">free full text</a>`:'open the article'}. Reading stays your job; Siyasat just removes the friction.</div></div>`:''}</section>`;}).join('');
-  return `<button class="d-close" type="button" aria-label="Close details">×</button>
+  return `<button type="button" class="back d-back" data-dback>← Back to all claims</button><button class="d-close" type="button" aria-label="Close details">×</button>
    ${claimPill(c,cl)}<p class="d-cite mono" id="dTitle">${DRAFT.compare(cl.sentence,cl.cites.map(ct=>srcInfo(c,ct.key).abs).filter(Boolean).join(' ')).sentenceHTML}</p>
    <p class="d-verdict">${esc(cl.cites.map(ct=>evidence(c,cl,ct)).join(' | '))}</p>
    <div class="judge" role="group" aria-label="Your verdict for this claim"><span class="jq">Your verdict: does the source back up your sentence?</span>
@@ -366,7 +370,7 @@ function drawerHTML(c,i){const cl=c.claims[i];
     <span class="meta">Siyasat never decides this for you. Click again to undo.</span></div>
    ${blocks}`;}
 function openDrawer(c,i,from){const d=$('drawer');d.innerHTML=`<div class="drawer-inner">${drawerHTML(c,i)}</div>`;d.hidden=false;$('scrim').hidden=false;requestAnimationFrame(()=>d.classList.add('open'));
-  STATE.dfrom=from;STATE.dopen=i;d.querySelector('.d-close').onclick=closeDrawer;d.querySelector('.d-close').focus();bindJudge(c.id);}
+  STATE.dfrom=from;STATE.dopen=i;d.querySelector('.d-close').onclick=closeDrawer;d.querySelector('[data-dback]').onclick=closeDrawer;d.querySelector('.d-close').focus();bindJudge(c.id);}
 function closeDrawer(){const d=$('drawer');if(!d||d.hidden)return;d.classList.remove('open');d.hidden=true;$('scrim').hidden=true;STATE.dopen=null;if(STATE.dfrom&&document.body.contains(STATE.dfrom))STATE.dfrom.focus();}
 function bindJudge(id){document.querySelectorAll('#drawer [data-claim]').forEach(b=>b.onclick=()=>{const cs=load();const c=cs.find(x=>x.id===id);const i=+b.dataset.claim;
   c.claims[i].judgment=c.claims[i].judgment===b.dataset.j?null:b.dataset.j;save(cs);
@@ -404,7 +408,7 @@ function startOver(){
   const dirty=($('input')&&$('input').value.trim())||($('refsIn')&&$('refsIn').value.trim())||STATE.corpus;
   if(STATE.job&&STATE.job.active){alert('A check is still running. Pause or cancel it first.');return;}
   if(dirty&&!confirm('Start over? This clears everything you added on this page.'))return;
-  STATE.corpus=null; STATE.type='refs'; if(location.hash==='#/new') route(); else location.hash='#/new';
+  STATE.corpus=null; STATE.forms={}; STATE.type='refs'; if(location.hash==='#/new') route(); else location.hash='#/new';
   setTimeout(()=>{const h=document.querySelector('#main h2');if(h){h.tabIndex=-1;h.focus();}},0);
 }
 async function readText(f){
@@ -422,7 +426,7 @@ async function handleFile(f){
   }catch(e){ err=e.message; }
   if(err){ $('msg').innerHTML=`<div class="msg err"><b>We couldn't use ${esc(f.name)}.</b> ${esc(err)}</div>`; $('file').value=''; return; }
   const prevAuto=STATE.corpus&&STATE.corpus.nameFromFile&&name.value===STATE.corpus.fileName;
-  STATE.corpus={fileName:f.name,count:recs.length,nameFromFile:false};
+  STATE.corpus={fileName:f.name,count:recs.length,nameFromFile:false,file:f.name,sizeLabel:`${recs.length.toLocaleString()} record${recs.length===1?'':'s'} found · ${(f.size/1024).toFixed(0)} KB`};
   if(!name.value.trim()||prevAuto){name.value=f.name.replace(/\.(ris|bib|bibtex|csv|txt)$/i,'');STATE.corpus.fileName=name.value;STATE.corpus.nameFromFile=true;}
   $('input').value=recs.join('\n'); STATE.upd();
   $('chipName').textContent=f.name; $('chipCount').textContent=`${recs.length.toLocaleString()} record${recs.length===1?'':'s'} found · ${(f.size/1024).toFixed(0)} KB`;
@@ -583,13 +587,40 @@ function json(c){if(c.type==='draft')return JSON.stringify({tool:'Siyasat',type:
   return JSON.stringify({tool:'Siyasat',name:c.name,checked_at:c.date,integrity:c.score,results:c.results.map(r=>({input:r.raw,verdict:r.verdict,confidence:r.confidence,doi:r.match&&r.match.doi,matched_title:r.match&&r.match.title,differences:r.diffs,note:r.note,apa:r.apa}))},null,2);}
 
 /* ---------- Router ---------- */
+/* ---------- Back + breadcrumb (in-app history) ---------- */
+const HK='siyasat.hist';
+let HIST=(()=>{try{return JSON.parse(sessionStorage.getItem(HK))||[]}catch(e){return[]}})();
+const norm=h=>{h=(h||'').replace(/^#\/?/,'');return '#/'+(h||'dashboard');};
+function track(){const h=norm(location.hash);if(HIST[HIST.length-1]===h){}else if(HIST[HIST.length-2]===h)HIST.pop();else HIST.push(h);HIST=HIST.slice(-50);try{sessionStorage.setItem(HK,JSON.stringify(HIST))}catch(e){}}
+const TNAME={refs:'Reference list',corpus:'Review corpus',draft:'Draft check'};
+function pageName(h,from){const [r,a]=h.replace('#/','').split('/');
+  if(r==='new')return a?(from&&from.startsWith('#/new')?'step 2':'New check'):(from&&from.startsWith('#/new/')?'step 1':'New check');
+  return {results:'Results',reports:'Reports',dashboard:'Dashboard'}[r]||'Dashboard';}
+function parentOf(h){const [r,a]=h.replace('#/','').split('/');return r==='new'&&a?'#/new':'#/dashboard';}
+function backTarget(){const cur=norm(location.hash);const prev=HIST.length>1?HIST[HIST.length-2]:null;
+  return prev?{h:prev,hist:true,label:pageName(prev,cur)}:{h:parentOf(cur),hist:false,label:pageName(parentOf(cur),cur)};}
+function goBack(){const b=backTarget();if(b.hist)history.back();else location.hash=b.h;}
+function crumbs(page,arg){const L=[['Dashboard','#/dashboard']];
+  if(page==='new'){L.push(['New check','#/new']);if(arg)L.push(['Step 2 · '+TNAME[arg],null]);else L[1][1]=null;}
+  else if(page==='results'){const c=arg?load().find(x=>x.id===arg):load()[0];L.push(['Results',c?'#/results':null]);if(c)L.push([TNAME[c.type]||'Check',null]);}
+  else if(page==='reports')L.push(['Reports',null]);
+  return `<nav class="crumbs" aria-label="Breadcrumb"><ol>${L.map(([n,h])=>`<li>${h?`<a href="${h}">${esc(n)}</a>`:`<span aria-current="page">${esc(n)}</span>`}</li>`).join('')}</ol></nav>`;}
+function backbar(page,arg){if(page==='dashboard')return '';const b=backTarget();
+  return `<div class="backbar"><button type="button" class="back" data-back>← Back to ${esc(b.label)}</button>${crumbs(page,arg)}</div>`;}
+function saveForm(){const ty=STATE.formType;if(!ty||!$('input'))return;STATE.forms[ty]={name:$('name')?$('name').value:'',input:$('input').value,refsIn:$('refsIn')?$('refsIn').value:''};}
+function restoreForm(){const f=STATE.forms[STATE.type];if(!f||!$('input'))return;if($('name'))$('name').value=f.name;$('input').value=f.input;if($('refsIn')&&f.refsIn){$('refsIn').value=f.refsIn;$('refsIn').closest('details').open=true;}
+  $('input').dispatchEvent(new Event('input'));
+  if(STATE.type==='corpus'&&STATE.corpus&&STATE.corpus.sizeLabel&&$('chip')){$('chipName').textContent=STATE.corpus.file;$('chipCount').textContent=STATE.corpus.sizeLabel;$('chip').hidden=false;$('drop').hidden=true;}}
 function route(){
+  saveForm(); STATE.formType=null; track();
   const [r,arg]=location.hash.replace(/^#\/?/,'').split('/'); const page=r||'dashboard';
   if(page==='new'&&arg&&['refs','corpus','draft'].includes(arg))STATE.type=arg;
   document.querySelectorAll('.nav a').forEach(a=>{if(a.dataset.r===page)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
-  M.innerHTML=page==='new'?newCheck():page==='results'?results(arg):page==='reports'?reports():dashboard();
+  M.innerHTML=backbar(page,arg)+(page==='new'?newCheck():page==='results'?results(arg):page==='reports'?reports():dashboard());
+  const mb=$('mback'); if(mb){const b=backTarget();mb.hidden=page==='dashboard';mb.textContent='← Back to '+b.label;}
+  M.querySelectorAll('[data-back]').forEach(b=>b.onclick=goBack);
   document.title=({new:'New check',results:'Results',reports:'Reports'}[page]||'Dashboard')+' · Siyasat';
-  if(page==='new')bindNew(); bindCommon(arg); window.scrollTo(0,0);
+  if(page==='new'){bindNew();STATE.formType=STATE.type;restoreForm();} bindCommon(arg); window.scrollTo(0,0);
   if(route.started){const h=M.querySelector('h1');if(h){h.tabIndex=-1;h.focus({preventScroll:true});}} route.started=true;
 }
 function bindCommon(arg){
@@ -611,7 +642,7 @@ function bindCommon(arg){
 }
 (()=>{const cs=load();let ch=false;cs.forEach(c=>{if(c.status==='running'){c.status='paused';ch=true;}});if(ch)try{save(cs)}catch(e){}})();
 document.body.insertAdjacentHTML('beforeend','<div class="scrim" id="scrim" hidden></div><aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dTitle" hidden></aside><div class="sr" id="live" aria-live="polite"></div>');
-$('scrim').onclick=closeDrawer;
+$('scrim').onclick=closeDrawer;$('mback').onclick=goBack;
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();if(e.key==='Tab'&&!$('drawer').hidden){const f=[...$('drawer').querySelectorAll('button,a,[tabindex="0"]')];if(!f.length)return;const a=f[0],z=f[f.length-1];if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus();}else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus();}}});
 window.addEventListener('hashchange',()=>{closeDrawer();route();}); route();
 </script></body></html>
