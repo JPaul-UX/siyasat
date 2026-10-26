@@ -83,6 +83,22 @@ td.fix{font-weight:700;color:var(--ok)}.note{font-size:13px;color:var(--warn);fo
 .tip span{display:none;position:absolute;bottom:130%;left:50%;transform:translateX(-50%);width:230px;background:var(--ink);color:#fff;font-weight:500;font-size:13px;padding:8px 10px;border-radius:8px;z-index:5;text-align:left;line-height:1.4}
 .tip:hover span,.tip:focus span{display:block}
 .rowh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between}
+
+.claim{border:1px solid var(--line);border-radius:12px;margin-top:14px;overflow:hidden}
+.claim-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:#FFFBF2;border-bottom:1px solid var(--line)}
+.pair{display:grid;grid-template-columns:1fr 1fr}.pair>div{padding:14px}.pair>div+div{border-left:1px solid var(--line);background:#FFFDF9}
+.pair h3{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-soft)}
+.pair .txt{font-size:15px;line-height:1.6}.abs{max-height:260px;overflow:auto;font-size:14px!important}
+mark{background:var(--gold-soft);color:var(--ink);border-bottom:2px solid var(--gold);padding:0 1px;border-radius:2px}mark.num{background:var(--gold);color:var(--maroon);font-weight:800;border-bottom-color:var(--maroon)}
+.warnnum{margin-top:8px;font-size:13.5px;color:var(--warn);background:var(--warn-bg);border-radius:8px;padding:6px 10px}
+.judge{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
+.judge button{min-height:40px;padding:4px 14px;background:#fff;border:2px solid var(--line);font-weight:650;font-size:14px}
+.judge button[aria-pressed=true][data-j=match]{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.judge button[aria-pressed=true][data-j=nomatch]{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
+.judge button[aria-pressed=true][data-j=unsure]{background:var(--unc-bg);border-color:var(--unc);color:var(--unc)}
+.revbar{height:10px;background:var(--maroon-soft);border-radius:99px;overflow:hidden;margin-top:6px}.revbar i{display:block;height:100%;background:var(--gold)}
+.oneline{background:var(--gold-soft);border-left:5px solid var(--gold);border-radius:10px;padding:10px 14px;font-weight:650;color:var(--maroon);margin-bottom:16px}
+@media(max-width:860px){.pair{grid-template-columns:1fr}.pair>div+div{border-left:0;border-top:1px solid var(--line)}}
 @media(max-width:860px){
  .app{grid-template-columns:1fr}
  nav.side{position:fixed;bottom:0;top:auto;left:0;right:0;height:auto;z-index:50;padding:4px 6px calc(4px + env(safe-area-inset-bottom));border-right:0;border-top:4px solid var(--gold);flex-direction:row}
@@ -110,6 +126,7 @@ td.fix{font-weight:700;color:var(--ok)}.note{font-size:13px;color:var(--warn);fo
 <main id="main" tabindex="-1"></main>
 </div>
 <script src="engine.js"></script>
+<script src="draft.js"></script>
 <script>
 const $=id=>document.getElementById(id), M=document.getElementById('main');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -150,7 +167,7 @@ function dashboard(){
   <section class="card"><div class="rowh"><h2>Recent checks</h2><button class="link danger" id="clearAll">Clear all data</button></div>${recentList(cs.slice(0,8))}</section>`;
 }
 function recentList(cs){ if(!cs.length) return '<div class="empty">No checks yet.</div>';
-  return `<ul class="recent">${cs.map(c=>{const k=counts(c.results);return `<li><div class="t"><b>${esc(c.name)}</b><small>${fmtDate(c.date)} · ${c.results.length} references</small></div>
+  return `<ul class="recent">${cs.map(c=>{const k=counts(c.results);return `<li><div class="t"><b>${esc(c.name)}</b><small>${fmtDate(c.date)} · ${c.type==='draft'?`Draft check · ${c.claims.length} claims · ${c.sources.length} sources`:c.results.length+' references'}</small></div>
    <div class="mini">${['verified','correction','uncertain','not_found','retracted'].filter(v=>k[v]).map(v=>`<span class="badge ${v}" title="${esc(LABEL[v])}">${LABEL[v].split(' ')[0]} ${k[v]}</span>`).join('')}</div>
    <span class="score-chip" title="Integrity score">${c.score}/100</span>
    <a class="btn ghost" href="#/results/${c.id}">Open<span class="sr"> ${esc(c.name)}</span></a>
@@ -158,7 +175,7 @@ function recentList(cs){ if(!cs.length) return '<div class="empty">No checks yet
 function typeCards(asLinks){
   const T=[['refs','📚','Reference list','Check that each source in your bibliography is real, correct and not retracted.',true],
            ['corpus','🗂️','Review corpus','Upload a library export (.ris, .bib or .csv) and check every record before screening.',true],
-           ['draft','✍️','Draft check','Check whether each source actually supports the sentence you cited it for.',false]];
+           ['draft','✍️','Draft check','See what each cited source actually says next to the sentence you cited it for.',true]];
   return `<div class="types" ${asLinks?'':'role="radiogroup" aria-label="Type of check"'}>${T.map(([id,ic,t,d,on])=>asLinks
     ?(on?`<a class="type" href="#/new/${id}"><span class="tag on">Ready</span><b><span aria-hidden="true">${ic}</span> ${t}</b><small>${d}</small></a>`:`<button class="type" disabled aria-disabled="true"><span class="tag">Coming soon</span><b><span aria-hidden="true">${ic}</span> ${t}</b><small>${d}</small></button>`)
     :`<button class="type" role="radio" data-type="${id}" aria-checked="${STATE.type===id}" ${on?'':'disabled aria-disabled="true"'}><span class="tag ${on?'on':''}">${on?'Ready':'Coming soon'}</span><b><span aria-hidden="true">${ic}</span> ${t}</b><small>${d}</small></button>`).join('')}</div>`;}
@@ -166,6 +183,7 @@ function typeCards(asLinks){
 /* ---------- New check ---------- */
 function newCheck(){
   const refs=STATE.type==='refs';
+  if(STATE.type==='draft') return draftForm();
   return `<h1 class="page-h">New check</h1><p class="lead">Three quick steps. Results arrive in seconds.</p>
   <ol class="steps" aria-label="Progress"><li id="s1" class="done">Choose type</li><li id="s2" class="on">Add sources</li><li id="s3">Verify</li></ol>
   <section class="card"><h2>Step 1 · What are you checking?</h2>${typeCards(false)}</section>
@@ -182,7 +200,89 @@ function newCheck(){
    <div class="ptext" id="ptext" aria-live="polite"></div>
    <ol class="pipe" aria-hidden="true"><li data-p="0">Read reference</li><li data-p="1">Search Crossref & OpenAlex</li><li data-p="2">Match details</li><li data-p="3">Check retractions</li><li data-p="4">Verdict</li></ol></div>
   </section>`;}
+function draftForm(){
+  return `<h1 class="page-h">New check</h1><p class="oneline">Siyasat shows you what each source actually says. You decide if it backs up your sentence.</p>
+  <ol class="steps" aria-label="Progress"><li id="s1" class="done">Choose type</li><li id="s2" class="on">Add sources</li><li id="s3">Verify</li></ol>
+  <section class="card"><h2>Step 1 · What are you checking?</h2>${typeCards(false)}</section>
+  <section class="card"><h2>Step 2 · Paste your draft</h2>
+   <label class="big" for="name">Name this check <span class="meta">(optional)</span></label><input type="text" id="name" placeholder="e.g. Literature review draft">
+   <p class="help" style="margin-top:12px">Paste paragraphs that cite sources, like <b>(Navarro &amp; Kim, 2020)</b>, <b>LeCun et al. (2015)</b> or <b>[1]</b>. If your reference list is at the end under a <b>References</b> heading, we'll find it automatically.</p>
+   <label class="big" for="input">Your draft</label><textarea id="input" style="min-height:240px" placeholder="Paste your paragraphs here…"></textarea>
+   <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:650;color:var(--maroon)">My reference list is separate (optional)</summary>
+    <label class="big" for="refsIn" style="margin-top:8px">Reference list</label><textarea id="refsIn" style="min-height:120px" placeholder="One reference per line"></textarea></details>
+   <div class="actions"><button class="primary" id="run">Check my draft</button><button class="ghost" id="sample">Try an example</button><button class="link" id="clear">Clear</button><span class="count" id="count" aria-live="polite">0 citations found</span></div>
+   <div id="msg" role="alert"></div>
+   <div class="progress" id="progress" hidden><div class="ptrack" role="progressbar" aria-label="Checking sources" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="pbar"><i id="pfill"></i></div><div class="ptext" id="ptext" aria-live="polite"></div>
+   <ol class="pipe" aria-hidden="true"><li data-p="0">Find citations</li><li data-p="1">Match reference list</li><li data-p="2">Verify source</li><li data-p="3">Get abstract</li><li data-p="4">Compare side by side</li></ol></div>
+  </section>`;}
+const DRAFT_SAMPLE=`AI-assisted writing can make literature reviews faster, but every citation still needs checking. During COVID-19 lockdowns, depressive symptoms rose by 27% across twelve countries (Navarro & Kim, 2020). Deep learning allows computational models that are composed of multiple processing layers to learn representations of data with multiple levels of abstraction (LeCun et al., 2015). Deep learning has already replaced every traditional method in speech recognition and drug discovery (LeCun et al., 2015). Some early clinical work linked the MMR vaccine to developmental disorders in 12 children (Wakefield et al., 1998). Array programming with NumPy underpins most scientific computing in Python (Harris et al., 2020).
+
+References
+Navarro, R. T., & Kim, S. (2020). Psychological distress and depressive symptoms during COVID-19 lockdowns: A longitudinal study of twelve countries. International Journal of Pandemic Mental Health, 8(2), 145–162.
+LeCun, Y., Bengio, Y., & Hinton, G. (2015). Deep learning. Nature, 521(7553), 436–444.
+Wakefield, A. J., Murch, S. H., Anthony, A., et al. (1998). Ileal-lymphoid-nodular hyperplasia, non-specific colitis, and pervasive developmental disorder in children. The Lancet, 351(9103), 637–641.
+Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, L., & Polosukhin, I. (2017). Attention is all you need. Advances in Neural Information Processing Systems, 30.`;
+function bindDraft(){
+  document.querySelectorAll('[data-type]').forEach(b=>b.onclick=()=>{if(b.disabled)return;STATE.type=b.dataset.type;location.hash='#/new/'+STATE.type;});
+  const inp=$('input'),ri=$('refsIn'),upd=()=>{const a=DRAFT.analyze(inp.value,ri.value);const n=a.claims.reduce((s,c)=>s+c.cites.length,0);$('count').textContent=`${n} citation${n===1?'':'s'} in ${a.claims.length} sentence${a.claims.length===1?'':'s'}`+(a.hasRefs?' · reference list found':'');};
+  inp.addEventListener('input',upd);ri.addEventListener('input',upd);
+  $('sample').onclick=()=>{inp.value=DRAFT_SAMPLE;if(!$('name').value)$('name').value='Example draft';upd();$('msg').innerHTML='';$('run').focus();};
+  $('clear').onclick=()=>{inp.value='';ri.value='';upd();inp.focus();};
+  $('run').onclick=runDraft;
+}
+async function runDraft(){
+  if(STATE.running)return; $('msg').innerHTML=''; const a=DRAFT.analyze($('input').value,$('refsIn').value);
+  if(!$('input').value.trim()){$('msg').innerHTML='<div class="msg info">Paste a paragraph with citations first, or click <b>Try an example</b>.</div>';$('input').focus();return;}
+  if(!a.claims.length){$('msg').innerHTML='<div class="msg info">We couldn\'t find any in-text citations. Siyasat looks for forms like <b>(Navarro &amp; Kim, 2020)</b>, <b>Smith et al. (2019)</b>, or <b>[1]</b> with a numbered reference list.</div>';return;}
+  if(a.sources.length>60){$('msg').innerHTML='<div class="msg info">That draft cites more than 60 sources. Please check one section at a time.</div>';return;}
+  STATE.running=true;$('run').disabled=true;$('run').textContent='Checking…';$('s2').className='done';$('s3').className='on';$('progress').hidden=false;
+  const pipe=[...document.querySelectorAll('.pipe li')];const tick=setInterval(()=>{const on=pipe.findIndex(l=>l.classList.contains('on'));pipe.forEach((l,j)=>l.className=j<(on+1)%5?'done':j===(on+1)%5?'on':'');},700);
+  let errs=0;
+  for(let i=0;i<a.sources.length;i++){const s=a.sources[i];const pct=Math.round(i/a.sources.length*100);$('pfill').style.width=pct+'%';$('pbar').setAttribute('aria-valuenow',pct);
+    $('ptext').textContent=`Checking source ${i+1} of ${a.sources.length}: ${s.label}…`;
+    const claim=a.claims.find(c=>c.cites.some(x=>x.key===s.key)).sentence;
+    try{const r=await DRAFT.checkSource(s,claim);s.result=slim(r.result);s.abstract=r.abstract;}catch(e){s.result={raw:s.ref||s.label,verdict:'error',note:e.message};errs++;}}
+  clearInterval(tick);pipe.forEach(l=>l.className='done');$('pfill').style.width='100%';STATE.running=false;
+  if(errs===a.sources.length){$('msg').innerHTML='<div class="msg err">We couldn\'t reach the databases. Check your internet connection and try again in a minute.</div>';$('run').disabled=false;$('run').textContent='Try again';return;}
+  const results=a.sources.map(s=>s.result);
+  const c={id:Date.now().toString(36),name:($('name').value.trim()||('Draft check '+new Date().toLocaleDateString())),type:'draft',date:new Date().toISOString(),
+    results,score:SIY.integrity(results),claims:a.claims.map(cl=>({sentence:cl.sentence,cites:cl.cites.map(x=>({label:x.label,key:x.key})),judgment:null})),
+    sources:a.sources.map(s=>({key:s.key,label:s.label,ref:s.ref,abstract:s.abstract})),orphans:a.orphans,uncited:a.uncited,hasRefs:a.hasRefs};
+  const cs=load();cs.unshift(c);try{save(cs);}catch(e){} location.hash='#/results/'+c.id;
+}
+const JLAB={match:'✓ Matches',nomatch:"✕ Doesn't match",unsure:'? Not sure'};
+function claimCards(c,interactive){
+  return c.claims.map((cl,i)=>cl.cites.map((ct,k)=>{const si=c.sources.findIndex(s=>s.key===ct.key);const s=c.sources[si],r=c.results[si]||{verdict:'error'};
+    const abs=s&&s.abstract&&s.abstract.text;const cmp=DRAFT.compare(cl.sentence,abs);const m=r.match;
+    return `<article class="claim" aria-label="Claim ${i+1}${cl.cites.length>1?', source '+(k+1):''}">
+     <div class="claim-h"><b>Claim ${i+1}</b><span class="meta">cites ${esc(ct.label)}</span><span class="badge ${r.verdict}">${LABEL[r.verdict]}</span>
+      ${m?`<a class="meta" href="https://doi.org/${esc(m.doi)}" target="_blank" rel="noopener">Open article<span class="sr"> (new tab)</span></a>`:''}</div>
+     <div class="pair"><div><h3>Your sentence</h3><div class="txt">${cmp.sentenceHTML}</div>
+       ${abs&&cmp.missing.length?`<div class="warnnum">ⓘ ${cmp.missing.map(esc).join(', ')} ${cmp.missing.length>1?"don't":"doesn't"} appear in the abstract. Check the full paper.</div>`:''}</div>
+      <div><h3>What the source says${abs?` <span style="text-transform:none;font-weight:500">(abstract, via ${esc(s.abstract.from)})</span>`:''}</h3>
+       ${r.verdict==='not_found'?`<div class="txt" style="color:var(--bad)">We couldn't find this source in any database, so there is no abstract to show. It may not exist.</div>${r.note?`<div class="meta">${esc(r.note)}</div>`:''}`
+        :abs?`<div class="txt abs" tabindex="0" aria-label="Source abstract">${cmp.abstractHTML}</div>${m?`<div class="meta" style="margin-top:6px">${esc(m.title)}</div>`:''}`
+        :`<div class="txt">No abstract is available for this source in Crossref or OpenAlex. ${m?`<a href="https://doi.org/${esc(m.doi)}" target="_blank" rel="noopener">Read the article</a> to check it yourself.`:''}</div>`}
+       ${r.verdict==='retracted'?'<div class="warnnum" style="color:var(--ret);background:var(--ret-bg)">⚠ This paper was retracted. It should not be used as evidence.</div>':''}</div></div>
+     ${k===0?(interactive?`<div class="judge" role="group" aria-label="Your judgment for claim ${i+1}"><span class="meta">Does the source back up your sentence?</span>${Object.entries(JLAB).map(([j,l])=>`<button data-claim="${i}" data-j="${j}" aria-pressed="${cl.judgment===j}">${l}</button>`).join('')}</div>`
+       :`<div class="judge"><span class="meta">Your judgment:</span> <b>${cl.judgment?JLAB[cl.judgment]:'Not reviewed yet'}</b></div>`):''}
+    </article>`}).join('')).join('');}
+function draftResults(c,cs){
+  const done=c.claims.filter(x=>x.judgment).length,k=counts(c.results);
+  return `<div class="rowh"><div><h1 class="page-h">Results · Draft check</h1><p class="lead">${esc(c.name)} · ${fmtDate(c.date)}</p></div>${cs.length>1?`<label class="meta">Other checks: <select id="pick">${cs.map(x=>`<option value="${x.id}" ${x.id===c.id?'selected':''}>${esc(x.name)} (${fmtDate(x.date)})</option>`).join('')}</select></label>`:''}</div>
+  <p class="oneline">Siyasat shows you what each source actually says. You decide if it backs up your sentence.</p>
+  <section class="card"><h2 id="rh" tabindex="-1">Summary</h2>
+   <div class="summary"><div class="tile score"><small>Your review ${tip('Mark each claim yourself after reading the source. Siyasat never decides this for you.')}</small><b id="revn">${done} of ${c.claims.length}</b><small>claims reviewed</small><div class="sbar"><i id="revbar" style="width:${c.claims.length?done/c.claims.length*100:0}%"></i></div></div>
+    ${['verified','correction','uncertain','not_found','retracted'].map(v=>`<div class="tile"><span class="badge ${v}">${LABEL[v]}</span><b>${k[v]}</b><small class="meta">sources</small></div>`).join('')}</div>
+   <p class="help" style="margin-top:12px"><mark>Highlighted words</mark> appear in both your sentence and the abstract. <mark class="num">Numbers</mark> are highlighted when they match. This is a reading aid only. Shared words don't prove a source supports you, and a short abstract may leave out details that are in the full paper.</p>
+   ${c.orphans&&c.orphans.length?`<div class="msg err"><b>Cited but missing from your reference list:</b> ${c.orphans.map(o=>esc(o.label)).join(', ')}</div>`:''}
+   ${c.uncited&&c.uncited.length?`<div class="msg info"><b>In your reference list but never cited in the text:</b><ul style="margin:4px 0 0">${c.uncited.map(u=>`<li>${esc(u.slice(0,140))}</li>`).join('')}</ul></div>`:''}
+   ${!c.hasRefs?'<div class="msg info">No reference list was found, so we searched by author and year. Add your reference list for a more reliable match.</div>':''}
+  </section>
+  <section class="card"><h2>Claim by claim</h2>${claimCards(c,true)}
+   <div class="actions"><button class="ghost" data-rep="${c.id}">Download report</button><button class="link" data-json="${c.id}">Download data (JSON)</button></div></section>`;}
 function bindNew(){
+  if(STATE.type==='draft') return bindDraft();
   document.querySelectorAll('[data-type]').forEach(b=>b.onclick=()=>{if(b.disabled)return;STATE.type=b.dataset.type;location.hash='#/new/'+STATE.type;});
   const inp=$('input'),upd=()=>{const n=SIY.splitEntries(inp.value).length;$('count').textContent=n+(n===1?' reference':' references')+' detected';};
   inp.addEventListener('input',upd);
@@ -230,6 +330,7 @@ async function run(){
 function results(id){
   const cs=load(); const c=id?cs.find(x=>x.id===id):cs[0];
   if(!c) return `<h1 class="page-h">Results</h1><section class="card"><div class="empty"><span class="big" aria-hidden="true">🔍</span>${id?"We couldn't find that check. It may have been deleted.":'No results yet. Run a check to see results here.'}<div class="actions" style="justify-content:center"><a class="btn primary" href="#/new">Start a check</a></div></div></section>`;
+  if(c.type==='draft') return draftResults(c,cs);
   const k=counts(c.results);
   return `<div class="rowh"><div><h1 class="page-h">Results</h1><p class="lead">${esc(c.name)} · ${fmtDate(c.date)}</p></div>${cs.length>1?`<label class="meta">Other checks: <select id="pick">${cs.map(x=>`<option value="${x.id}" ${x.id===c.id?'selected':''}>${esc(x.name)} (${fmtDate(x.date)})</option>`).join('')}</select></label>`:''}</div>
   <section class="card" aria-labelledby="rh"><h2 id="rh" tabindex="-1">Summary</h2>
@@ -256,22 +357,27 @@ function bib(c){const seen=new Set();const ok=c.results.filter(r=>r.apa&&r.verdi
 /* ---------- Reports ---------- */
 function reports(){const cs=load();
   return `<h1 class="page-h">Reports</h1><p class="lead">Timestamped verification reports you can show your adviser or panel. Each verdict links to its evidence.</p>
-  <section class="card">${cs.length?`<ul class="recent">${cs.map(c=>{const k=counts(c.results);return `<li><div class="t"><b>Verification report · ${esc(c.name)}</b><small>${fmtDate(c.date)} · ${c.results.length} references · ${k.not_found} possibly fake · ${k.retracted} retracted</small></div><span class="score-chip">${c.score}/100</span>
+  <section class="card">${cs.length?`<ul class="recent">${cs.map(c=>{const k=counts(c.results);return `<li><div class="t"><b>Verification report · ${esc(c.name)}</b><small>${fmtDate(c.date)} · ${c.type==='draft'?`Draft check · ${c.claims.length} claims · ${c.sources.length} sources`:c.results.length+' references'} · ${k.not_found} possibly fake · ${k.retracted} retracted</small></div><span class="score-chip">${c.score}/100</span>
    <button class="ghost" data-rep="${c.id}">Download report<span class="sr"> for ${esc(c.name)}</span></button><button class="link" data-json="${c.id}">JSON</button></li>`}).join('')}</ul>
    <p class="help" style="margin-top:12px">Tip: open the downloaded report and use your browser's <b>Print → Save as PDF</b>.</p>`
    :`<div class="empty"><span class="big" aria-hidden="true">📄</span>No reports yet. Every check you run creates a report here.<div class="actions" style="justify-content:center"><a class="btn primary" href="#/new">Start a check</a></div></div>`}</section>`;}
 function dl(name,data,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;document.body.appendChild(a);a.click();a.remove();}
 const fname=(c,ext)=>`siyasat-report-${c.name.replace(/[^\w-]+/g,'-').slice(0,40)}-${c.date.replace(/[:.]/g,'-')}.${ext}`;
 function report(c){const css=document.querySelector('style').outerHTML;
+  if(c.type==='draft') return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Siyasat draft report · ${esc(c.name)}</title>${css}</head><body><div class="mhead" style="display:flex"><div class="mark">S</div><b>Siyasat draft check report</b></div><main style="margin:0 auto">
+  <h1 class="page-h">${esc(c.name)}</h1><p class="lead">Checked ${esc(new Date(c.date).toString())} · ${c.claims.length} claims · ${c.sources.length} sources · ${c.claims.filter(x=>x.judgment).length} claims reviewed by the author<br>Abstracts from OpenAlex/Crossref. Judgments below were made by the author, not by Siyasat. To save as PDF: File → Print → Save as PDF.</p>
+  ${c.orphans.length?`<p><b>Cited but missing from reference list:</b> ${c.orphans.map(o=>esc(o.label)).join(', ')}</p>`:''}${c.uncited.length?`<p><b>Listed but never cited:</b> ${c.uncited.map(esc).join(' · ')}</p>`:''}
+  <section class="card">${claimCards(c,false)}</section></main></body></html>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Siyasat verification report · ${esc(c.name)}</title>${css}</head><body><div class="mhead" style="display:flex"><div class="mark">S</div><b>Siyasat verification report</b></div><main style="margin:0 auto">
-  <h1 class="page-h">${esc(c.name)}</h1><p class="lead">Checked ${esc(new Date(c.date).toString())} · ${c.results.length} references · Integrity score <b>${c.score}/100</b><br>Sources queried: Crossref REST API (incl. Retraction Watch data) and OpenAlex. To save as PDF: File → Print → Save as PDF.</p>
+  <h1 class="page-h">${esc(c.name)}</h1><p class="lead">Checked ${esc(new Date(c.date).toString())} · ${c.type==='draft'?`Draft check · ${c.claims.length} claims · ${c.sources.length} sources`:c.results.length+' references'} · Integrity score <b>${c.score}/100</b><br>Sources queried: Crossref REST API (incl. Retraction Watch data) and OpenAlex. To save as PDF: File → Print → Save as PDF.</p>
   <section class="card"><h2>Each reference</h2>${(STATE.filter='all',itemList(c))}</section><section class="card"><h2>Corrected bibliography (APA 7)</h2>${bib(c)}</section></main></body></html>`;}
-function json(c){return JSON.stringify({tool:'Siyasat',name:c.name,checked_at:c.date,integrity:c.score,results:c.results.map(r=>({input:r.raw,verdict:r.verdict,confidence:r.confidence,doi:r.match&&r.match.doi,matched_title:r.match&&r.match.title,differences:r.diffs,note:r.note,apa:r.apa}))},null,2);}
+function json(c){if(c.type==='draft')return JSON.stringify({tool:'Siyasat',type:'draft',name:c.name,checked_at:c.date,claims:c.claims.map(cl=>({sentence:cl.sentence,citations:cl.cites.map(x=>x.label),author_judgment:cl.judgment,sources:cl.cites.map(x=>{const i=c.sources.findIndex(s=>s.key===x.key);const r=c.results[i]||{};return {citation:x.label,reference:c.sources[i].ref,verdict:r.verdict,doi:r.match&&r.match.doi,abstract:c.sources[i].abstract&&c.sources[i].abstract.text,abstract_from:c.sources[i].abstract&&c.sources[i].abstract.from};})})),cited_not_listed:c.orphans,listed_not_cited:c.uncited},null,2);
+  return JSON.stringify({tool:'Siyasat',name:c.name,checked_at:c.date,integrity:c.score,results:c.results.map(r=>({input:r.raw,verdict:r.verdict,confidence:r.confidence,doi:r.match&&r.match.doi,matched_title:r.match&&r.match.title,differences:r.diffs,note:r.note,apa:r.apa}))},null,2);}
 
 /* ---------- Router ---------- */
 function route(){
   const [r,arg]=location.hash.replace(/^#\/?/,'').split('/'); const page=r||'dashboard';
-  if(page==='new'&&arg&&['refs','corpus'].includes(arg))STATE.type=arg;
+  if(page==='new'&&arg&&['refs','corpus','draft'].includes(arg))STATE.type=arg;
   document.querySelectorAll('.nav a').forEach(a=>{if(a.dataset.r===page)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
   M.innerHTML=page==='new'?newCheck():page==='results'?results(arg):page==='reports'?reports():dashboard();
   document.title=({new:'New check',results:'Results',reports:'Reports'}[page]||'Dashboard')+' · Siyasat';
@@ -284,6 +390,10 @@ function bindCommon(arg){
   M.querySelectorAll('[data-json]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.json);dl(fname(c,'json'),json(c),'application/json');});
   M.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.del);if(confirm(`Delete "${c.name}"? This can't be undone.`)){save(load().filter(x=>x.id!==c.id));route();}});
   if($('clearAll'))$('clearAll').onclick=()=>{if(confirm('Delete all your saved checks from this browser? This can\'t be undone.')){localStorage.removeItem(KEY);route();}};
+  M.querySelectorAll('[data-claim]').forEach(b=>b.onclick=()=>{const cs=load();const c=cs.find(x=>x.id===(arg||cs[0].id));const i=+b.dataset.claim;
+    c.claims[i].judgment=c.claims[i].judgment===b.dataset.j?null:b.dataset.j;save(cs);
+    M.querySelectorAll(`[data-claim="${i}"]`).forEach(x=>x.setAttribute('aria-pressed',x.dataset.j===c.claims[i].judgment));
+    const d=c.claims.filter(x=>x.judgment).length;$('revn').textContent=`${d} of ${c.claims.length}`;$('revbar').style.width=(d/c.claims.length*100)+'%';});
   if($('pick'))$('pick').onchange=e=>location.hash='#/results/'+e.target.value;
   M.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{STATE.filter=b.dataset.f;const id=arg||load()[0].id;$('list').innerHTML=itemList(byId(id));M.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
   if($('copy'))$('copy').onclick=async()=>{const t=[...$('apa').querySelectorAll('p')].map(p=>p.innerText).join('\n');if(!t)return;
