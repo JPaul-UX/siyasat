@@ -98,6 +98,16 @@ mark{background:var(--gold-soft);color:var(--ink);border-bottom:2px solid var(--
 .judge button[aria-pressed=true][data-j=unsure]{background:var(--unc-bg);border-color:var(--unc);color:var(--unc)}
 .revbar{height:10px;background:var(--maroon-soft);border-radius:99px;overflow:hidden;margin-top:6px}.revbar i{display:block;height:100%;background:var(--gold)}
 .oneline{background:var(--gold-soft);border-left:5px solid var(--gold);border-radius:10px;padding:10px 14px;font-weight:650;color:var(--maroon);margin-bottom:16px}
+
+[hidden]{display:none!important}
+.drop{cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;padding:26px 16px}.drop:hover,.drop.over{background:#FBE7A8;border-color:var(--maroon)}
+.drop .dicon{font-size:30px}.drop small{color:var(--ink-soft)}.fakebtn{display:inline-block;background:var(--maroon);color:#fff;border-radius:8px;padding:6px 14px;font-weight:700;margin:4px 0}
+.chip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:2px solid var(--maroon);background:var(--maroon-soft);border-radius:12px;padding:12px 14px}.chip .dicon{font-size:28px}
+.chipt{flex:1;min-width:160px;word-break:break-word}.chipt small{display:block;color:var(--ink-soft)}
+.choice{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.jobctl{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.pager{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.status-chip{font-size:12.5px;font-weight:700;border-radius:99px;padding:2px 10px;background:var(--gold-soft);color:var(--warn)}
 @media(max-width:860px){.pair{grid-template-columns:1fr}.pair>div+div{border-left:0;border-top:1px solid var(--line)}}
 @media(max-width:860px){
  .app{grid-template-columns:1fr}
@@ -167,9 +177,9 @@ function dashboard(){
   <section class="card"><div class="rowh"><h2>Recent checks</h2><button class="link danger" id="clearAll">Clear all data</button></div>${recentList(cs.slice(0,8))}</section>`;
 }
 function recentList(cs){ if(!cs.length) return '<div class="empty">No checks yet.</div>';
-  return `<ul class="recent">${cs.map(c=>{const k=counts(c.results);return `<li><div class="t"><b>${esc(c.name)}</b><small>${fmtDate(c.date)} · ${c.type==='draft'?`Draft check · ${c.claims.length} claims · ${c.sources.length} sources`:c.results.length+' references'}</small></div>
+  return `<ul class="recent">${cs.map(c=>{const k=counts(c.results);return `<li><div class="t"><b>${esc(c.name)}</b><small>${fmtDate(c.date)} · ${c.type==='draft'?`Draft check · ${c.claims.length} claims · ${c.sources.length} sources`:(c.total||c.results.length).toLocaleString()+' references'+(c.type==='corpus'?' · corpus':'')}</small></div>
    <div class="mini">${['verified','correction','uncertain','not_found','retracted'].filter(v=>k[v]).map(v=>`<span class="badge ${v}" title="${esc(LABEL[v])}">${LABEL[v].split(' ')[0]} ${k[v]}</span>`).join('')}</div>
-   <span class="score-chip" title="Integrity score">${c.score}/100</span>
+   ${c.total&&c.results.length<c.total&&c.status!=='done'?`<span class="status-chip">${STATE.job&&STATE.job.id===c.id?'Checking':'Paused'} · ${c.results.length} of ${c.total}</span>${STATE.job&&STATE.job.id===c.id?'':`<button class="ghost" data-resume="${c.id}">▶ Resume</button>`}`:''}<span class="score-chip" title="Integrity score">${c.score}/100</span>
    <a class="btn ghost" href="#/results/${c.id}">Open<span class="sr"> ${esc(c.name)}</span></a>
    <button class="link danger" data-del="${c.id}">Delete<span class="sr"> ${esc(c.name)}</span></button></li>`}).join('')}</ul>`;}
 function typeCards(asLinks){
@@ -192,13 +202,15 @@ function newCheck(){
    ${refs?`<p class="help" style="margin-top:12px">Any citation style works (APA, MLA, Chicago…). Put each reference on its own line. A DOI by itself (like 10.1038/nature14539) works too.</p>
    <label class="big" for="input">Your reference list</label><textarea id="input" placeholder="Example:&#10;LeCun, Y., Bengio, Y., &amp; Hinton, G. (2015). Deep learning. Nature, 521(7553), 436–444."></textarea>`
    :`<p class="help" style="margin-top:12px">Export your search results or library from Zotero, Mendeley, EndNote, Scopus or Google Scholar as <b>.ris</b>, <b>.bib</b> (BibTeX) or <b>.csv</b>. Each record is checked like a reference.</p>
-   <div class="drop"><label class="big" for="file">Choose a file</label><input type="file" id="file" accept=".ris,.bib,.bibtex,.csv,.txt"></div>
+   <input type="file" id="file" class="sr" tabindex="-1" aria-hidden="true" accept=".ris,.bib,.bibtex,.csv,.txt,.nbib,.enw">
+   <div class="drop" id="drop" role="button" tabindex="0" aria-describedby="dropHelp" aria-label="Choose a file, or drag and drop it here">
+    <span class="dicon" aria-hidden="true">📂</span><b>Drag your file here</b> or <span class="fakebtn">Choose a file</span><small id="dropHelp">.ris, .bib (BibTeX) or .csv · any size</small></div>
+   <div class="chip" id="chip" hidden><span class="dicon" aria-hidden="true">📄</span><div class="chipt"><b id="chipName"></b><small id="chipCount"></small></div>
+    <button class="ghost" id="changeFile" type="button">Change file</button><button class="link danger" id="removeFile" type="button">✕ Remove file</button></div>
    <label class="big" for="input" style="margin-top:12px">Records found in your file <span class="meta">(you can edit them)</span></label><textarea id="input" placeholder="Records from your file will appear here."></textarea>`}
-   <div class="actions"><button class="primary" id="run">Check my references</button>${refs?'<button class="ghost" id="sample">Try an example</button>':''}<button class="link" id="clear">Clear</button><span class="count" id="count" aria-live="polite">0 references detected</span></div>
+   <div class="actions"><button class="primary" id="run">Check my references</button>${refs?'<button class="ghost" id="sample">Try an example</button>':''}<button class="link" id="clear">${refs?'Clear':'Clear records'}</button><button class="link" id="startOver">↺ Start over</button><span class="count" id="count" aria-live="polite">0 references detected</span></div>
    <div id="msg" role="alert"></div>
-   <div class="progress" id="progress" hidden><div class="ptrack" role="progressbar" aria-label="Checking references" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="pbar"><i id="pfill"></i></div>
-   <div class="ptext" id="ptext" aria-live="polite"></div>
-   <ol class="pipe" aria-hidden="true"><li data-p="0">Read reference</li><li data-p="1">Search Crossref & OpenAlex</li><li data-p="2">Match details</li><li data-p="3">Check retractions</li><li data-p="4">Verdict</li></ol></div>
+   ${progressHTML()}
   </section>`;}
 function draftForm(){
   return `<h1 class="page-h">New check</h1><p class="oneline">Siyasat shows you what each source actually says. You decide if it backs up your sentence.</p>
@@ -210,7 +222,7 @@ function draftForm(){
    <label class="big" for="input">Your draft</label><textarea id="input" style="min-height:240px" placeholder="Paste your paragraphs here…"></textarea>
    <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:650;color:var(--maroon)">My reference list is separate (optional)</summary>
     <label class="big" for="refsIn" style="margin-top:8px">Reference list</label><textarea id="refsIn" style="min-height:120px" placeholder="One reference per line"></textarea></details>
-   <div class="actions"><button class="primary" id="run">Check my draft</button><button class="ghost" id="sample">Try an example</button><button class="link" id="clear">Clear</button><span class="count" id="count" aria-live="polite">0 citations found</span></div>
+   <div class="actions"><button class="primary" id="run">Check my draft</button><button class="ghost" id="sample">Try an example</button><button class="link" id="clear">Clear</button><button class="link" id="startOver">↺ Start over</button><span class="count" id="count" aria-live="polite">0 citations found</span></div>
    <div id="msg" role="alert"></div>
    <div class="progress" id="progress" hidden><div class="ptrack" role="progressbar" aria-label="Checking sources" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="pbar"><i id="pfill"></i></div><div class="ptext" id="ptext" aria-live="polite"></div>
    <ol class="pipe" aria-hidden="true"><li data-p="0">Find citations</li><li data-p="1">Match reference list</li><li data-p="2">Verify source</li><li data-p="3">Get abstract</li><li data-p="4">Compare side by side</li></ol></div>
@@ -282,58 +294,153 @@ function draftResults(c,cs){
   <section class="card"><h2>Claim by claim</h2>${claimCards(c,true)}
    <div class="actions"><button class="ghost" data-rep="${c.id}">Download report</button><button class="link" data-json="${c.id}">Download data (JSON)</button></div></section>`;}
 function bindNew(){
+  if($('startOver')) $('startOver').onclick=startOver;
   if(STATE.type==='draft') return bindDraft();
   document.querySelectorAll('[data-type]').forEach(b=>b.onclick=()=>{if(b.disabled)return;STATE.type=b.dataset.type;location.hash='#/new/'+STATE.type;});
   const inp=$('input'),upd=()=>{const n=SIY.splitEntries(inp.value).length;$('count').textContent=n+(n===1?' reference':' references')+' detected';};
-  inp.addEventListener('input',upd);
+  inp.addEventListener('input',upd); STATE.upd=upd;
   if($('sample')) $('sample').onclick=()=>{inp.value=SAMPLE;if(!$('name').value)$('name').value='Example references';upd();$('msg').innerHTML='';$('run').focus();};
-  $('clear').onclick=()=>{inp.value='';upd();inp.focus();};
-  if($('file')) $('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;const t=await f.text();const recs=parseFile(f.name,t);
-    inp.value=recs.join('\n');upd();if(!$('name').value)$('name').value=f.name;
-    $('msg').innerHTML=recs.length?`<div class="msg ok">Found ${recs.length} record${recs.length>1?'s':''} in ${esc(f.name)}. Click <b>Check my references</b>.</div>`:`<div class="msg err">We couldn't read any records from this file. Make sure it's a .ris, .bib or .csv export.</div>`;};
-  $('run').onclick=run;
+  $('clear').onclick=()=>{inp.value='';upd();$('msg').innerHTML='';inp.focus();};
+  $('run').onclick=()=>run();
+  if(!$('file')) return;
+  const file=$('file'),drop=$('drop');
+  const pick=()=>{file.value='';file.click();};
+  drop.onclick=pick; drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick();}};
+  ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+  ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+  drop.addEventListener('drop',e=>{const f=e.dataTransfer&&e.dataTransfer.files[0];if(f)handleFile(f);});
+  file.onchange=()=>{const f=file.files[0];if(f)handleFile(f);};
+  $('changeFile').onclick=pick;
+  $('removeFile').onclick=()=>{removeFile();drop.focus();};
+}
+function removeFile(){
+  const c=STATE.corpus||{}; if($('name')&&c.nameFromFile&&$('name').value===c.fileName) $('name').value='';
+  STATE.corpus=null; if($('file')) $('file').value=''; if($('input')){$('input').value='';STATE.upd&&STATE.upd();}
+  if($('msg')) $('msg').innerHTML=''; if($('chip')){$('chip').hidden=true;$('drop').hidden=false;}
+}
+function startOver(){
+  const dirty=($('input')&&$('input').value.trim())||($('refsIn')&&$('refsIn').value.trim())||STATE.corpus;
+  if(STATE.job&&STATE.job.active){alert('A check is still running. Pause or cancel it first.');return;}
+  if(dirty&&!confirm('Start over? This clears everything you added on this page.'))return;
+  STATE.corpus=null; STATE.type='refs'; if(location.hash==='#/new') route(); else location.hash='#/new';
+  setTimeout(()=>{const h=document.querySelector('#main h2');if(h){h.tabIndex=-1;h.focus();}},0);
+}
+async function readText(f){
+  const buf=await f.arrayBuffer(); const head=new Uint8Array(buf.slice(0,4));
+  if(head[0]===0x25&&head[1]===0x50&&head[2]===0x44&&head[3]===0x46) throw new Error("This is a PDF, not a library export. Export your references from Zotero, Mendeley, EndNote or your database as .ris, .bib or .csv.");
+  if(head[0]===0x50&&head[1]===0x4B) throw new Error("This looks like a Word, Excel or zip file. Please save or export it as .ris, .bib or .csv first.");
+  let t=new TextDecoder('utf-8').decode(buf); if((t.match(/\uFFFD/g)||[]).length>5) t=new TextDecoder('windows-1252').decode(buf);
+  return t;
+}
+async function handleFile(f){
+  const name=$('name'); $('msg').innerHTML=`<div class="msg info">Reading ${esc(f.name)}…</div>`;
+  let recs=[],err='';
+  try{ const t=await readText(f); if(!t.trim()) throw new Error('This file is empty.'); recs=parseFile(f.name,t);
+    if(!recs.length) err=/^\s*TY\s{1,2}-/m.test(t)||/\.ris$/i.test(f.name)?"We read the file but found no records with a title or DOI. Make sure it's a RIS export with TI (title) or DO (DOI) lines.":/@\w+\s*\{/.test(t)?"We read the BibTeX file but no entry had a title or DOI.":"We couldn't recognise this file. Siyasat reads .ris, .bib (BibTeX) and .csv files with a Title column.";
+  }catch(e){ err=e.message; }
+  if(err){ $('msg').innerHTML=`<div class="msg err"><b>We couldn't use ${esc(f.name)}.</b> ${esc(err)}</div>`; $('file').value=''; return; }
+  const prevAuto=STATE.corpus&&STATE.corpus.nameFromFile&&name.value===STATE.corpus.fileName;
+  STATE.corpus={fileName:f.name,count:recs.length,nameFromFile:false};
+  if(!name.value.trim()||prevAuto){name.value=f.name.replace(/\.(ris|bib|bibtex|csv|txt)$/i,'');STATE.corpus.fileName=name.value;STATE.corpus.nameFromFile=true;}
+  $('input').value=recs.join('\n'); STATE.upd();
+  $('chipName').textContent=f.name; $('chipCount').textContent=`${recs.length.toLocaleString()} record${recs.length===1?'':'s'} found · ${(f.size/1024).toFixed(0)} KB`;
+  $('chip').hidden=false; $('drop').hidden=true;
+  $('msg').innerHTML=`<div class="msg ok">Found <b>${recs.length.toLocaleString()}</b> record${recs.length>1?'s':''} in ${esc(f.name)}. ${recs.length>300?'This is a big file, so we\'ll check it in batches.':''} Click <b>Check my references</b>.</div>`;
 }
 /* file parsers -> one reference string per record */
 function toRef(o){const ini=a=>{a=a.trim();let f,g;if(a.includes(',')){[f,g]=a.split(/,\s*/);}else{const p=a.split(/\s+/);f=p.pop();g=p.join(' ');}return f+(g?', '+g.split(/[\s.-]+/).filter(Boolean).map(x=>x[0].toUpperCase()+'.').join(' '):'');};
   const A=(o.authors||[]).slice(0,20).map(ini);const au=A.length>1?A.slice(0,-1).join(', ')+', & '+A[A.length-1]:A.join('');let s=(au?au+' ':'')+`(${o.year||'n.d.'}). ${(o.title||'').replace(/[{}]/g,'')}.`;if(o.venue)s+=' '+o.venue.replace(/[{}]/g,'')+(o.volume?', '+o.volume:'')+(o.pages?', '+o.pages:'')+'.';if(o.doi)s+=' https://doi.org/'+o.doi.replace(/^https?:\/\/doi\.org\//,'');return s;}
 function parseFile(name,t){
-  t=t.replace(/\r/g,''); const out=[];
-  if(/\.ris$/i.test(name)||/^TY  - /m.test(t)){ t.split(/^ER  -.*$/m).forEach(b=>{const o={authors:[]};b.split('\n').forEach(l=>{const m=l.match(/^([A-Z][A-Z0-9])  - ?(.*)$/);if(!m)return;const[,k,v]=m;
-      if(k==='AU'||k==='A1')o.authors.push(v.trim());else if(k==='TI'||k==='T1')o.title=v;else if(k==='PY'||k==='Y1'||k==='DA')o.year=o.year||(v.match(/\d{4}/)||[])[0];else if(k==='JO'||k==='T2'||k==='JF')o.venue=o.venue||v;else if(k==='VL')o.volume=v;else if(k==='SP')o.pages=v;else if(k==='EP')o.pages=(o.pages||'')+'–'+v;else if(k==='DO')o.doi=v;});
-      if(o.title||o.doi)out.push(toRef(o));}); return out; }
-  if(/\.bib(tex)?$/i.test(name)||/@\w+\s*\{/.test(t)){ t.split(/\n(?=\s*@)/).forEach(b=>{if(!/@\w+\s*\{/.test(b))return;const f=k=>{const m=b.match(new RegExp('\\b'+k+'\\s*=\\s*[{"]((?:[^{}"]|\\{[^{}]*\\})*)[}"]','i'))||b.match(new RegExp('\\b'+k+'\\s*=\\s*(\\d+)','i'));return m?m[1].trim():'';};
-      const o={title:f('title'),year:f('year'),venue:f('journal')||f('booktitle'),volume:f('volume'),pages:f('pages').replace('--','–'),doi:f('doi'),authors:f('author')?f('author').split(/\s+and\s+/i).map(a=>a.replace(/[{}]/g,'').trim()):[]};
-      if(o.title||o.doi)out.push(toRef(o));}); return out; }
-  // CSV
-  const rows=csv(t); if(rows.length<2) return out; const h=rows[0].map(x=>x.toLowerCase().trim()); const ix=re=>h.findIndex(x=>re.test(x));
-  const iT=ix(/^(title|article title|document title)$/),iA=ix(/^(authors?|author full names)$/),iY=ix(/year/),iV=ix(/(source|journal|publication title|source title)/),iD=ix(/^doi$/),iVol=ix(/^volume$/);
-  rows.slice(1).forEach(r=>{const o={title:r[iT],authors:iA>=0&&r[iA]?r[iA].split(/;\s*/):[],year:iY>=0?(String(r[iY]).match(/\d{4}/)||[])[0]:'',venue:iV>=0?r[iV]:'',volume:iVol>=0?r[iVol]:'',doi:iD>=0?r[iD]:''};if(o.title||o.doi)out.push(toRef(o));}); return out;
+  t=t.replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n'); const out=[];
+  if(/\.(ris|txt|nbib)$/i.test(name)&&/^\s*TY\s{1,2}-/m.test(t)||/^\s*TY\s{1,2}-/m.test(t)){
+    const blocks=t.split(/^\s*(?=TY\s{1,2}-)/m);
+    blocks.forEach(b=>{ if(!/^TY\s{1,2}-/.test(b)) return; const o={authors:[]}; let last=null;
+      b.split('\n').forEach(l=>{ const m=l.match(/^([A-Z][A-Z0-9])\s{1,2}-\s?(.*)$/);
+        if(!m){ if(last&&l.trim()&&/^(TI|T1|AB)$/.test(last)) o[last==='AB'?'ab':'title']+=' '+l.trim(); return; }
+        const k=m[1],v=m[2].trim(); last=k; if(k==='ER') return;
+        if(/^(AU|A1|A2)$/.test(k)&&k!=='A2'){ if(v) o.authors.push(v); }
+        else if(k==='TI'||k==='T1'||(k==='CT'&&!o.title)) o.title=o.title?o.title:v;
+        else if(/^(PY|Y1|DA|Y2)$/.test(k)) o.year=o.year||(v.match(/\b(1[5-9]|20)\d{2}\b/)||[])[0];
+        else if(/^(JO|JF|T2|JA|J2|BT)$/.test(k)) o.venue=o.venue||v;
+        else if(k==='VL') o.volume=v; else if(k==='SP') o.pages=v; else if(k==='EP'&&o.pages) o.pages=o.pages+'–'+v;
+        else if(k==='DO') o.doi=o.doi||v.replace(/^https?:\/\/(dx\.)?doi\.org\//,'');
+        else if((k==='UR'||k==='L3'||k==='M3'||k==='N1')&&!o.doi){ const d=v.match(/10\.\d{4,9}\/\S+/); if(d) o.doi=d[0]; }
+      });
+      if(o.title||o.doi) out.push(toRef(o)); });
+    return out; }
+  if(/\.bib(tex)?$/i.test(name)||/@\w+\s*[{(]/.test(t)){
+    t.split(/\n(?=\s*@)/).forEach(b=>{ if(!/@\w+\s*[{(]/.test(b)||/^\s*@(comment|preamble|string)/i.test(b)) return;
+      const f=k=>{const m=b.match(new RegExp('\\b'+k+'\\s*=\\s*\\{((?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*)\\}','i'))||b.match(new RegExp('\\b'+k+'\\s*=\\s*"([^"]*)"','i'))||b.match(new RegExp('\\b'+k+'\\s*=\\s*(\\d+)','i'));return m?m[1].replace(/\s+/g,' ').trim():'';};
+      const o={title:f('title'),year:f('year')||(f('date').match(/\d{4}/)||[''])[0],venue:f('journal')||f('journaltitle')||f('booktitle'),volume:f('volume'),pages:f('pages').replace(/-+/,'–'),doi:f('doi').replace(/^https?:\/\/(dx\.)?doi\.org\//,''),authors:f('author')?f('author').split(/\s+and\s+/i).map(a=>a.replace(/[{}]/g,'').trim()):[]};
+      if(o.title||o.doi) out.push(toRef(o)); });
+    return out; }
+  const sep=(t.split('\n')[0].match(/\t/g)||[]).length>(t.split('\n')[0].match(/,/g)||[]).length?'\t':(t.split('\n')[0].match(/;/g)||[]).length>(t.split('\n')[0].match(/,/g)||[]).length?';':',';
+  const rows=csv(t,sep); if(rows.length<2) return out; const h=rows[0].map(x=>x.toLowerCase().replace(/^"|"$/g,'').trim()); const ix=re=>h.findIndex(x=>re.test(x));
+  const iT=ix(/^(title|article title|document title|item title|primary title)$/),iA=ix(/^(authors?|author full names|creators?)$/),iY=ix(/(^year$|publication year|^py$|^date$|pubyear)/),iV=ix(/(source title|journal|publication title|^source$|^so$|book series title)/),iD=ix(/^doi$/),iVol=ix(/^volume$/),iP=ix(/^(pages|page start|start page)$/);
+  if(iT<0&&iD<0) return out;
+  rows.slice(1).forEach(r=>{const o={title:r[iT],authors:iA>=0&&r[iA]?r[iA].split(/;\s*/):[],year:iY>=0?(String(r[iY]).match(/\d{4}/)||[])[0]:'',venue:iV>=0?r[iV]:'',volume:iVol>=0?r[iVol]:'',pages:iP>=0?r[iP]:'',doi:iD>=0?(r[iD]||'').replace(/^https?:\/\/(dx\.)?doi\.org\//,''):''};if(o.title||o.doi)out.push(toRef(o));}); return out;
 }
-function csv(t){const rows=[];let row=[],f='',q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else q=false}else f+=c}else if(c=='"')q=true;else if(c==','){row.push(f);f=''}else if(c=='\n'){row.push(f);rows.push(row);row=[];f=''}else f+=c}if(f||row.length){row.push(f);rows.push(row)}return rows.filter(r=>r.some(x=>x.trim()));}
-async function run(){
-  if(STATE.running)return; const es=SIY.splitEntries($('input').value); $('msg').innerHTML='';
+function csv(t,sep=','){const rows=[];let row=[],f='',q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else q=false}else f+=c}else if(c=='"')q=true;else if(c==sep){row.push(f);f=''}else if(c=='\n'){row.push(f);rows.push(row);row=[];f=''}else f+=c}if(f||row.length){row.push(f);rows.push(row)}return rows.filter(r=>r.some(x=>x.trim()));}
+function progressHTML(){return `<div class="progress" id="progress" hidden><div class="ptrack" role="progressbar" aria-label="Checking references" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="pbar"><i id="pfill"></i></div>
+   <div class="ptext" id="ptext" aria-live="polite"></div>
+   <div class="jobctl" id="jobctl" hidden><button class="ghost" id="pauseJob" type="button">⏸ Pause</button><button class="link danger" id="cancelJob" type="button">Stop and show results so far</button></div>
+   <ol class="pipe" aria-hidden="true"><li data-p="0">Read reference</li><li data-p="1">Search Crossref & OpenAlex</li><li data-p="2">Match details</li><li data-p="3">Check retractions</li><li data-p="4">Verdict</li></ol></div>`;}
+const SOFT=300, CONC=3, SEC_PER=1.6;
+const eta=n=>{const m=Math.ceil(n*SEC_PER/CONC/60);return m<=1?'about a minute':`about ${m} minutes`;};
+async function run(force){
+  if(STATE.job&&STATE.job.active)return; let es=SIY.splitEntries($('input').value); $('msg').innerHTML='';
   if(!es.length){$('msg').innerHTML=`<div class="msg info">${STATE.type==='refs'?'Paste at least one reference first, or click <b>Try an example</b>.':'Choose a file first, or paste records into the box.'}</div>`;$('input').focus();return;}
-  if(es.length>300){$('msg').innerHTML='<div class="msg info">That\'s a lot! Please check up to 300 references at a time.</div>';return;}
-  STATE.running=true;$('run').disabled=true;$('run').textContent='Checking…';$('s2').className='done';$('s3').className='on';$('progress').hidden=false;
-  const results=[];let errs=0;const pipe=[...document.querySelectorAll('.pipe li')];
-  const tick=setInterval(()=>{const on=pipe.findIndex(l=>l.classList.contains('on'));pipe.forEach((l,j)=>l.className=j<(on+1)%5?'done':j===(on+1)%5?'on':'');},700);
-  for(let i=0;i<es.length;i++){const pct=Math.round(i/es.length*100);$('pfill').style.width=pct+'%';$('pbar').setAttribute('aria-valuenow',pct);$('ptext').textContent=`Checking reference ${i+1} of ${es.length}…`;
-    let r;try{r=await SIY.verify(es[i]);}catch(e){r={raw:es[i],verdict:'error',note:e.message};errs++;}results.push(slim(r));}
-  clearInterval(tick);pipe.forEach(l=>l.className='done');$('pfill').style.width='100%';
-  STATE.running=false;
-  if(errs===es.length){$('msg').innerHTML='<div class="msg err">We couldn\'t reach the databases. Check your internet connection and try again in a minute.</div>';$('run').disabled=false;$('run').textContent='Try again';return;}
-  const c={id:Date.now().toString(36),name:($('name').value.trim()||('Reference check '+new Date().toLocaleDateString())),type:STATE.type,date:new Date().toISOString(),results,score:SIY.integrity(results)};
-  const cs=load();cs.unshift(c);try{save(cs);}catch(e){} location.hash='#/results/'+c.id;
+  if(es.length>SOFT&&!force){
+    $('msg').innerHTML=`<div class="msg info"><b>${es.length.toLocaleString()} references is a big check.</b> Checking all of them takes ${eta(es.length)}. We check in batches and save as we go, so you can pause, close the tab and resume later.
+      <div class="choice"><button class="primary" id="runAll" type="button">Check all ${es.length.toLocaleString()} (${eta(es.length)})</button><button class="ghost" id="runFirst" type="button">Check the first ${SOFT} only</button></div></div>`;
+    $('runAll').onclick=()=>run('all'); $('runFirst').onclick=()=>run('first'); $('runAll').focus(); return; }
+  if(force==='first') es=es.slice(0,SOFT);
+  const c={id:Date.now().toString(36),name:($('name').value.trim()||((STATE.type==='corpus'?'Corpus check ':'Reference check ')+new Date().toLocaleDateString())),type:STATE.type,date:new Date().toISOString(),
+    inputs:es,total:es.length,results:[],score:0,status:'running'};
+  const cs=load();cs.unshift(c);if(!trySave(cs)){c.inputs=null;}
+  $('s2').className='done';$('s3').className='on';
+  runJob(c.id, es);
 }
-
+function trySave(cs){try{save(cs);return true;}catch(e){const m=$('msg');if(m)m.innerHTML='<div class="msg err">Your browser\'s storage is full, so progress may not be saved. Delete some old checks on the Dashboard.</div>';return false;}}
+function updateCheck(id,fn){const cs=load();const c=cs.find(x=>x.id===id);if(!c)return null;fn(c);trySave(cs);return c;}
+async function runJob(id, inputs){
+  const cs=load(); const c=cs.find(x=>x.id===id); if(!c) return;
+  inputs=inputs||c.inputs; if(!inputs){alert("This check's list wasn't saved, so it can't be resumed.");return;}
+  const doneIdx=new Set(c.results.map(r=>r.i)); const queue=inputs.map((x,i)=>i).filter(i=>!doneIdx.has(i));
+  const job=STATE.job={id,active:true,stop:null,total:inputs.length,done:doneIdx.size,errs:0,pending:[]};
+  updateCheck(id,x=>x.status='running');
+  const show=()=>{ const p=$('progress'); if(!p) return; p.hidden=false; $('jobctl').hidden=false;
+    const pct=Math.round(job.done/job.total*100); $('pfill').style.width=pct+'%'; $('pbar').setAttribute('aria-valuenow',pct);
+    $('ptext').textContent=job.stop==='pause'?`Pausing after the current references… (${job.done} of ${job.total} checked)`:`Checking ${job.done.toLocaleString()} of ${job.total.toLocaleString()}… ${job.total-job.done>30?'('+eta(job.total-job.done)+' left)':''}`;
+    $('pauseJob').onclick=()=>{job.stop='pause';show();}; $('cancelJob').onclick=()=>{job.stop='cancel';show();}; };
+  const pipe=()=>[...document.querySelectorAll('.pipe li')];
+  const tick=setInterval(()=>{const P=pipe();const on=P.findIndex(l=>l.classList.contains('on'));P.forEach((l,j)=>l.className=j<(on+1)%5?'done':j===(on+1)%5?'on':'');show();},700);
+  if($('run')){$('run').disabled=true;$('run').textContent='Checking…';}
+  show(); let buf=[], lastSave=Date.now();
+  const flush=()=>{ if(!buf.length) return; const add=buf; buf=[]; updateCheck(id,x=>{x.results=x.results.concat(add).sort((a,b)=>a.i-b.i);x.score=SIY.integrity(x.results);}); lastSave=Date.now(); };
+  async function worker(){ while(queue.length&&!job.stop){ const i=queue.shift(); let r;
+      try{r=slim(await SIY.verify(inputs[i]));}catch(e){r={raw:inputs[i],verdict:'error',note:e.message};job.errs++;}
+      r.i=i; buf.push(r); job.done++; if(buf.length>=10||Date.now()-lastSave>5000) flush(); } }
+  await Promise.all(Array.from({length:CONC},worker)); flush(); clearInterval(tick); job.active=false; STATE.job=null;
+  const fin=updateCheck(id,x=>{ if(job.stop==='pause') x.status='paused'; else { x.status='done'; if(x.results.length<x.total) x.stoppedEarly=true; x.inputs=x.results.length<x.total?x.inputs:null; } });
+  if(job.errs&&job.errs===job.done&&job.stop!=='pause'){ const m=$('msg'); if(m) m.innerHTML='<div class="msg err">We couldn\'t reach the databases. Check your internet connection and try again in a minute.</div>'; }
+  if(location.hash.startsWith('#/new')||location.hash.startsWith('#/results/'+id)||location.hash==='#/results') { if(location.hash==='#/results/'+id) route(); else location.hash='#/results/'+id; }
+}
+function resumeJob(id){ if(STATE.job&&STATE.job.active){alert('Another check is running. Wait for it or pause it first.');return;} location.hash='#/results/'+id; setTimeout(()=>runJob(id),50); }
 /* ---------- Results ---------- */
 function results(id){
   const cs=load(); const c=id?cs.find(x=>x.id===id):cs[0];
   if(!c) return `<h1 class="page-h">Results</h1><section class="card"><div class="empty"><span class="big" aria-hidden="true">🔍</span>${id?"We couldn't find that check. It may have been deleted.":'No results yet. Run a check to see results here.'}<div class="actions" style="justify-content:center"><a class="btn primary" href="#/new">Start a check</a></div></div></section>`;
   if(c.type==='draft') return draftResults(c,cs);
-  const k=counts(c.results);
+  const k=counts(c.results); STATE.page=STATE.pageFor===c.id?STATE.page:0; STATE.pageFor=c.id;
+  const running=STATE.job&&STATE.job.active&&STATE.job.id===c.id;
+  const unfinished=c.total&&c.results.length<c.total&&c.status!=='done';
+  const banner=(running||unfinished)?`<section class="card" style="border-color:var(--gold-dark)"><h2>${running?'Checking in batches…':'This check is paused'}</h2>
+    <p class="help">${c.results.length.toLocaleString()} of ${c.total.toLocaleString()} references checked so far. Progress is saved as we go${running?'':', so you can continue any time'}.</p>
+    ${running?'':`<div class="actions"><button class="primary" data-resume="${c.id}">▶ Resume (${eta(c.total-c.results.length)})</button><button class="link danger" data-finish="${c.id}">Finish with what's checked</button></div>`}${progressHTML()}</section>`
+   :c.stoppedEarly?`<div class="msg info" style="margin-bottom:14px">Stopped early: ${c.results.length.toLocaleString()} of ${c.total.toLocaleString()} references were checked. ${c.inputs?`<button class="link" data-resume="${c.id}">Check the rest</button>`:''}</div>`:'';
   return `<div class="rowh"><div><h1 class="page-h">Results</h1><p class="lead">${esc(c.name)} · ${fmtDate(c.date)}</p></div>${cs.length>1?`<label class="meta">Other checks: <select id="pick">${cs.map(x=>`<option value="${x.id}" ${x.id===c.id?'selected':''}>${esc(x.name)} (${fmtDate(x.date)})</option>`).join('')}</select></label>`:''}</div>
-  <section class="card" aria-labelledby="rh"><h2 id="rh" tabindex="-1">Summary</h2>
+  ${banner}<section class="card" aria-labelledby="rh"><h2 id="rh" tabindex="-1">Summary</h2>
    <div class="summary">
     <div class="tile score"><small>Integrity score ${tip('100 means every reference was found and matched exactly. Wrong details lower the score; made-up or retracted sources lower it most.')}</small><b>${c.score}/100</b><div class="sbar"><i style="width:${c.score}%"></i></div></div>
     ${['verified','correction','uncertain','not_found','retracted'].map(v=>`<div class="tile"><span class="badge ${v}">${LABEL[v]}</span><b>${k[v]}</b></div>`).join('')}
@@ -343,13 +450,17 @@ function results(id){
   <section class="card"><h2>Each reference</h2><div class="filters" role="group" aria-label="Show"><button aria-pressed="${STATE.filter==='all'}" data-f="all">All (${c.results.length})</button><button aria-pressed="${STATE.filter==='problems'}" data-f="problems">Only problems (${c.results.length-k.verified})</button></div><div id="list">${itemList(c)}</div></section>
   <section class="card"><h2>Corrected bibliography (APA 7)</h2><p class="help">Built from the real records, sorted A–Z. References we couldn't find or that are retracted are left out and listed below.</p>${bib(c)}
    <div class="actions"><button class="primary" id="copy">Copy bibliography</button><button class="ghost" data-rep="${c.id}">Download report</button><button class="link" data-json="${c.id}">Download data (JSON)</button><span id="copied" class="count" aria-live="polite"></span></div></section>`;}
-function itemList(c){const shown=c.results.map((r,i)=>[r,i]).filter(([r])=>STATE.filter==='all'||r.verdict!=='verified');
-  return shown.length?shown.map(([r,i])=>{const m=r.match;let h=`<article class="item v-${r.verdict}" aria-label="Reference ${i+1}: ${esc(LABEL[r.verdict])}"><span class="badge ${r.verdict}">${LABEL[r.verdict]}</span> <span class="meta">Reference ${i+1}${r.confidence!=null?` · match confidence ${Math.round(r.confidence*100)}%`:''}</span>
+const PAGE=50;
+function itemList(c){const all=c.results.map((r,i)=>[r,r.i!=null?r.i:i]).filter(([r])=>STATE.filter==='all'||r.verdict!=='verified');
+  const pages=Math.max(1,Math.ceil(all.length/PAGE)); const pg=Math.min(STATE.page||0,pages-1); const shown=all.slice(pg*PAGE,pg*PAGE+PAGE);
+  const pager=all.length>PAGE?`<nav class="pager" aria-label="Pages"><button class="ghost" data-pg="${pg-1}" ${pg===0?'disabled':''}>← Previous</button><span class="meta">Showing ${pg*PAGE+1}–${pg*PAGE+shown.length} of ${all.length.toLocaleString()}</span><button class="ghost" data-pg="${pg+1}" ${pg>=pages-1?'disabled':''}>Next →</button></nav>`:'';
+  return pager+(shown.length?shown.map(([r,i])=>itemHTML(r,i)).join(''):'<div class="empty"><span class="big" aria-hidden="true">🎉</span>No problems found.</div>')+pager;}
+function itemHTML(r,i){const m=r.match;let h=`<article class="item v-${r.verdict}" aria-label="Reference ${i+1}: ${esc(LABEL[r.verdict])}"><span class="badge ${r.verdict}">${LABEL[r.verdict]}</span> <span class="meta">Reference ${i+1}${r.confidence!=null?` · match confidence ${Math.round(r.confidence*100)}%`:''}</span>
    <p class="what">${EXPLAIN[r.verdict]}</p><div class="cite"><span class="sr">You wrote: </span>${esc(r.raw)}</div>`;
    if(m)h+=`<div class="meta">Matched record: <a href="https://doi.org/${esc(m.doi)}" target="_blank" rel="noopener">${esc(m.title)}<span class="sr"> (opens in new tab)</span></a> · ${esc(m.source)} · doi:${esc(m.doi)}</div>`;
    if(r.note&&r.verdict!=='uncertain')h+=`<div class="meta" style="margin-top:4px">${esc(r.note)}</div>`;
    if(r.diffs&&r.diffs.length)h+=`<div class="tbl"><table><caption class="sr">Differences</caption><tr><th scope="col">Detail</th><th scope="col">You wrote</th><th scope="col">Official record</th></tr>${r.diffs.map(d=>`<tr><td>${d.field}</td><td>${esc(d.cited)}</td><td class="${d.suspect?'':'fix'}">${esc(d.actual)}${d.note?`<div class="note">${esc(d.note)}</div>`:''}</td></tr>`).join('')}</table></div>`;
-   return h+'</article>'}).join(''):'<div class="empty"><span class="big" aria-hidden="true">🎉</span>No problems found.</div>';}
+   return h+'</article>';}
 function bib(c){const seen=new Set();const ok=c.results.filter(r=>r.apa&&r.verdict!=='retracted'&&!(r.match&&r.match.doi&&seen.has(r.match.doi))&&(r.match&&seen.add(r.match.doi),true)).map(r=>r.apa).sort((a,b)=>a.replace(/<[^>]+>/g,'').localeCompare(b.replace(/<[^>]+>/g,'')));
   const bad=c.results.filter(r=>['not_found','retracted','error'].includes(r.verdict));
   return `<div class="apa" id="apa">${ok.length?ok.map(a=>`<p>${a}</p>`).join(''):'<div class="empty">No confirmed references to list.</div>'}</div>`+(bad.length?`<div class="meta" style="margin-top:10px"><b>Left out, please review:</b><ul>${bad.map(r=>`<li><span class="badge ${r.verdict}">${LABEL[r.verdict]}</span> ${esc(r.raw.slice(0,110))}${r.raw.length>110?'…':''}</li>`).join('')}</ul></div>`:'');}
@@ -370,7 +481,7 @@ function report(c){const css=document.querySelector('style').outerHTML;
   <section class="card">${claimCards(c,false)}</section></main></body></html>`;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Siyasat verification report · ${esc(c.name)}</title>${css}</head><body><div class="mhead" style="display:flex"><div class="mark">S</div><b>Siyasat verification report</b></div><main style="margin:0 auto">
   <h1 class="page-h">${esc(c.name)}</h1><p class="lead">Checked ${esc(new Date(c.date).toString())} · ${c.type==='draft'?`Draft check · ${c.claims.length} claims · ${c.sources.length} sources`:c.results.length+' references'} · Integrity score <b>${c.score}/100</b><br>Sources queried: Crossref REST API (incl. Retraction Watch data) and OpenAlex. To save as PDF: File → Print → Save as PDF.</p>
-  <section class="card"><h2>Each reference</h2>${(STATE.filter='all',itemList(c))}</section><section class="card"><h2>Corrected bibliography (APA 7)</h2>${bib(c)}</section></main></body></html>`;}
+  <section class="card"><h2>Each reference</h2>${c.results.map((r,i)=>itemHTML(r,r.i!=null?r.i:i)).join('')}</section><section class="card"><h2>Corrected bibliography (APA 7)</h2>${bib(c)}</section></main></body></html>`;}
 function json(c){if(c.type==='draft')return JSON.stringify({tool:'Siyasat',type:'draft',name:c.name,checked_at:c.date,claims:c.claims.map(cl=>({sentence:cl.sentence,citations:cl.cites.map(x=>x.label),author_judgment:cl.judgment,sources:cl.cites.map(x=>{const i=c.sources.findIndex(s=>s.key===x.key);const r=c.results[i]||{};return {citation:x.label,reference:c.sources[i].ref,verdict:r.verdict,doi:r.match&&r.match.doi,abstract:c.sources[i].abstract&&c.sources[i].abstract.text,abstract_from:c.sources[i].abstract&&c.sources[i].abstract.from};})})),cited_not_listed:c.orphans,listed_not_cited:c.uncited},null,2);
   return JSON.stringify({tool:'Siyasat',name:c.name,checked_at:c.date,integrity:c.score,results:c.results.map(r=>({input:r.raw,verdict:r.verdict,confidence:r.confidence,doi:r.match&&r.match.doi,matched_title:r.match&&r.match.title,differences:r.diffs,note:r.note,apa:r.apa}))},null,2);}
 
@@ -388,17 +499,22 @@ function bindCommon(arg){
   const byId=id=>load().find(c=>c.id===id);
   M.querySelectorAll('[data-rep]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.rep);dl(fname(c,'html'),report(c),'text/html');});
   M.querySelectorAll('[data-json]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.json);dl(fname(c,'json'),json(c),'application/json');});
-  M.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.del);if(confirm(`Delete "${c.name}"? This can't be undone.`)){save(load().filter(x=>x.id!==c.id));route();}});
+  M.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.del);if(STATE.job&&STATE.job.active&&STATE.job.id===c.id){alert('This check is still running. Pause it first.');return;}if(confirm(`Delete "${c.name}"? This can't be undone.`)){save(load().filter(x=>x.id!==c.id));route();}});
   if($('clearAll'))$('clearAll').onclick=()=>{if(confirm('Delete all your saved checks from this browser? This can\'t be undone.')){localStorage.removeItem(KEY);route();}};
   M.querySelectorAll('[data-claim]').forEach(b=>b.onclick=()=>{const cs=load();const c=cs.find(x=>x.id===(arg||cs[0].id));const i=+b.dataset.claim;
     c.claims[i].judgment=c.claims[i].judgment===b.dataset.j?null:b.dataset.j;save(cs);
     M.querySelectorAll(`[data-claim="${i}"]`).forEach(x=>x.setAttribute('aria-pressed',x.dataset.j===c.claims[i].judgment));
     const d=c.claims.filter(x=>x.judgment).length;$('revn').textContent=`${d} of ${c.claims.length}`;$('revbar').style.width=(d/c.claims.length*100)+'%';});
+  M.querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{STATE.page=+b.dataset.pg;const c=byId(arg||load()[0].id);$('list').innerHTML=itemList(c);bindCommon(arg);$('list').scrollIntoView({block:'start'});const f=$('list').querySelector('article');if(f){f.tabIndex=-1;f.focus({preventScroll:true});}});
+  M.querySelectorAll('[data-resume]').forEach(b=>b.onclick=()=>resumeJob(b.dataset.resume));
+  M.querySelectorAll('[data-finish]').forEach(b=>b.onclick=()=>{updateCheck(b.dataset.finish,x=>{x.status='done';x.stoppedEarly=true;});route();});
+  if(STATE.job&&STATE.job.active&&$('progress')) $('progress').hidden=false;
   if($('pick'))$('pick').onchange=e=>location.hash='#/results/'+e.target.value;
-  M.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{STATE.filter=b.dataset.f;const id=arg||load()[0].id;$('list').innerHTML=itemList(byId(id));M.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
+  M.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{STATE.filter=b.dataset.f;STATE.page=0;const id=arg||load()[0].id;$('list').innerHTML=itemList(byId(id));M.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
   if($('copy'))$('copy').onclick=async()=>{const t=[...$('apa').querySelectorAll('p')].map(p=>p.innerText).join('\n');if(!t)return;
     try{await navigator.clipboard.writeText(t);}catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();}
     $('copied').textContent='✓ Copied! Paste it into your document.';setTimeout(()=>$('copied').textContent='',4000);};
 }
+(()=>{const cs=load();let ch=false;cs.forEach(c=>{if(c.status==='running'){c.status='paused';ch=true;}});if(ch)try{save(cs)}catch(e){}})();
 window.addEventListener('hashchange',route); route();
 </script></body></html>

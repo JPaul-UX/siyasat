@@ -26,7 +26,12 @@ function parse(raw){
     if(v){ r.venue=v[1]; r.volume=v[2]; r.issue=v[3]; r.pages=v[4].replace(/\s/g,'').replace('-','–'); } else r.venue=r.rest.split(/[,.]/)[0]; }
   return r;
 }
-async function getJSON(url, fetchFn){ for(let i=0;i<3;i++){ try{ const res=await fetchFn(url); if(res.status===404) return null; if(res.ok) return await res.json(); }catch(e){} await new Promise(r=>setTimeout(r,800*(i+1))); } throw new Error('Network error contacting '+new URL(url).host); }
+async function getJSON(url, fetchFn){ let last='';
+  for(let i=0;i<6;i++){ try{ const res=await fetchFn(url); if(res.status===404) return null; if(res.ok) return await res.json();
+      last='HTTP '+res.status; if(res.status===429||res.status>=500){ const ra=+(res.headers&&res.headers.get&&res.headers.get('retry-after'))||0; await new Promise(r=>setTimeout(r, ra?ra*1000:Math.min(20000,1000*2**i)+Math.random()*500)); continue; }
+      if(res.status>=400 && res.status<500) return null;
+    }catch(e){ last=e.message; } await new Promise(r=>setTimeout(r,800*(i+1)+Math.random()*400)); }
+  throw new Error('Network error contacting '+new URL(url).host+(last?' ('+last+')':'')); }
 function fromCrossref(w){ return { source:'Crossref', doi:(w.DOI||'').toLowerCase(), title:(w.title||[''])[0], authors:(w.author||[]).map(a=>({family:a.family||a.name||'', given:a.given||''})),
   year:((w.issued||w['published-print']||w['published-online']||{})['date-parts']||[[null]])[0][0], venue:(w['container-title']||[''])[0], volume:w.volume, issue:w.issue, pages:(w.page||'').replace('-','–'), type:w.type, cites:w['is-referenced-by-count']||0,
   retracted: !!((w['updated-by']||[]).some(u=>/retract/i.test(u.type)) || /^retracted\b/i.test((w.title||[''])[0])), raw:w }; }
