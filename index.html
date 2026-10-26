@@ -1,173 +1,294 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Siyasat · Check your reference list</title>
+<title>Siyasat · Citation checker</title>
 <meta name="description" content="Check whether the references in your paper are real, correct, and not retracted.">
 <style>
-:root{
- --maroon:#771712;--maroon-dark:#5A110D;--maroon-soft:#F6E9E7;
- --gold:#F5C544;--gold-dark:#B8860B;--gold-soft:#FDF4D9;
- --paper:#FBF8F3;--surface:#FFFFFF;--ink:#2A1C1A;--ink-soft:#5B4A47;--line:#E8DED6;
- --ok:#1E6B3A;--ok-bg:#E5F2E9;--warn:#7A4A00;--warn-bg:#FCEFCF;--bad:#A3201B;--bad-bg:#FBE5E3;
- --ret:#6B2A6E;--ret-bg:#F3E6F3;--unc:#44505E;--unc-bg:#E9EDF1;
+:root{--maroon:#771712;--maroon-dark:#5A110D;--maroon-soft:#F6E9E7;--gold:#F5C544;--gold-dark:#B8860B;--gold-soft:#FDF4D9;
+ --paper:#FBF8F3;--surface:#FFF;--ink:#2A1C1A;--ink-soft:#5B4A47;--line:#E8DED6;
+ --ok:#1E6B3A;--ok-bg:#E5F2E9;--warn:#7A4A00;--warn-bg:#FCEFCF;--bad:#A3201B;--bad-bg:#FBE5E3;--ret:#6B2A6E;--ret-bg:#F3E6F3;--unc:#44505E;--unc-bg:#E9EDF1;
  --shadow:0 1px 3px rgba(42,28,26,.08),0 10px 30px rgba(42,28,26,.06);--r:14px}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 a{color:var(--maroon);text-underline-offset:2px}
 :focus-visible{outline:3px solid var(--gold);outline-offset:2px;box-shadow:0 0 0 5px var(--maroon);border-radius:6px}
-.skip{position:absolute;left:-999px}.skip:focus{left:12px;top:12px;background:#fff;padding:8px 12px;z-index:9}
-header{background:var(--maroon);color:#fff;border-bottom:5px solid var(--gold)}
-.hwrap{max-width:980px;margin:0 auto;padding:18px 20px;display:flex;align-items:center;gap:14px}
-.mark{width:42px;height:42px;border-radius:11px;background:var(--gold);color:var(--maroon);display:grid;place-items:center;font-weight:850;font-size:22px;flex:none}
-header h1{margin:0;font-size:22px;letter-spacing:.2px}header p{margin:0;color:#F8E7C2;font-size:14px}
-main{max-width:980px;margin:0 auto;padding:22px 20px 40px}
-.intro{font-size:17px;color:var(--ink-soft);margin:4px 0 18px}
+.skip{position:absolute;left:-999px}.skip:focus{left:12px;top:12px;background:#fff;padding:8px 12px;z-index:99}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+/* layout */
+.app{display:grid;grid-template-columns:236px 1fr;min-height:100vh}
+nav.side{background:var(--maroon);color:#fff;padding:18px 12px;position:sticky;top:0;height:100vh;border-right:5px solid var(--gold);display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:10px;padding:2px 8px 22px}.mark{width:40px;height:40px;border-radius:11px;background:var(--gold);color:var(--maroon);display:grid;place-items:center;font-weight:850;font-size:21px;flex:none}
+.brand b{font-size:19px;display:block}.brand small{color:#F8E7C2;font-size:12px}
+.nav a{display:flex;align-items:center;gap:12px;color:#fff;text-decoration:none;padding:11px 12px;border-radius:10px;font-weight:600;margin-bottom:4px}
+.nav a:hover{background:rgba(255,255,255,.1)}.nav a[aria-current=page]{background:var(--gold);color:var(--maroon)}
+.nav svg{width:22px;height:22px;flex:none}
+.side .foot{margin-top:auto;font-size:12px;color:#F8E7C2;padding:8px}
+main{padding:28px 32px 60px;max-width:1080px;width:100%}
+h1[tabindex="-1"]:focus{outline:none;box-shadow:none}
+.page-h{margin:0 0 4px;font-size:26px;color:var(--maroon)}.lead{color:var(--ink-soft);margin:0 0 22px;font-size:16.5px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:22px;margin-bottom:18px}
+.card h2{margin:0 0 4px;font-size:19px;color:var(--maroon)}.help{color:var(--ink-soft);font-size:14.5px;margin:0 0 12px}
+button,.btn{font:inherit;cursor:pointer;border-radius:10px;border:2px solid transparent;min-height:44px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.primary{background:var(--maroon);color:#fff;font-weight:750;font-size:17px;padding:12px 26px;box-shadow:0 3px 0 var(--maroon-dark)}.primary:hover{background:var(--maroon-dark)}.primary:disabled{opacity:.6;cursor:wait}
+.ghost{background:var(--surface);color:var(--maroon);border-color:var(--maroon);font-weight:650;padding:8px 16px}.ghost:hover{background:var(--maroon-soft)}
+.link{background:none;color:var(--ink-soft);text-decoration:underline;padding:8px}.danger{color:var(--bad)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}.count{color:var(--ink-soft);font-size:14px;margin-left:auto}
+/* dashboard */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px}.stat b{display:block;font-size:30px;line-height:1.1;color:var(--maroon)}.stat span{font-size:13.5px;color:var(--ink-soft)}
+.stat.hl{background:var(--maroon);border-color:var(--maroon)}.stat.hl b{color:var(--gold)}.stat.hl span{color:#F8E7C2}
+.types{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.type{text-decoration:none;text-align:left;background:#fff;border:2px solid var(--line);border-radius:12px;padding:16px;display:block;width:100%;color:var(--ink)}
+.type:hover:not(:disabled){border-color:var(--maroon)}.type[aria-checked=true]{border-color:var(--maroon);background:var(--maroon-soft)}
+.type:disabled{opacity:.65;cursor:not-allowed}.type b{display:block;font-size:16.5px;color:var(--maroon);margin:6px 0 2px}.type small{color:var(--ink-soft);font-size:13.5px;display:block}
+.tag{display:inline-block;font-size:11.5px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;padding:2px 8px;border-radius:99px;background:var(--gold-soft);color:var(--warn)}
+.tag.on{background:var(--ok-bg);color:var(--ok)}
+.recent{list-style:none;margin:0;padding:0}.recent li{display:flex;gap:12px;align-items:center;border-top:1px solid var(--line);padding:12px 2px;flex-wrap:wrap}
+.recent li:first-child{border-top:0}.recent .t{flex:1;min-width:180px}.recent .t b{display:block}.recent .t small{color:var(--ink-soft)}
+.mini{display:flex;gap:4px;flex-wrap:wrap}.score-chip{font-weight:800;color:var(--maroon);background:var(--gold-soft);border-radius:8px;padding:4px 10px}
+.welcome{background:linear-gradient(135deg,var(--maroon),#8E2019);color:#fff;border:0}.welcome h2{color:var(--gold);font-size:22px}.welcome p{color:#FBEBDD}
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0;padding:0;list-style:none;counter-reset:h}
+.how li{background:rgba(255,255,255,.1);border-radius:12px;padding:12px 14px;font-size:14.5px}.how li::before{counter-increment:h;content:counter(h);display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--gold);color:var(--maroon);font-weight:850;margin-bottom:6px}
+.how b{display:block;color:#fff}
+.welcome .primary{background:var(--gold);color:var(--maroon);box-shadow:0 3px 0 #C99A20}.welcome .primary:hover{background:#FFD45E}
+/* steps */
 .steps{display:flex;gap:8px;list-style:none;padding:0;margin:0 0 18px;counter-reset:s}
 .steps li{flex:1;display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-weight:600;color:var(--ink-soft)}
 .steps li::before{counter-increment:s;content:counter(s);width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--maroon-soft);color:var(--maroon);font-weight:800;flex:none}
-.steps li.on{border-color:var(--maroon);color:var(--maroon)}.steps li.on::before{background:var(--maroon);color:#fff}
-.steps li.done::before{content:"✓";background:var(--gold);color:var(--maroon)}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:22px;margin-bottom:18px}
-.card h2{margin:0 0 4px;font-size:19px;color:var(--maroon)}.help{color:var(--ink-soft);font-size:14.5px;margin:0 0 12px}
-label.big{display:block;font-weight:700;margin-bottom:6px}
+.steps li.on{border-color:var(--maroon);color:var(--maroon)}.steps li.on::before{background:var(--maroon);color:#fff}.steps li.done::before{content:"✓";background:var(--gold);color:var(--maroon)}
+label.big{display:block;font-weight:700;margin:4px 0 6px}
+input[type=text]{width:100%;font:inherit;border:2px solid var(--line);border-radius:10px;padding:10px 12px;background:#FFFDF9}
 textarea{width:100%;min-height:200px;border:2px solid var(--line);border-radius:10px;padding:14px;font:14px/1.55 ui-monospace,Menlo,Consolas,monospace;background:#FFFDF9;color:var(--ink);resize:vertical}
-textarea:focus{border-color:var(--maroon);outline:none;box-shadow:0 0 0 3px var(--gold)}
-.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
-button{font:inherit;cursor:pointer;border-radius:10px;border:2px solid transparent;min-height:44px}
-.primary{background:var(--maroon);color:#fff;font-weight:750;font-size:18px;padding:13px 30px;box-shadow:0 3px 0 var(--maroon-dark)}
-.primary:hover{background:var(--maroon-dark)}.primary:disabled{opacity:.6;cursor:wait}
-.ghost{background:var(--surface);color:var(--maroon);border-color:var(--maroon);font-weight:650;padding:9px 16px}.ghost:hover{background:var(--maroon-soft)}
-.link{background:none;color:var(--ink-soft);text-decoration:underline;padding:8px}
-.count{color:var(--ink-soft);font-size:14px;margin-left:auto}
-.msg{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}.msg.err{background:var(--bad-bg);color:var(--bad)}.msg.info{background:var(--gold-soft);color:var(--warn)}
+textarea:focus,input[type=text]:focus{border-color:var(--maroon);outline:none;box-shadow:0 0 0 3px var(--gold)}
+.drop{border:2px dashed var(--gold-dark);border-radius:12px;padding:20px;text-align:center;background:var(--gold-soft);color:var(--warn)}
+.msg{border-radius:10px;padding:12px 14px;margin-top:12px;font-size:15px}.msg.err{background:var(--bad-bg);color:var(--bad)}.msg.info{background:var(--gold-soft);color:var(--warn)}.msg.ok{background:var(--ok-bg);color:var(--ok)}
 .progress{margin-top:14px}.ptrack{height:12px;background:var(--maroon-soft);border-radius:99px;overflow:hidden}.ptrack i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--gold),#E9A92C);transition:width .3s}
 .ptext{font-size:14px;color:var(--ink-soft);margin-top:6px}
+.pipe{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding:0;list-style:none}.pipe li{font-size:12.5px;padding:4px 10px;border-radius:99px;background:var(--maroon-soft);color:var(--ink-soft)}.pipe li.on{background:var(--gold);color:var(--maroon);font-weight:700}.pipe li.done{background:var(--ok-bg);color:var(--ok)}
+/* results */
 .summary{display:grid;grid-template-columns:1.3fr repeat(5,1fr);gap:10px}
 .tile{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff}.tile b{display:block;font-size:28px;line-height:1.1;margin-top:4px}
 .tile.score{background:var(--maroon);color:#fff;border-color:var(--maroon)}.tile.score small{color:#F8E7C2}
 .sbar{height:8px;background:rgba(255,255,255,.25);border-radius:9px;margin-top:8px;overflow:hidden}.sbar i{display:block;height:100%;background:var(--gold)}
-.badge{display:inline-flex;align-items:center;gap:6px;padding:3px 11px;border-radius:99px;font-size:13.5px;font-weight:750}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:3px 11px;border-radius:99px;font-size:13.5px;font-weight:750;white-space:nowrap}
 .verified{color:var(--ok);background:var(--ok-bg)}.correction{color:var(--warn);background:var(--warn-bg)}.not_found,.error{color:var(--bad);background:var(--bad-bg)}.retracted{color:var(--ret);background:var(--ret-bg)}.uncertain{color:var(--unc);background:var(--unc-bg)}
-.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin:12px 0 4px;padding:0;list-style:none}
-.legend li{font-size:13.5px;color:var(--ink-soft)}.legend .badge{margin-bottom:3px}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin:12px 0 4px;padding:0;list-style:none}.legend li{font-size:13.5px;color:var(--ink-soft)}
 .filters{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 4px}.filters button{min-height:36px;padding:4px 12px;background:#fff;border:1px solid var(--line);font-size:14px}.filters button[aria-pressed=true]{background:var(--maroon);color:#fff;border-color:var(--maroon)}
 .item{border:1px solid var(--line);border-left:6px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:12px}
 .item.v-verified{border-left-color:var(--ok)}.item.v-correction{border-left-color:#D99A1E}.item.v-not_found,.item.v-error{border-left-color:var(--bad)}.item.v-retracted{border-left-color:var(--ret)}.item.v-uncertain{border-left-color:var(--unc)}
 .item .what{margin:8px 0 6px;font-size:15px}.cite{font:13px/1.5 ui-monospace,Menlo,monospace;color:var(--ink-soft);background:#FFFDF9;border-radius:8px;padding:8px 10px;margin:6px 0;word-break:break-word}
 .tbl{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px;margin-top:6px}th,td{text-align:left;padding:7px 9px;border-top:1px solid var(--line);vertical-align:top}th{color:var(--ink-soft);font-weight:650;background:#FFFBF2}
-td.fix{font-weight:700;color:var(--ok)}.note{font-size:13px;color:var(--warn);font-weight:500}
-.meta{font-size:13px;color:var(--ink-soft)}
-#apa{background:#FFFDF9;border:1px dashed var(--gold-dark);border-radius:10px;padding:12px 16px}#apa p{padding-left:2em;text-indent:-2em;margin:8px 0}
-.review{font-size:14px;color:var(--ink-soft);margin-top:10px}
-.empty{text-align:center;color:var(--ink-soft);padding:16px}
-.tip{position:relative;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--maroon-soft);color:var(--maroon);font-size:12px;font-weight:800;border:0;min-height:0;padding:0;cursor:help}
-.tip span{display:none;position:absolute;bottom:130%;left:50%;transform:translateX(-50%);width:240px;background:var(--ink);color:#fff;font-weight:500;font-size:13px;padding:8px 10px;border-radius:8px;z-index:5;text-align:left}
+td.fix{font-weight:700;color:var(--ok)}.note{font-size:13px;color:var(--warn);font-weight:500}.meta{font-size:13px;color:var(--ink-soft)}
+.apa{background:#FFFDF9;border:1px dashed var(--gold-dark);border-radius:10px;padding:12px 16px}.apa p{padding-left:2em;text-indent:-2em;margin:8px 0}
+.empty{text-align:center;color:var(--ink-soft);padding:22px}.empty .big{font-size:38px;display:block}
+.tip{position:relative;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--maroon-soft);color:var(--maroon);font-size:12px;font-weight:800;border:0;min-height:0;padding:0;cursor:help;vertical-align:middle}
+.tip span{display:none;position:absolute;bottom:130%;left:50%;transform:translateX(-50%);width:230px;background:var(--ink);color:#fff;font-weight:500;font-size:13px;padding:8px 10px;border-radius:8px;z-index:5;text-align:left;line-height:1.4}
 .tip:hover span,.tip:focus span{display:block}
-footer{max-width:980px;margin:0 auto;padding:0 20px 30px;font-size:13px;color:var(--ink-soft)}
-.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-@media(max-width:760px){.summary{grid-template-columns:repeat(2,1fr)}.tile.score{grid-column:1/-1}.steps li{font-size:13px;padding:8px;flex-direction:column;text-align:center;gap:4px}.primary{width:100%}.count{margin-left:0}header h1{font-size:19px}.card{padding:16px}}
-@media print{header,.actions,.filters,.steps,#inputCard,footer{display:none}.card{box-shadow:none}}
+.rowh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between}
+@media(max-width:860px){
+ .app{grid-template-columns:1fr}
+ nav.side{position:fixed;bottom:0;top:auto;left:0;right:0;height:auto;z-index:50;padding:4px 6px calc(4px + env(safe-area-inset-bottom));border-right:0;border-top:4px solid var(--gold);flex-direction:row}
+ .brand,.side .foot{display:none}.nav{display:flex;width:100%}.nav a{flex:1;flex-direction:column;gap:2px;font-size:11.5px;padding:7px 2px;margin:0;text-align:center}
+ .mhead{display:flex!important}main{padding:16px 16px 100px}
+ .stats{grid-template-columns:repeat(2,1fr)}.stats .stat.hl{grid-column:1/-1}.types,.how{grid-template-columns:1fr}
+ .summary{grid-template-columns:repeat(2,1fr)}.tile.score{grid-column:1/-1}.steps li{font-size:12.5px;padding:8px;flex-direction:column;text-align:center;gap:4px}.primary{width:100%}.count{margin-left:0}.card{padding:16px}
+}
+.mhead{display:none;align-items:center;gap:10px;background:var(--maroon);color:#fff;padding:12px 16px;border-bottom:4px solid var(--gold)}.mhead .mark{width:34px;height:34px;font-size:18px}
+@media print{nav.side,.mhead,.actions,.filters{display:none}.app{display:block}.card{box-shadow:none}}
 </style></head><body>
 <a class="skip" href="#main">Skip to content</a>
-<header><div class="hwrap"><div class="mark" aria-hidden="true">S</div><div><h1>Siyasat</h1><p>Check your reference list: are your sources real, correct, and not retracted?</p></div></div></header>
-<main id="main">
-<p class="intro">AI tools sometimes invent sources that don't exist or get the details wrong. Paste your references below and Siyasat will check each one against real scholarly databases.</p>
-<ol class="steps" aria-label="Progress"><li id="s1" class="on">Paste</li><li id="s2">Check</li><li id="s3">Review &amp; copy</li></ol>
-
-<section class="card" id="inputCard" aria-labelledby="h1">
- <h2 id="h1">Step 1 · Paste your references</h2>
- <p class="help">Any citation style works (APA, MLA, Chicago…). Put each reference on its own line. A DOI on its own (like 10.1038/nature14539) works too.</p>
- <label class="big" for="input">Your reference list</label>
- <textarea id="input" aria-describedby="count" placeholder="Example:&#10;LeCun, Y., Bengio, Y., &amp; Hinton, G. (2015). Deep learning. Nature, 521(7553), 436–444."></textarea>
- <div class="actions">
-  <button class="primary" id="run">Check my references</button>
-  <button class="ghost" id="sample">Try an example</button>
-  <button class="link" id="clear">Clear</button>
-  <span class="count" id="count" aria-live="polite">0 references detected</span>
+<div class="mhead"><div class="mark" aria-hidden="true">S</div><b>Siyasat</b></div>
+<div class="app">
+<nav class="side" aria-label="Main">
+ <div class="brand"><div class="mark" aria-hidden="true">S</div><div><b>Siyasat</b><small>verify · validate · gate</small></div></div>
+ <div class="nav">
+  <a href="#/dashboard" data-r="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</a>
+  <a href="#/new" data-r="new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>New check</a>
+  <a href="#/results" data-r="results"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>Results</a>
+  <a href="#/reports" data-r="reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Reports</a>
  </div>
- <div id="msg" role="alert"></div>
- <div class="progress" id="progress" hidden><div class="ptrack" role="progressbar" aria-label="Checking references" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="pbar"><i id="pfill"></i></div><div class="ptext" id="ptext" aria-live="polite"></div></div>
-</section>
-
-<section class="card" id="emptyCard" aria-live="polite"><div class="empty">Your results will appear here. Not sure where to start? Click <b>Try an example</b> to see how it works.</div></section>
-
-<section id="out" hidden>
- <div class="card" aria-labelledby="h2"><h2 id="h2">Step 2 · Your results</h2>
-  <div class="summary">
-   <div class="tile score"><small>Integrity score <button class="tip" aria-label="What is the integrity score?">?<span>100 means every reference was found and matched exactly. Wrong details lower the score; made-up or retracted sources lower it most.</span></button></small><b id="score">–</b><div class="sbar"><i id="scorebar"></i></div></div>
-   <div class="tile"><span class="badge verified">✓ Looks good</span><b id="n_verified">0</b></div>
-   <div class="tile"><span class="badge correction">✎ Fix details</span><b id="n_correction">0</b></div>
-   <div class="tile"><span class="badge uncertain">? Double-check</span><b id="n_uncertain">0</b></div>
-   <div class="tile"><span class="badge not_found">✕ Can't find it</span><b id="n_not_found">0</b></div>
-   <div class="tile"><span class="badge retracted">⚠ Retracted</span><b id="n_retracted">0</b></div>
-  </div>
-  <ul class="legend" aria-label="What the labels mean">
-   <li><span class="badge verified">✓ Looks good</span><br>This source is real and your details match.</li>
-   <li><span class="badge correction">✎ Fix details</span><br>Real source, but something (author, year, title…) is wrong. See the fix.</li>
-   <li><span class="badge uncertain">? Double-check</span><br>We found something similar but couldn't confirm it. Check it yourself.</li>
-   <li><span class="badge not_found">✕ Can't find it</span><br>No real paper matches. It may be made up. Don't cite it unless you can find it yourself.</li>
-   <li><span class="badge retracted">⚠ Retracted</span><br>Real, but officially withdrawn. Don't use it as evidence.</li>
-  </ul>
-  <div class="filters" role="group" aria-label="Show"><button aria-pressed="true" data-f="all">All</button><button aria-pressed="false" data-f="problems">Only problems</button></div>
-  <div id="list"></div>
- </div>
- <div class="card" aria-labelledby="h3"><h2 id="h3">Step 3 · Copy your corrected bibliography (APA 7)</h2>
-  <p class="help">Built from the real records, sorted A–Z. References we couldn't find or that are retracted are left out and listed below for you to review.</p>
-  <div id="apa"></div><div id="review" class="review"></div>
-  <div class="actions"><button class="primary" id="copy">Copy bibliography</button><button class="ghost" id="report">Download report (print to PDF)</button><button class="link" id="json">Download data (JSON)</button><span id="copied" class="count" aria-live="polite"></span></div>
- </div>
-</section>
-</main>
-<footer>Runs entirely in your browser. Nothing you paste is saved. Sources: Crossref (including Retraction Watch data) and OpenAlex. Always double-check before you submit.</footer>
+ <div class="foot">Runs in your browser. Your checks are saved only on this device.</div>
+</nav>
+<main id="main" tabindex="-1"></main>
+</div>
 <script src="engine.js"></script>
 <script>
-const $=id=>document.getElementById(id); let RESULTS=[], STAMP='', FILTER='all';
-const LABEL={verified:'✓ Looks good',correction:'✎ Fix details',uncertain:'? Double-check',not_found:"✕ Can't find it",retracted:'⚠ Retracted',error:"! Couldn't check"};
-const EXPLAIN={verified:'This source is real and the details you wrote match the official record.',correction:'This source is real, but some details are wrong. Use the corrected version below.',uncertain:"We found a similar record but couldn't confirm the original publication. Check it yourself before citing.",not_found:'We searched Crossref and OpenAlex and found no paper that matches. It may have been made up by AI. Don\'t cite it unless you can find the real source.',retracted:'This paper was officially withdrawn by its journal. Don\'t use it as evidence in your work.',error:"We couldn't reach the databases for this one. Check your internet connection and try again."};
+const $=id=>document.getElementById(id), M=document.getElementById('main');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const KEY='siyasat.checks.v1';
+const load=()=>{try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]}}, save=a=>localStorage.setItem(KEY,JSON.stringify(a));
+const LABEL={verified:'✓ Looks good',correction:'✎ Fix details',uncertain:'? Double-check',not_found:"✕ Can't find it",retracted:'⚠ Retracted',error:"! Couldn't check"};
+const EXPLAIN={verified:'This source is real and the details you wrote match the official record.',correction:'This source is real, but some details are wrong. Use the corrected version below.',uncertain:"We found a similar record but couldn't confirm the original publication. Check it yourself before citing.",not_found:"We searched Crossref and OpenAlex and found no paper that matches. It may have been made up by AI. Don't cite it unless you can find the real source.",retracted:"This paper was officially withdrawn by its journal. Don't use it as evidence in your work.",error:"We couldn't reach the databases for this one. Check your internet connection and try again."};
 const SAMPLE=`Navarro, R. T., & Kim, S. (2020). Psychological distress and depressive symptoms during COVID-19 lockdowns: A longitudinal study of twelve countries. International Journal of Pandemic Mental Health, 8(2), 145–162.
 LeCun, Y., Bengio, Y., & Hinton, G. (2015). Deep learning. Nature, 521(7553), 436–444.
 Smith, J., & Bengio, Y. (2012). Deep learning. Nature, 521(7553), 436–444.
 10.1038/s41586-020-2649-2
 Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, L., & Polosukhin, I. (2017). Attention is all you need. Advances in Neural Information Processing Systems, 30.
 Wakefield, A. J., Murch, S. H., Anthony, A., et al. (1998). Ileal-lymphoid-nodular hyperplasia, non-specific colitis, and pervasive developmental disorder in children. The Lancet, 351(9103), 637–641.`;
-function step(n){['s1','s2','s3'].forEach((id,i)=>{$(id).className=i+1<n?'done':i+1===n?'on':'';});}
-function updCount(){const n=SIY.splitEntries($('input').value).length;$('count').textContent=n+(n===1?' reference':' references')+' detected';}
-$('input').addEventListener('input',updCount);
-$('sample').onclick=()=>{$('input').value=SAMPLE;updCount();$('msg').innerHTML='';$('run').focus();};
-$('clear').onclick=()=>{$('input').value='';updCount();$('input').focus();};
-function render(){
-  const c={verified:0,correction:0,uncertain:0,not_found:0,retracted:0}; RESULTS.forEach(r=>{if(r.verdict in c)c[r.verdict]++;});
-  for(const k in c) $('n_'+k).textContent=c[k]; const sc=SIY.integrity(RESULTS); $('score').textContent=sc+'/100'; $('scorebar').style.width=sc+'%';
-  const shown=RESULTS.map((r,i)=>[r,i]).filter(([r])=>FILTER==='all'||r.verdict!=='verified');
-  $('list').innerHTML=shown.length?shown.map(([r,i])=>{const m=r.match; let h=`<article class="item v-${r.verdict}" aria-label="Reference ${i+1}: ${esc(LABEL[r.verdict])}"><span class="badge ${r.verdict}">${LABEL[r.verdict]}</span> <span class="meta">Reference ${i+1}${r.confidence!=null?` · match confidence ${Math.round(r.confidence*100)}%`:''}</span>
-    <p class="what">${EXPLAIN[r.verdict]}</p><div class="cite"><span class="sr">You wrote: </span>${esc(r.raw)}</div>`;
-    if(m) h+=`<div class="meta">Matched record: <a href="https://doi.org/${esc(m.doi)}" target="_blank" rel="noopener">${esc(m.title)}<span class="sr"> (opens in new tab)</span></a> · ${esc(m.source)} · doi:${esc(m.doi)}</div>`;
-    if(r.note && r.verdict!=='uncertain') h+=`<div class="meta" style="margin-top:4px">${esc(r.note)}</div>`;
-    if(r.diffs&&r.diffs.length) h+=`<div class="tbl"><table><caption class="sr">Differences</caption><tr><th scope="col">Detail</th><th scope="col">You wrote</th><th scope="col">Official record</th></tr>${r.diffs.map(d=>`<tr><td>${d.field}</td><td>${esc(d.cited)}</td><td class="${d.suspect?'':'fix'}">${esc(d.actual)}${d.note?`<div class="note">${esc(d.note)}</div>`:''}</td></tr>`).join('')}</table></div>`;
-    return h+'</article>'}).join(''):'<div class="empty">No problems found. 🎉</div>';
-  const seen=new Set();const ok=RESULTS.filter(r=>r.apa&&r.verdict!=='retracted'&&!(r.match&&r.match.doi&&seen.has(r.match.doi))&&(r.match&&seen.add(r.match.doi),true)).map(r=>r.apa).sort((a,b)=>a.replace(/<[^>]+>/g,'').localeCompare(b.replace(/<[^>]+>/g,'')));
-  const bad=RESULTS.filter(r=>['not_found','retracted','error'].includes(r.verdict));
-  $('apa').innerHTML=ok.length?ok.map(a=>`<p>${a}</p>`).join(''):'<div class="empty">No verified references yet.</div>';
-  $('review').innerHTML=bad.length?`<b>Left out, please review:</b><ul>${bad.map(r=>`<li><span class="badge ${r.verdict}">${LABEL[r.verdict]}</span> ${esc(r.raw.slice(0,110))}${r.raw.length>110?'…':''}</li>`).join('')}</ul>`:'';
+const counts=rs=>{const c={verified:0,correction:0,uncertain:0,not_found:0,retracted:0,error:0};rs.forEach(r=>c[r.verdict]=(c[r.verdict]||0)+1);return c;};
+const fmtDate=s=>new Date(s).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
+const tip=t=>`<button class="tip" type="button" aria-label="${esc(t)}">?<span aria-hidden="true">${esc(t)}</span></button>`;
+const slim=r=>({raw:r.raw,verdict:r.verdict,confidence:r.confidence,note:r.note,diffs:r.diffs,apa:r.apa,match:r.match&&{doi:r.match.doi,title:r.match.title,source:r.match.source}});
+let STATE={type:'refs',filter:'all',running:false};
+
+/* ---------- Dashboard ---------- */
+function dashboard(){
+  const cs=load(); const all=cs.flatMap(c=>c.results); const k=counts(all);
+  const avg=cs.length?Math.round(cs.reduce((s,c)=>s+c.score,0)/cs.length):0;
+  if(!cs.length){ return `<h1 class="page-h">Welcome to Siyasat</h1><p class="lead">A friendly checker for the sources in your paper.</p>
+  <section class="card welcome"><h2>Is every source in your paper real?</h2><p>AI tools sometimes make up references or get the details wrong. Siyasat checks each one against real scholarly databases in seconds, for free.</p>
+  <ol class="how"><li><b>Paste your references</b>Copy your reference list from your paper. Any citation style works.</li><li><b>Let Siyasat check them</b>Each one is looked up in Crossref and OpenAlex, including retraction notices.</li><li><b>Fix and copy</b>See what's wrong, then copy a corrected APA 7 list.</li></ol>
+  <a class="btn primary" href="#/new">Start your first check →</a></section>
+  <section class="card"><h2>Your dashboard</h2><div class="empty"><span class="big" aria-hidden="true">📋</span>No checks yet. Your numbers and recent checks will show up here after your first check.<br>They're saved only in this browser.</div></section>`;}
+  return `<div class="rowh"><div><h1 class="page-h">Dashboard</h1><p class="lead">Your checks on this device.</p></div><a class="btn primary" href="#/new">+ New check</a></div>
+  <div class="stats" role="list">
+   <div class="stat" role="listitem"><b>${cs.length}</b><span>Checks run ${tip('How many times you have run a check on this device.')}</span></div>
+   <div class="stat" role="listitem"><b>${k.verified+k.correction}</b><span>Sources confirmed real ${tip('References found in the databases (including ones that only needed small fixes).')}</span></div>
+   <div class="stat" role="listitem"><b>${k.not_found}</b><span>Possibly fake ${tip("References we couldn't find anywhere. These may have been made up by AI.")}</span></div>
+   <div class="stat" role="listitem"><b>${k.retracted}</b><span>Retracted ${tip('Papers that were officially withdrawn by their journal.')}</span></div>
+   <div class="stat hl" role="listitem"><b>${avg}/100</b><span>Average integrity score ${tip('100 means every reference was found with correct details. Lower means more problems.')}</span></div>
+  </div>
+  <section class="card"><h2>Start a new check</h2><p class="help">Pick what you want to verify.</p>${typeCards(true)}</section>
+  <section class="card"><div class="rowh"><h2>Recent checks</h2><button class="link danger" id="clearAll">Clear all data</button></div>${recentList(cs.slice(0,8))}</section>`;
 }
-document.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{FILTER=b.dataset.f;document.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed',x===b));render();});
-$('run').onclick=async()=>{
-  const es=SIY.splitEntries($('input').value); $('msg').innerHTML='';
-  if(!es.length){$('msg').innerHTML='<div class="msg info">Paste at least one reference first, or click <b>Try an example</b>.</div>';$('input').focus();return;}
-  if(es.length>200){$('msg').innerHTML='<div class="msg info">That\'s a lot! Please check up to 200 references at a time.</div>';return;}
-  $('run').disabled=true;$('run').textContent='Checking…';step(2);RESULTS=[];STAMP=new Date().toISOString();
-  $('emptyCard').hidden=true;$('out').hidden=false;$('progress').hidden=false;let errs=0;
-  for(let i=0;i<es.length;i++){ const pct=Math.round(i/es.length*100); $('pfill').style.width=pct+'%';$('pbar').setAttribute('aria-valuenow',pct);
-    $('ptext').textContent=`Checking reference ${i+1} of ${es.length}…`;
-    let r; try{ r=await SIY.verify(es[i]); }catch(e){ r={raw:es[i],verdict:'error',note:e.message}; errs++; } RESULTS.push(r); render(); }
-  $('pfill').style.width='100%';$('pbar').setAttribute('aria-valuenow',100);
-  $('ptext').textContent=`Done! Checked ${es.length} reference${es.length>1?'s':''}. Scroll down to see your results.`;
-  if(errs===es.length) $('msg').innerHTML='<div class="msg err">We couldn\'t reach the databases. Check your internet connection and try again in a minute.</div>';
-  $('run').disabled=false;$('run').textContent='Check again';step(3);$('h2').setAttribute('tabindex','-1');$('h2').focus();
-};
-$('copy').onclick=async()=>{const t=[...$('apa').querySelectorAll('p')].map(p=>p.innerText).join('\n');if(!t)return;
-  try{await navigator.clipboard.writeText(t);}catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();}
-  $('copied').textContent='✓ Copied! Paste it into your document.';setTimeout(()=>$('copied').textContent='',4000);};
-function dl(name,data,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();}
-$('json').onclick=()=>dl(`siyasat-report-${STAMP.replace(/[:.]/g,'-')}.json`,JSON.stringify({tool:'Siyasat',checked_at:STAMP,integrity:SIY.integrity(RESULTS),results:RESULTS.map(r=>({input:r.raw,verdict:r.verdict,confidence:r.confidence,doi:r.match&&r.match.doi,matched_title:r.match&&r.match.title,differences:r.diffs,note:r.note,apa:r.apa}))},null,2),'application/json');
-$('report').onclick=()=>{const css=document.querySelector('style').outerHTML;const html=`<!doctype html><html><head><meta charset="utf-8"><title>Siyasat verification report</title>${css}</head><body><header><div class="hwrap"><div class="mark">S</div><div><h1>Siyasat verification report</h1><p>Checked ${esc(new Date(STAMP).toString())} · ${RESULTS.length} references · Integrity score ${SIY.integrity(RESULTS)}/100</p></div></div></header><main><p class="help">Sources: Crossref, OpenAlex. To save as PDF: File → Print → Save as PDF.</p>${$('list').outerHTML}<h2>Corrected bibliography (APA 7)</h2>${$('apa').outerHTML}${$('review').outerHTML}</main></body></html>`;dl(`siyasat-report-${STAMP.replace(/[:.]/g,'-')}.html`,html,'text/html');};
+function recentList(cs){ if(!cs.length) return '<div class="empty">No checks yet.</div>';
+  return `<ul class="recent">${cs.map(c=>{const k=counts(c.results);return `<li><div class="t"><b>${esc(c.name)}</b><small>${fmtDate(c.date)} · ${c.results.length} references</small></div>
+   <div class="mini">${['verified','correction','uncertain','not_found','retracted'].filter(v=>k[v]).map(v=>`<span class="badge ${v}" title="${esc(LABEL[v])}">${LABEL[v].split(' ')[0]} ${k[v]}</span>`).join('')}</div>
+   <span class="score-chip" title="Integrity score">${c.score}/100</span>
+   <a class="btn ghost" href="#/results/${c.id}">Open<span class="sr"> ${esc(c.name)}</span></a>
+   <button class="link danger" data-del="${c.id}">Delete<span class="sr"> ${esc(c.name)}</span></button></li>`}).join('')}</ul>`;}
+function typeCards(asLinks){
+  const T=[['refs','📚','Reference list','Check that each source in your bibliography is real, correct and not retracted.',true],
+           ['corpus','🗂️','Review corpus','Upload a library export (.ris, .bib or .csv) and check every record before screening.',true],
+           ['draft','✍️','Draft check','Check whether each source actually supports the sentence you cited it for.',false]];
+  return `<div class="types" ${asLinks?'':'role="radiogroup" aria-label="Type of check"'}>${T.map(([id,ic,t,d,on])=>asLinks
+    ?(on?`<a class="type" href="#/new/${id}"><span class="tag on">Ready</span><b><span aria-hidden="true">${ic}</span> ${t}</b><small>${d}</small></a>`:`<button class="type" disabled aria-disabled="true"><span class="tag">Coming soon</span><b><span aria-hidden="true">${ic}</span> ${t}</b><small>${d}</small></button>`)
+    :`<button class="type" role="radio" data-type="${id}" aria-checked="${STATE.type===id}" ${on?'':'disabled aria-disabled="true"'}><span class="tag ${on?'on':''}">${on?'Ready':'Coming soon'}</span><b><span aria-hidden="true">${ic}</span> ${t}</b><small>${d}</small></button>`).join('')}</div>`;}
+
+/* ---------- New check ---------- */
+function newCheck(){
+  const refs=STATE.type==='refs';
+  return `<h1 class="page-h">New check</h1><p class="lead">Three quick steps. Results arrive in seconds.</p>
+  <ol class="steps" aria-label="Progress"><li id="s1" class="done">Choose type</li><li id="s2" class="on">Add sources</li><li id="s3">Verify</li></ol>
+  <section class="card"><h2>Step 1 · What are you checking?</h2>${typeCards(false)}</section>
+  <section class="card"><h2>Step 2 · ${refs?'Paste your references':'Upload your library export'}</h2>
+   <label class="big" for="name">Name this check <span class="meta">(optional)</span></label><input type="text" id="name" placeholder="e.g. Thesis chapter 2 references">
+   ${refs?`<p class="help" style="margin-top:12px">Any citation style works (APA, MLA, Chicago…). Put each reference on its own line. A DOI by itself (like 10.1038/nature14539) works too.</p>
+   <label class="big" for="input">Your reference list</label><textarea id="input" placeholder="Example:&#10;LeCun, Y., Bengio, Y., &amp; Hinton, G. (2015). Deep learning. Nature, 521(7553), 436–444."></textarea>`
+   :`<p class="help" style="margin-top:12px">Export your search results or library from Zotero, Mendeley, EndNote, Scopus or Google Scholar as <b>.ris</b>, <b>.bib</b> (BibTeX) or <b>.csv</b>. Each record is checked like a reference.</p>
+   <div class="drop"><label class="big" for="file">Choose a file</label><input type="file" id="file" accept=".ris,.bib,.bibtex,.csv,.txt"></div>
+   <label class="big" for="input" style="margin-top:12px">Records found in your file <span class="meta">(you can edit them)</span></label><textarea id="input" placeholder="Records from your file will appear here."></textarea>`}
+   <div class="actions"><button class="primary" id="run">Check my references</button>${refs?'<button class="ghost" id="sample">Try an example</button>':''}<button class="link" id="clear">Clear</button><span class="count" id="count" aria-live="polite">0 references detected</span></div>
+   <div id="msg" role="alert"></div>
+   <div class="progress" id="progress" hidden><div class="ptrack" role="progressbar" aria-label="Checking references" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="pbar"><i id="pfill"></i></div>
+   <div class="ptext" id="ptext" aria-live="polite"></div>
+   <ol class="pipe" aria-hidden="true"><li data-p="0">Read reference</li><li data-p="1">Search Crossref & OpenAlex</li><li data-p="2">Match details</li><li data-p="3">Check retractions</li><li data-p="4">Verdict</li></ol></div>
+  </section>`;}
+function bindNew(){
+  document.querySelectorAll('[data-type]').forEach(b=>b.onclick=()=>{if(b.disabled)return;STATE.type=b.dataset.type;location.hash='#/new/'+STATE.type;});
+  const inp=$('input'),upd=()=>{const n=SIY.splitEntries(inp.value).length;$('count').textContent=n+(n===1?' reference':' references')+' detected';};
+  inp.addEventListener('input',upd);
+  if($('sample')) $('sample').onclick=()=>{inp.value=SAMPLE;if(!$('name').value)$('name').value='Example references';upd();$('msg').innerHTML='';$('run').focus();};
+  $('clear').onclick=()=>{inp.value='';upd();inp.focus();};
+  if($('file')) $('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;const t=await f.text();const recs=parseFile(f.name,t);
+    inp.value=recs.join('\n');upd();if(!$('name').value)$('name').value=f.name;
+    $('msg').innerHTML=recs.length?`<div class="msg ok">Found ${recs.length} record${recs.length>1?'s':''} in ${esc(f.name)}. Click <b>Check my references</b>.</div>`:`<div class="msg err">We couldn't read any records from this file. Make sure it's a .ris, .bib or .csv export.</div>`;};
+  $('run').onclick=run;
+}
+/* file parsers -> one reference string per record */
+function toRef(o){const ini=a=>{a=a.trim();let f,g;if(a.includes(',')){[f,g]=a.split(/,\s*/);}else{const p=a.split(/\s+/);f=p.pop();g=p.join(' ');}return f+(g?', '+g.split(/[\s.-]+/).filter(Boolean).map(x=>x[0].toUpperCase()+'.').join(' '):'');};
+  const A=(o.authors||[]).slice(0,20).map(ini);const au=A.length>1?A.slice(0,-1).join(', ')+', & '+A[A.length-1]:A.join('');let s=(au?au+' ':'')+`(${o.year||'n.d.'}). ${(o.title||'').replace(/[{}]/g,'')}.`;if(o.venue)s+=' '+o.venue.replace(/[{}]/g,'')+(o.volume?', '+o.volume:'')+(o.pages?', '+o.pages:'')+'.';if(o.doi)s+=' https://doi.org/'+o.doi.replace(/^https?:\/\/doi\.org\//,'');return s;}
+function parseFile(name,t){
+  t=t.replace(/\r/g,''); const out=[];
+  if(/\.ris$/i.test(name)||/^TY  - /m.test(t)){ t.split(/^ER  -.*$/m).forEach(b=>{const o={authors:[]};b.split('\n').forEach(l=>{const m=l.match(/^([A-Z][A-Z0-9])  - ?(.*)$/);if(!m)return;const[,k,v]=m;
+      if(k==='AU'||k==='A1')o.authors.push(v.trim());else if(k==='TI'||k==='T1')o.title=v;else if(k==='PY'||k==='Y1'||k==='DA')o.year=o.year||(v.match(/\d{4}/)||[])[0];else if(k==='JO'||k==='T2'||k==='JF')o.venue=o.venue||v;else if(k==='VL')o.volume=v;else if(k==='SP')o.pages=v;else if(k==='EP')o.pages=(o.pages||'')+'–'+v;else if(k==='DO')o.doi=v;});
+      if(o.title||o.doi)out.push(toRef(o));}); return out; }
+  if(/\.bib(tex)?$/i.test(name)||/@\w+\s*\{/.test(t)){ t.split(/\n(?=\s*@)/).forEach(b=>{if(!/@\w+\s*\{/.test(b))return;const f=k=>{const m=b.match(new RegExp('\\b'+k+'\\s*=\\s*[{"]((?:[^{}"]|\\{[^{}]*\\})*)[}"]','i'))||b.match(new RegExp('\\b'+k+'\\s*=\\s*(\\d+)','i'));return m?m[1].trim():'';};
+      const o={title:f('title'),year:f('year'),venue:f('journal')||f('booktitle'),volume:f('volume'),pages:f('pages').replace('--','–'),doi:f('doi'),authors:f('author')?f('author').split(/\s+and\s+/i).map(a=>a.replace(/[{}]/g,'').trim()):[]};
+      if(o.title||o.doi)out.push(toRef(o));}); return out; }
+  // CSV
+  const rows=csv(t); if(rows.length<2) return out; const h=rows[0].map(x=>x.toLowerCase().trim()); const ix=re=>h.findIndex(x=>re.test(x));
+  const iT=ix(/^(title|article title|document title)$/),iA=ix(/^(authors?|author full names)$/),iY=ix(/year/),iV=ix(/(source|journal|publication title|source title)/),iD=ix(/^doi$/),iVol=ix(/^volume$/);
+  rows.slice(1).forEach(r=>{const o={title:r[iT],authors:iA>=0&&r[iA]?r[iA].split(/;\s*/):[],year:iY>=0?(String(r[iY]).match(/\d{4}/)||[])[0]:'',venue:iV>=0?r[iV]:'',volume:iVol>=0?r[iVol]:'',doi:iD>=0?r[iD]:''};if(o.title||o.doi)out.push(toRef(o));}); return out;
+}
+function csv(t){const rows=[];let row=[],f='',q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else q=false}else f+=c}else if(c=='"')q=true;else if(c==','){row.push(f);f=''}else if(c=='\n'){row.push(f);rows.push(row);row=[];f=''}else f+=c}if(f||row.length){row.push(f);rows.push(row)}return rows.filter(r=>r.some(x=>x.trim()));}
+async function run(){
+  if(STATE.running)return; const es=SIY.splitEntries($('input').value); $('msg').innerHTML='';
+  if(!es.length){$('msg').innerHTML=`<div class="msg info">${STATE.type==='refs'?'Paste at least one reference first, or click <b>Try an example</b>.':'Choose a file first, or paste records into the box.'}</div>`;$('input').focus();return;}
+  if(es.length>300){$('msg').innerHTML='<div class="msg info">That\'s a lot! Please check up to 300 references at a time.</div>';return;}
+  STATE.running=true;$('run').disabled=true;$('run').textContent='Checking…';$('s2').className='done';$('s3').className='on';$('progress').hidden=false;
+  const results=[];let errs=0;const pipe=[...document.querySelectorAll('.pipe li')];
+  const tick=setInterval(()=>{const on=pipe.findIndex(l=>l.classList.contains('on'));pipe.forEach((l,j)=>l.className=j<(on+1)%5?'done':j===(on+1)%5?'on':'');},700);
+  for(let i=0;i<es.length;i++){const pct=Math.round(i/es.length*100);$('pfill').style.width=pct+'%';$('pbar').setAttribute('aria-valuenow',pct);$('ptext').textContent=`Checking reference ${i+1} of ${es.length}…`;
+    let r;try{r=await SIY.verify(es[i]);}catch(e){r={raw:es[i],verdict:'error',note:e.message};errs++;}results.push(slim(r));}
+  clearInterval(tick);pipe.forEach(l=>l.className='done');$('pfill').style.width='100%';
+  STATE.running=false;
+  if(errs===es.length){$('msg').innerHTML='<div class="msg err">We couldn\'t reach the databases. Check your internet connection and try again in a minute.</div>';$('run').disabled=false;$('run').textContent='Try again';return;}
+  const c={id:Date.now().toString(36),name:($('name').value.trim()||('Reference check '+new Date().toLocaleDateString())),type:STATE.type,date:new Date().toISOString(),results,score:SIY.integrity(results)};
+  const cs=load();cs.unshift(c);try{save(cs);}catch(e){} location.hash='#/results/'+c.id;
+}
+
+/* ---------- Results ---------- */
+function results(id){
+  const cs=load(); const c=id?cs.find(x=>x.id===id):cs[0];
+  if(!c) return `<h1 class="page-h">Results</h1><section class="card"><div class="empty"><span class="big" aria-hidden="true">🔍</span>${id?"We couldn't find that check. It may have been deleted.":'No results yet. Run a check to see results here.'}<div class="actions" style="justify-content:center"><a class="btn primary" href="#/new">Start a check</a></div></div></section>`;
+  const k=counts(c.results);
+  return `<div class="rowh"><div><h1 class="page-h">Results</h1><p class="lead">${esc(c.name)} · ${fmtDate(c.date)}</p></div>${cs.length>1?`<label class="meta">Other checks: <select id="pick">${cs.map(x=>`<option value="${x.id}" ${x.id===c.id?'selected':''}>${esc(x.name)} (${fmtDate(x.date)})</option>`).join('')}</select></label>`:''}</div>
+  <section class="card" aria-labelledby="rh"><h2 id="rh" tabindex="-1">Summary</h2>
+   <div class="summary">
+    <div class="tile score"><small>Integrity score ${tip('100 means every reference was found and matched exactly. Wrong details lower the score; made-up or retracted sources lower it most.')}</small><b>${c.score}/100</b><div class="sbar"><i style="width:${c.score}%"></i></div></div>
+    ${['verified','correction','uncertain','not_found','retracted'].map(v=>`<div class="tile"><span class="badge ${v}">${LABEL[v]}</span><b>${k[v]}</b></div>`).join('')}
+   </div>
+   <ul class="legend" aria-label="What the labels mean">${['verified','correction','uncertain','not_found','retracted'].map(v=>`<li><span class="badge ${v}">${LABEL[v]}</span><br>${EXPLAIN[v]}</li>`).join('')}</ul>
+  </section>
+  <section class="card"><h2>Each reference</h2><div class="filters" role="group" aria-label="Show"><button aria-pressed="${STATE.filter==='all'}" data-f="all">All (${c.results.length})</button><button aria-pressed="${STATE.filter==='problems'}" data-f="problems">Only problems (${c.results.length-k.verified})</button></div><div id="list">${itemList(c)}</div></section>
+  <section class="card"><h2>Corrected bibliography (APA 7)</h2><p class="help">Built from the real records, sorted A–Z. References we couldn't find or that are retracted are left out and listed below.</p>${bib(c)}
+   <div class="actions"><button class="primary" id="copy">Copy bibliography</button><button class="ghost" data-rep="${c.id}">Download report</button><button class="link" data-json="${c.id}">Download data (JSON)</button><span id="copied" class="count" aria-live="polite"></span></div></section>`;}
+function itemList(c){const shown=c.results.map((r,i)=>[r,i]).filter(([r])=>STATE.filter==='all'||r.verdict!=='verified');
+  return shown.length?shown.map(([r,i])=>{const m=r.match;let h=`<article class="item v-${r.verdict}" aria-label="Reference ${i+1}: ${esc(LABEL[r.verdict])}"><span class="badge ${r.verdict}">${LABEL[r.verdict]}</span> <span class="meta">Reference ${i+1}${r.confidence!=null?` · match confidence ${Math.round(r.confidence*100)}%`:''}</span>
+   <p class="what">${EXPLAIN[r.verdict]}</p><div class="cite"><span class="sr">You wrote: </span>${esc(r.raw)}</div>`;
+   if(m)h+=`<div class="meta">Matched record: <a href="https://doi.org/${esc(m.doi)}" target="_blank" rel="noopener">${esc(m.title)}<span class="sr"> (opens in new tab)</span></a> · ${esc(m.source)} · doi:${esc(m.doi)}</div>`;
+   if(r.note&&r.verdict!=='uncertain')h+=`<div class="meta" style="margin-top:4px">${esc(r.note)}</div>`;
+   if(r.diffs&&r.diffs.length)h+=`<div class="tbl"><table><caption class="sr">Differences</caption><tr><th scope="col">Detail</th><th scope="col">You wrote</th><th scope="col">Official record</th></tr>${r.diffs.map(d=>`<tr><td>${d.field}</td><td>${esc(d.cited)}</td><td class="${d.suspect?'':'fix'}">${esc(d.actual)}${d.note?`<div class="note">${esc(d.note)}</div>`:''}</td></tr>`).join('')}</table></div>`;
+   return h+'</article>'}).join(''):'<div class="empty"><span class="big" aria-hidden="true">🎉</span>No problems found.</div>';}
+function bib(c){const seen=new Set();const ok=c.results.filter(r=>r.apa&&r.verdict!=='retracted'&&!(r.match&&r.match.doi&&seen.has(r.match.doi))&&(r.match&&seen.add(r.match.doi),true)).map(r=>r.apa).sort((a,b)=>a.replace(/<[^>]+>/g,'').localeCompare(b.replace(/<[^>]+>/g,'')));
+  const bad=c.results.filter(r=>['not_found','retracted','error'].includes(r.verdict));
+  return `<div class="apa" id="apa">${ok.length?ok.map(a=>`<p>${a}</p>`).join(''):'<div class="empty">No confirmed references to list.</div>'}</div>`+(bad.length?`<div class="meta" style="margin-top:10px"><b>Left out, please review:</b><ul>${bad.map(r=>`<li><span class="badge ${r.verdict}">${LABEL[r.verdict]}</span> ${esc(r.raw.slice(0,110))}${r.raw.length>110?'…':''}</li>`).join('')}</ul></div>`:'');}
+
+/* ---------- Reports ---------- */
+function reports(){const cs=load();
+  return `<h1 class="page-h">Reports</h1><p class="lead">Timestamped verification reports you can show your adviser or panel. Each verdict links to its evidence.</p>
+  <section class="card">${cs.length?`<ul class="recent">${cs.map(c=>{const k=counts(c.results);return `<li><div class="t"><b>Verification report · ${esc(c.name)}</b><small>${fmtDate(c.date)} · ${c.results.length} references · ${k.not_found} possibly fake · ${k.retracted} retracted</small></div><span class="score-chip">${c.score}/100</span>
+   <button class="ghost" data-rep="${c.id}">Download report<span class="sr"> for ${esc(c.name)}</span></button><button class="link" data-json="${c.id}">JSON</button></li>`}).join('')}</ul>
+   <p class="help" style="margin-top:12px">Tip: open the downloaded report and use your browser's <b>Print → Save as PDF</b>.</p>`
+   :`<div class="empty"><span class="big" aria-hidden="true">📄</span>No reports yet. Every check you run creates a report here.<div class="actions" style="justify-content:center"><a class="btn primary" href="#/new">Start a check</a></div></div>`}</section>`;}
+function dl(name,data,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;document.body.appendChild(a);a.click();a.remove();}
+const fname=(c,ext)=>`siyasat-report-${c.name.replace(/[^\w-]+/g,'-').slice(0,40)}-${c.date.replace(/[:.]/g,'-')}.${ext}`;
+function report(c){const css=document.querySelector('style').outerHTML;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Siyasat verification report · ${esc(c.name)}</title>${css}</head><body><div class="mhead" style="display:flex"><div class="mark">S</div><b>Siyasat verification report</b></div><main style="margin:0 auto">
+  <h1 class="page-h">${esc(c.name)}</h1><p class="lead">Checked ${esc(new Date(c.date).toString())} · ${c.results.length} references · Integrity score <b>${c.score}/100</b><br>Sources queried: Crossref REST API (incl. Retraction Watch data) and OpenAlex. To save as PDF: File → Print → Save as PDF.</p>
+  <section class="card"><h2>Each reference</h2>${(STATE.filter='all',itemList(c))}</section><section class="card"><h2>Corrected bibliography (APA 7)</h2>${bib(c)}</section></main></body></html>`;}
+function json(c){return JSON.stringify({tool:'Siyasat',name:c.name,checked_at:c.date,integrity:c.score,results:c.results.map(r=>({input:r.raw,verdict:r.verdict,confidence:r.confidence,doi:r.match&&r.match.doi,matched_title:r.match&&r.match.title,differences:r.diffs,note:r.note,apa:r.apa}))},null,2);}
+
+/* ---------- Router ---------- */
+function route(){
+  const [r,arg]=location.hash.replace(/^#\/?/,'').split('/'); const page=r||'dashboard';
+  if(page==='new'&&arg&&['refs','corpus'].includes(arg))STATE.type=arg;
+  document.querySelectorAll('.nav a').forEach(a=>{if(a.dataset.r===page)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
+  M.innerHTML=page==='new'?newCheck():page==='results'?results(arg):page==='reports'?reports():dashboard();
+  document.title=({new:'New check',results:'Results',reports:'Reports'}[page]||'Dashboard')+' · Siyasat';
+  if(page==='new')bindNew(); bindCommon(arg); window.scrollTo(0,0);
+  if(route.started){const h=M.querySelector('h1');if(h){h.tabIndex=-1;h.focus({preventScroll:true});}} route.started=true;
+}
+function bindCommon(arg){
+  const byId=id=>load().find(c=>c.id===id);
+  M.querySelectorAll('[data-rep]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.rep);dl(fname(c,'html'),report(c),'text/html');});
+  M.querySelectorAll('[data-json]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.json);dl(fname(c,'json'),json(c),'application/json');});
+  M.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.del);if(confirm(`Delete "${c.name}"? This can't be undone.`)){save(load().filter(x=>x.id!==c.id));route();}});
+  if($('clearAll'))$('clearAll').onclick=()=>{if(confirm('Delete all your saved checks from this browser? This can\'t be undone.')){localStorage.removeItem(KEY);route();}};
+  if($('pick'))$('pick').onchange=e=>location.hash='#/results/'+e.target.value;
+  M.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{STATE.filter=b.dataset.f;const id=arg||load()[0].id;$('list').innerHTML=itemList(byId(id));M.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
+  if($('copy'))$('copy').onclick=async()=>{const t=[...$('apa').querySelectorAll('p')].map(p=>p.innerText).join('\n');if(!t)return;
+    try{await navigator.clipboard.writeText(t);}catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();}
+    $('copied').textContent='✓ Copied! Paste it into your document.';setTimeout(()=>$('copied').textContent='',4000);};
+}
+window.addEventListener('hashchange',route); route();
 </script></body></html>
