@@ -1,0 +1,69 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Siyasat — Reference list check</title>
+<style>
+:root{--paper:#f7f8f6;--surface:#fff;--ink:#1d2823;--ink-soft:#4c5a53;--ink-faint:#76847c;--line:#dde3df;--accent:#15705f;--accent-soft:#e3efec;--ok:#1f7a46;--ok-bg:#e4f2e9;--warn:#9a6508;--warn-bg:#f7eed9;--bad:#a63a30;--bad-bg:#f8e7e4;--ret:#7d3a9e;--ret-bg:#f0e5f6;--mono-bg:#f0f3f1;--shadow:0 1px 3px rgba(29,40,35,.08),0 8px 24px rgba(29,40,35,.06)}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{background:var(--surface);border-bottom:1px solid var(--line);padding:14px 28px;display:flex;align-items:center;gap:12px}
+.logo{width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700}
+h1{font-size:18px;margin:0}header small{color:var(--ink-faint)}
+main{max-width:1050px;margin:24px auto;padding:0 20px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:20px;margin-bottom:18px}
+textarea{width:100%;min-height:190px;border:1px solid var(--line);border-radius:8px;padding:12px;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;background:var(--mono-bg);color:var(--ink)}
+button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 18px;font-weight:600;cursor:pointer}button.sec{background:var(--accent-soft);color:var(--accent)}button:disabled{opacity:.5}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.stat{border:1px solid var(--line);border-radius:10px;padding:12px}.stat b{font-size:26px;display:block}
+.pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700}
+.verified{color:var(--ok);background:var(--ok-bg)}.correction{color:var(--warn);background:var(--warn-bg)}.not_found,.error{color:var(--bad);background:var(--bad-bg)}.retracted{color:var(--ret);background:var(--ret-bg)}
+.item{border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:10px}.item .cite{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--ink-soft);margin:6px 0}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:6px}td,th{border-top:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}th{color:var(--ink-faint);font-weight:600}
+a{color:var(--accent)}.muted{color:var(--ink-faint);font-size:13px}#apa p{padding-left:2em;text-indent:-2em;margin:6px 0}
+.bar{height:8px;background:var(--line);border-radius:9px;overflow:hidden}.bar i{display:block;height:100%;background:var(--accent)}
+</style></head><body>
+<header><div class="logo">S</div><div><h1>Siyasat</h1><small>Reference list check · verifies citations against Crossref &amp; OpenAlex</small></div></header>
+<main>
+<div class="card"><b>1. Paste your reference list</b><div class="muted">Any citation style. One reference per line (or separate with a blank line). Plain DOIs work too.</div>
+<textarea id="input" placeholder="LeCun, Y., Bengio, Y., & Hinton, G. (2015). Deep learning. Nature, 521(7553), 436–444."></textarea>
+<div class="row"><button id="run">Check references</button><button class="sec" id="sample">Load example</button><span id="prog" class="muted"></span></div></div>
+<div id="out" hidden>
+<div class="card"><b>2. Summary</b><div class="stats" style="margin-top:10px">
+<div class="stat"><span class="muted">Integrity score</span><b id="score">–</b><div class="bar"><i id="scorebar" style="width:0"></i></div></div>
+<div class="stat"><span class="pill verified">Verified</span><b id="n_verified">0</b></div><div class="stat"><span class="pill correction">Needs correction</span><b id="n_correction">0</b></div>
+<div class="stat"><span class="pill not_found">Not found</span><b id="n_not_found">0</b></div><div class="stat"><span class="pill retracted">Retracted</span><b id="n_retracted">0</b></div></div></div>
+<div class="card"><b>3. Results per reference</b><div id="list"></div></div>
+<div class="card"><b>4. Corrected bibliography (APA 7)</b><div class="muted">Built from the verified records. Not-found references are left out and listed for you to review.</div><div id="apa"></div>
+<div class="row"><button id="copy">Copy bibliography</button><button class="sec" id="report">Download verification report</button><button class="sec" id="json">Download JSON</button></div></div>
+</div>
+<p class="muted">Runs entirely in your browser. Nothing is stored. Data: Crossref (incl. Retraction Watch) and OpenAlex.</p>
+</main>
+<script src="engine.js"></script>
+<script>
+const $=id=>document.getElementById(id); let RESULTS=[], STAMP='';
+const LABEL={verified:'Verified',correction:'Needs correction',not_found:'Not found / likely phantom',retracted:'Retracted',error:'Could not check'};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+$('sample').onclick=()=>{$('input').value=`Navarro, R. T., & Kim, S. (2020). Psychological distress and depressive symptoms during COVID-19 lockdowns: A longitudinal study of twelve countries. International Journal of Pandemic Mental Health, 8(2), 145–162.
+LeCun, Y., Bengio, Y., & Hinton, G. (2015). Deep learning. Nature, 521(7553), 436–444.
+Smith, J., & Bengio, Y. (2012). Deep learning. Nature, 521(7553), 436–444.
+10.1038/s41586-020-2649-2
+Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, L., & Polosukhin, I. (2017). Attention is all you need. Advances in Neural Information Processing Systems, 30.
+Wakefield, A. J., Murch, S. H., Anthony, A., et al. (1998). Ileal-lymphoid-nodular hyperplasia, non-specific colitis, and pervasive developmental disorder in children. The Lancet, 351(9103), 637–641.`};
+function render(){
+  const c={verified:0,correction:0,not_found:0,retracted:0}; RESULTS.forEach(r=>c[r.verdict]=(c[r.verdict]||0)+1);
+  for(const k in c) $('n_'+k).textContent=c[k]; const sc=SIY.integrity(RESULTS); $('score').textContent=sc+'/100'; $('scorebar').style.width=sc+'%';
+  $('list').innerHTML=RESULTS.map((r,i)=>{const m=r.match; let h=`<div class="item"><span class="pill ${r.verdict}">${LABEL[r.verdict]}</span> <span class="muted">#${i+1} · match confidence ${Math.round((r.confidence||0)*100)}%</span><div class="cite">${esc(r.raw)}</div>`;
+    if(m) h+=`<div>Matched: <a href="https://doi.org/${esc(m.doi)}" target="_blank" rel="noopener">${esc(m.title)}</a> <span class="muted">(${esc(m.source)}, doi:${esc(m.doi)})</span></div>`;
+    if(r.verdict==='retracted') h+=`<div style="color:var(--ret)">⚠ This article has been retracted. Do not cite it as valid evidence.</div>`;
+    if(r.note) h+=`<div class="muted">${esc(r.note)}</div>`;
+    if(r.diffs&&r.diffs.length) h+=`<table><tr><th>Field</th><th>You cited</th><th>Actual record</th></tr>${r.diffs.map(d=>`<tr><td>${d.field}</td><td>${esc(d.cited)}</td><td><b>${esc(d.actual)}</b>${d.note?`<div class="muted">${esc(d.note)}</div>`:''}</td></tr>`).join('')}</table>`;
+    return h+'</div>'}).join('');
+  const ok=[...new Set(RESULTS.filter(r=>r.apa&&r.verdict!=='retracted').map(r=>r.apa))].sort((a,b)=>a.replace(/<[^>]+>/g,'').localeCompare(b.replace(/<[^>]+>/g,'')));
+  const bad=RESULTS.filter(r=>r.verdict==='not_found'||r.verdict==='retracted'||r.verdict==='error');
+  $('apa').innerHTML=ok.map(a=>`<p>${a}</p>`).join('')+(bad.length?`<div class="muted" style="margin-top:10px">Removed / needs your review: ${bad.map(r=>esc(r.raw.slice(0,80))+'…').join(' · ')}</div>`:'');
+}
+$('run').onclick=async()=>{const es=SIY.splitEntries($('input').value); if(!es.length) return; $('run').disabled=true; RESULTS=[]; $('out').hidden=false; STAMP=new Date().toISOString();
+  for(let i=0;i<es.length;i++){ $('prog').textContent=`Checking ${i+1} of ${es.length}…`; let r; try{ r=await SIY.verify(es[i]); }catch(e){ r={raw:es[i],verdict:'error',note:e.message}; } RESULTS.push(r); render(); }
+  $('prog').textContent=`Done — ${es.length} references checked.`; $('run').disabled=false; };
+$('copy').onclick=()=>{navigator.clipboard.writeText([...$('apa').querySelectorAll('p')].map(p=>p.innerText).join('\n')); $('copy').textContent='Copied ✓'; setTimeout(()=>$('copy').textContent='Copy bibliography',1500)};
+function dl(name,data,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();}
+$('json').onclick=()=>dl(`siyasat-report-${STAMP.replace(/[:.]/g,'-')}.json`,JSON.stringify({tool:'Siyasat',checked_at:STAMP,integrity:SIY.integrity(RESULTS),results:RESULTS.map(r=>({input:r.raw,verdict:r.verdict,confidence:r.confidence,doi:r.match&&r.match.doi,matched_title:r.match&&r.match.title,differences:r.diffs,note:r.note,apa:r.apa}))},null,2),'application/json');
+$('report').onclick=()=>{const css=document.querySelector('style').outerHTML; const html=`<!doctype html><html><head><meta charset="utf-8"><title>Siyasat verification report</title>${css}</head><body><main><h1>Siyasat verification report</h1><p class="muted">Checked ${new Date(STAMP).toString()} · ${RESULTS.length} references · Integrity score ${SIY.integrity(RESULTS)}/100 · Sources: Crossref, OpenAlex. Use your browser's Print → Save as PDF.</p>${$('list').outerHTML}<h2>Corrected bibliography (APA 7)</h2>${$('apa').outerHTML}</main></body></html>`; dl(`siyasat-report-${STAMP.replace(/[:.]/g,'-')}.html`,html,'text/html');};
+</script></body></html>
