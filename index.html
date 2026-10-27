@@ -163,6 +163,7 @@ mark{background:var(--gold-soft);color:var(--ink);border-bottom:2px solid var(--
 .editbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--gold-soft);border:2px solid var(--gold);border-radius:12px;padding:12px 16px;margin:0 0 14px}.editbar span{display:block;color:var(--ink-soft);margin-top:2px}
 .edtools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0 4px}.edtools .ub{min-height:40px;padding:8px 12px;border-radius:10px;font-weight:700;color:var(--maroon);background:#fff;border:1.5px solid var(--gold)}.edtools .ub:disabled{opacity:.45;cursor:not-allowed;border-color:var(--line)}
 .editbtn{white-space:nowrap}.d-edit{margin:12px 0;border:1.5px solid var(--gold);border-radius:10px;padding:8px 12px;background:var(--gold-soft)}.d-edit summary{cursor:pointer;font-weight:700;color:var(--maroon);min-height:32px;display:flex;align-items:center}.d-edit textarea{min-height:90px;font-family:inherit;font-size:15px;margin-top:6px}
+.pdfup{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 2px}.filechip-ok{background:#fff;border:1.5px solid var(--gold);color:var(--ok);font-weight:700;border-radius:999px;padding:3px 10px}
 </style></head><body>
 <a class="skip" href="#main">Skip to content</a>
 <div class="mhead"><button type="button" class="back mback" id="mback" hidden>← Back</button><div class="mark" aria-hidden="true">S</div><b>Siyasat</b></div>
@@ -267,6 +268,7 @@ function draftForm(){
    <label class="big" for="name">Name this check <span class="meta">(optional)</span></label><input type="text" id="name" placeholder="e.g. Results section draft">
    <p class="help" style="margin-top:12px">Paste prose with in-text citations, like <b>(Ji et al., 2023)</b>, <b>Dela Cruz (2022)</b> or <b>[1]</b>. A reference list under a <b>References</b> heading makes matching more reliable, but it's optional.</p>
    <div class="edtools" role="toolbar" aria-label="Text undo and redo"><button type="button" class="ghost ub" id="edUndo" disabled>↶ Undo</button><button type="button" class="ghost ub" id="edRedo" disabled>↷ Redo</button>${STATE.editing?'<button type="button" class="ghost ub" id="edRestore" disabled>⟲ Undo all changes</button>':''}<span class="meta ukeys">Ctrl+Z / Ctrl+Y</span></div>
+   <div class="pdfup"><button type="button" class="ghost" id="pdfBtn">📄 Upload your draft (PDF or .txt)</button><input type="file" id="pdfFile" class="sr" tabindex="-1" aria-hidden="true" accept=".pdf,.txt,.md,application/pdf,text/plain"><span class="meta" id="pdfMsg" aria-live="polite">or paste the text below. A PDF works best when its References section is included.</span></div>
    <label class="big" for="input">Your draft</label><textarea id="input" style="min-height:220px" spellcheck="false" placeholder="Paste your paragraphs here…"></textarea>
    <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:650;color:var(--maroon)">My reference list is separate (optional)</summary>
     <label class="big" for="refsIn" style="margin-top:8px">Reference list</label><textarea id="refsIn" style="min-height:120px" placeholder="One reference per line"></textarea></details>
@@ -294,6 +296,12 @@ function bindDraft(){
   $('sample2').onclick=()=>{inp.value=DRAFT_SAMPLE;ri.value='';if(!$('name').value)$('name').value='Example draft';upd();$('msg').innerHTML='';$('run').focus();};
   $('clear').onclick=()=>{inp.value='';ri.value='';upd();inp.focus();};
   $('run').onclick=runDraft;
+  $('pdfBtn').onclick=()=>$('pdfFile').click();
+  $('pdfFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const m=$('pdfMsg');m.innerHTML='<span class="spin" aria-hidden="true"></span> Reading '+esc(f.name)+'…';
+    try{const r=/\.pdf$/i.test(f.name)||f.type==='application/pdf'?await pdfText(f):{text:await f.text(),pages:0,links:0};
+      inp.value=SIY.cleanText(r.text).replace(/\n{3,}/g,'\n\n').trim();ri.value='';if(!$('name').value)$('name').value=f.name.replace(/\.[^.]+$/,'');inp.dispatchEvent(new Event('input'));
+      const a=DRAFT.analyze(inp.value,'');m.innerHTML=`<span class="filechip-ok">✓ ${esc(f.name)}</span> ${r.pages?r.pages+' page'+(r.pages>1?'s':'')+' · ':''}${a.claims.length} cited sentences · ${a.hasRefs?'reference list found':'<b>no References heading found</b>, paste the list in "My reference list is separate"'}${r.links?` · ${r.links} DOI link${r.links>1?'s':''} read from the PDF`:''}`;}
+    catch(er){m.innerHTML='<span class="val-bad">Couldn\'t read that file.</span> If it\'s a scanned PDF (a picture of text), copy the text from it instead and paste it below.';}};
   if($('cancelEdit'))$('cancelEdit').onclick=()=>{const id=STATE.editing.id;STATE.editing=null;STATE.forms.draft=null;location.hash='#/results/'+id;};
   const E=STATE.edh={h:[],i:-1,t:null};const snap=()=>({a:inp.value,b:ri.value});
   const paint=()=>{if(!$('edUndo')||!inp.isConnected)return;$('edUndo').disabled=E.i<=0;$('edRedo').disabled=E.i>=E.h.length-1;if($('edRestore'))$('edRestore').disabled=!(STATE.editing&&(inp.value!==STATE.editing.input||ri.value!==STATE.editing.refsIn));};
@@ -306,6 +314,16 @@ function bindDraft(){
   if($('edRestore'))$('edRestore').onclick=()=>{if(E.t)rec();inp.value=STATE.editing.input;ri.value=STATE.editing.refsIn;upd();rec();toast('Restored your original draft','u');};
   ['sample','sample2','clear'].forEach(k=>{const f=$(k).onclick;$(k).onclick=()=>{f();rec();};});
 }
+/* PDF → text in the browser with pdf.js (free, loaded only when needed). Also reads DOI hyperlinks so DOIs split across lines are repaired. */
+async function pdfText(file){const V='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/';const lib=await import(V+'pdf.min.mjs');lib.GlobalWorkerOptions.workerSrc=V+'pdf.worker.min.mjs';
+  const doc=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;let text='';const dois=new Set();
+  for(let n=1;n<=doc.numPages;n++){const pg=await doc.getPage(n);const tc=await pg.getTextContent();let lastY=null,line='';
+    for(const it of tc.items){if(!('str' in it))continue;const y=Math.round(it.transform[5]);if(lastY!==null&&Math.abs(y-lastY)>2&&line){text+=line.replace(/\s+$/,'')+'\n';line='';}line+=it.str;lastY=y;if(it.hasEOL){text+=line.replace(/\s+$/,'')+'\n';line='';lastY=null;}}
+    if(line)text+=line+'\n';text+='\n';
+    try{(await pg.getAnnotations()).forEach(a=>{const u=a.url||a.unsafeUrl||'';const d=u.match(/10\.\d{4,9}\/[^\s"<>]+/);if(d)dois.add(decodeURIComponent(d[0]).replace(/[.,;)]+$/,''));});}catch(e){}}
+  text=SIY.cleanText(text);
+  dois.forEach(d=>{if(text.toLowerCase().includes(d.toLowerCase()))return;const re=new RegExp(d.split('').map(ch=>ch.replace(/[.*+?^${}()|[\]\\\/]/g,'\\$&')).join('\\s*'),'i');text=text.replace(re,d);});
+  return {text,pages:doc.numPages,links:dois.size};}
 function draftText(c){if(c.input!=null)return {input:c.input,refsIn:c.refsIn||''};
   const refs=c.sources.map(s=>s.ref).filter(Boolean);return {input:c.claims.map(x=>x.sentence).join(' ')+(refs.length?'\n\nReferences\n'+refs.join('\n'):''),refsIn:''};}
 function editDraft(id){const c=load().find(x=>x.id===id);if(!c)return;const t=draftText(c);STATE.editing={id,name:c.name,input:t.input,refsIn:t.refsIn};STATE.type='draft';STATE.forms.draft={name:c.name,input:t.input,refsIn:t.refsIn};location.hash='#/new/draft';}

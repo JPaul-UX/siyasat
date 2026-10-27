@@ -7,17 +7,39 @@ const toks = s => norm(s).split(' ').filter(w => w && !STOP.has(w));
 function sim(a,b){ const A=toks(a),B=toks(b); if(!A.length||!B.length) return 0;
   const sa=new Set(A),sb=new Set(B); let i=0; sa.forEach(w=>{if(sb.has(w))i++}); return 2*i/(sa.size+sb.size); }
 function coverage(title, text){ const T=[...new Set(toks(title))], X=new Set(toks(text)); if(!T.length) return 0; return T.filter(w=>X.has(w)).length/T.length; }
+/* Normalise text pasted or extracted from PDFs/Word: invisible chars, odd hyphens, page breaks, DOIs split across lines */
+function cleanText(t){ t=String(t||'').replace(/\r\n?/g,'\n').replace(/\f/g,'\n').replace(/[\u200B-\u200D\u2060\uFEFF\u00AD]/g,'').replace(/[\u2010\u2011]/g,'-').replace(/[\u00A0\u2007\u202F]/g,' ');
+  // a DOI or URL that wraps onto the next line: glue it back together
+  for(let i=0;i<3;i++) t=t.replace(/((?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)?10\.\d{4,9}\/[^\s"<>]*[-\/._=(])[ \t]*\n[ \t]*([A-Za-z0-9][^\s"<>]*)/g,'$1$2')
+                .replace(/(https?:\/\/[^\s"<>]*[-\/._=?&])[ \t]*\n[ \t]*([A-Za-z0-9][^\s"<>]*)/g,'$1$2');
+  return t; }
+const YEAR=/\((?:19|20)\d{2}[a-z]?(?:,[^)]*)?\)|\(n\.d\.\)|\b(?:19|20)\d{2}[a-z]?\.(?:\s|$)/;
+const START=/^(?:[A-ZÀ-ÝÇŠŽ][\p{L}'’-]+(?:\s+(?:[A-ZÀ-Ý][\p{L}'’-]+|van|von|de|del|der|den|da|dos|du|la|le|di|y))*,\s*(?:[A-ZÀ-Ý]\.|[A-ZÀ-Ý][\p{L}'’-]+)|[A-ZÀ-Ý][\p{L}&'’ .-]{2,80}\.\s*\((?:19|20)\d{2})/u;
+const NUM=/^\s*(\[\d{1,3}\]|\d{1,3}[.)])\s+/;
+/* Split a reference list into entries even when every line is hard-wrapped (as when copying from a PDF) */
 function splitEntries(txt){
-  txt = txt.replace(/\r/g,'').trim(); if(!txt) return [];
-  const parts = /\n\s*\n/.test(txt) ? txt.split(/\n\s*\n/) : txt.split('\n');
-  return parts.map(p=>p.replace(/\s*\n\s*/g,' ').replace(/^\s*(\[\d+\]|\d+[.)](?=\s))\s*/,'').trim()).filter(p=>p.length>8);
+  txt=cleanText(txt).trim(); if(!txt) return [];
+  const fin=p=>p.replace(/\s*\n\s*/g,' ').replace(/\s{2,}/g,' ').replace(NUM,'').trim();
+  const blocks=txt.split(/\n\s*\n/).map(b=>b.trim()).filter(Boolean);
+  const complete=b=>YEAR.test(b)||/10\.\d{4,9}\//.test(b);
+  if(blocks.length>1&&blocks.filter(b=>complete(b)&&b.length>25&&(START.test(b)||NUM.test(b))).length>=blocks.length*0.8) return blocks.map(fin).filter(p=>p.length>8);
+  const lines=txt.split('\n').map(l=>l.trim()).filter(Boolean);
+  const numbered=lines.filter(l=>NUM.test(l)).length>=Math.max(2,lines.length*0.15);
+  const out=[];let cur='';
+  for(const l of lines){
+    const isStart=numbered?NUM.test(l):(START.test(l)&&(!cur||complete(cur)));
+    if(isStart&&cur){out.push(cur);cur=l;} else cur=cur?(/[-\/]$/.test(cur)&&/^[a-z0-9]/.test(l)&&/\S+[-\/]$/.test(cur)&&/(https?:|10\.\d)/.test(cur.split(' ').pop())?cur+l:cur+' '+l):l;
+  }
+  if(cur)out.push(cur);
+  return out.map(fin).filter(p=>p.length>8);
 }
 function parse(raw){
   const r = {raw};
   const d = raw.match(/10\.\d{4,9}\/[^\s"<>]+/i); if(d) r.doi = d[0].replace(/[.,;)\]]+$/,'');
   const y = raw.match(/\((\d{4})[a-z]?\)/) || raw.match(/\b(19|20)\d{2}\b/); if(y) r.year = +(y[1].length===4?y[1]:y[0]);
   const apa = raw.match(/^(.+?)\s*\((\d{4})[a-z]?[^)]*\)\.?\s*(.+?[.?!])\s+(.*)$/);
-  if(apa){ r.authorsText=apa[1]; r.title=apa[3].replace(/\.$/,''); r.rest=apa[4]; }
+  if(apa){ r.authorsText=apa[1]; r.title=apa[3].replace(/\.$/,''); r.rest=apa[4];
+    const sub=/[?!]$/.test(r.title)&&r.rest.match(/^([^.\d]{3,200}?)\.\s+(.*\d.*)$/); if(sub){ r.title+=' '+sub[1]; r.rest=sub[2]; } }
   else { const q = raw.match(/[“"](.+?)[,.]?[”"]/); if(q) r.title=q[1]; }
   const a = (r.authorsText||raw.split(/[.(]/)[0]||'');
   r.surnames = (a.match(/[A-ZÀ-Ý][A-Za-zÀ-ÿ'’-]+(?=,\s*[A-Z]\.)/g)||[]).map(s=>s.toLowerCase());
@@ -103,6 +125,6 @@ async function verify(raw, fetchFn = (u)=>fetch(u)){
   return res;
 }
 function integrity(results){ if(!results.length) return 0; const w={verified:1,correction:0.6,uncertain:0.7,retracted:0,not_found:0,error:0.5}; return Math.round(100*results.reduce((s,r)=>s+(w[r.verdict]??0),0)/results.length); }
-return {verify, parse, splitEntries, integrity, apa, sim};
+return {verify, parse, splitEntries, cleanText, integrity, apa, sim};
 })();
 if (typeof module!=='undefined') module.exports = SIY;

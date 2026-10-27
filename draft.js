@@ -2,13 +2,19 @@
 const DRAFT = (() => {
 const MAILTO='siyasat-checker@example.org';
 const HEAD=/^\s*(references|reference list|bibliography|works cited|sources|literature cited)\s*:?\s*$/im;
-function splitDraft(text){ text=(text||'').replace(/\r/g,''); const m=text.match(HEAD); if(!m) return {prose:text.trim(), refs:''};
+function splitDraft(text){ text=SIY.cleanText(text); const m=text.match(HEAD); if(!m) return {prose:text.trim(), refs:''};
   return {prose:text.slice(0,m.index).trim(), refs:text.slice(m.index+m[0].length).trim()}; }
-function refList(txt){ txt=(txt||'').replace(/\r/g,'').trim(); if(!txt) return [];
-  const parts=/\n\s*\n/.test(txt)?txt.split(/\n\s*\n/):txt.split('\n'); let numbered=false;
-  const out=parts.map((p,i)=>{p=p.replace(/\s*\n\s*/g,' ').trim(); const n=p.match(/^\s*\[?(\d{1,3})[\].)]\s+/); if(n){numbered=true;p=p.slice(n[0].length);}
-    const pr=SIY.parse(p); return {num:n?+n[1]:i+1, raw:p, first:(pr.surnames[0]||'').toLowerCase(), year:pr.year, cited:false};}).filter(r=>r.raw.length>8);
+function refList(txt){ txt=SIY.cleanText(txt||'').trim(); if(!txt) return [];
+  const numbered=/^\s*\[?\d{1,3}[\].)]\s+/m.test(txt)&&(txt.match(/^\s*\[?\d{1,3}[\].)]\s+/gm)||[]).length>=2;
+  const out=SIY.splitEntries(txt).map((p,i)=>{const pr=SIY.parse(p); return {num:i+1, raw:p, first:(pr.surnames[0]||'').toLowerCase(), year:pr.year, cited:false};});
+  if(numbered){const raw=SIY.cleanText(txt);const nums=[...raw.matchAll(/^\s*\[?(\d{1,3})[\].)]\s+/gm)].map(m=>+m[1]);if(nums.length===out.length)out.forEach((r,i)=>r.num=nums[i]);}
   out.numbered=numbered; return out; }
+/* drop section headings ("Introduction", "2. Literature Review") so they don't glue onto the first sentence */
+const HEADW=/^(?:\d+(?:\.\d+)*\.?\s+)?(?:abstract|introduction|background|literature review|review of (?:related )?literature|related work|theoretical framework|conceptual framework|methods?|methodology|materials and methods|results|findings|discussion|conclusions?|limitations|recommendations|chapter\s+\w+)\s*:?$/i;
+function stripHeadings(prose){ const L=prose.split('\n');return L.filter((l,i)=>{const t=l.trim();if(!t)return true;
+  if(HEADW.test(t))return false;
+  const prevEnd=i===0||!L[i-1].trim()||/[.!?:]\s*$/.test(L[i-1]);const w=t.split(/\s+/);
+  return !(prevEnd&&w.length<=8&&!/[.,;!?)]$/.test(t)&&!/\(\s*(?:19|20)\d{2}/.test(t)&&w.every(x=>/^(?:[A-Z0-9][\w’'-]*\.?|of|and|the|in|on|for|to|a|an|&|with|among|vs\.?)$/.test(x))&&(L[i+1]===undefined||!L[i+1].trim()||/^[A-Z]/.test(L[i+1].trim())));}).join('\n'); }
 const PROT=[[/\bet al\./g,'et al§'],[/\be\.g\./g,'e§g§'],[/\bi\.e\./g,'i§e§'],[/\bcf\./g,'cf§'],[/\bpp?\./g,'p§'],[/\bvs\./g,'vs§'],[/\b([A-Z])\.(?=\s?[A-Z]?\.?\s?[A-Z][a-z])/g,'$1§']];
 function sentences(prose){ let t=prose.replace(/\s*\n\s*/g,' '); PROT.forEach(([re,s])=>t=t.replace(re,s));
   return t.split(/(?<=[.!?])\s+(?=[A-Z0-9“"(\[])/).map(s=>s.replace(/§/g,'.').trim()).filter(Boolean); }
@@ -29,7 +35,7 @@ function citations(sent, numbered){
   const seen=new Set(); return out.filter(c=>!seen.has(c.key)&&seen.add(c.key)); }
 function analyze(text, extraRefs){
   const sp=splitDraft(text); const refs=refList(extraRefs&&extraRefs.trim()?extraRefs:sp.refs);
-  const claims=[]; sentences(sp.prose).forEach(s=>{const cs=citations(s,refs.numbered); if(cs.length) claims.push({sentence:s, cites:cs, judgment:null});});
+  const claims=[]; sentences(stripHeadings(sp.prose)).forEach(s=>{const cs=citations(s,refs.numbered); if(cs.length) claims.push({sentence:s, cites:cs, judgment:null});});
   const sources={}, orphans=[];
   claims.forEach(cl=>cl.cites.forEach(c=>{ let ref=null;
     if(c.num!=null) ref=refs.find(r=>r.num===c.num);
