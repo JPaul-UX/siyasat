@@ -156,6 +156,13 @@ mark{background:var(--gold-soft);color:var(--ink);border-bottom:2px solid var(--
 .rd-open{display:inline-block;padding:12px 18px;border-radius:10px;background:var(--maroon);color:#fff!important;font-weight:700;text-decoration:none}.rd-open:hover{background:var(--maroon-dark)}.rd-none{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px}.rd-prev iframe{width:100%;height:75vh;border:1px solid var(--line);border-radius:10px;background:#fff}.rd-prev summary{cursor:pointer;font-weight:600;color:var(--maroon);margin:10px 0}.rd-load{padding:24px 0}
 .spin{display:inline-block;width:16px;height:16px;border:3px solid var(--gold-soft);border-top-color:var(--maroon);border-radius:50%;animation:rdspin 1s linear infinite;vertical-align:-3px}@keyframes rdspin{to{transform:rotate(360deg)}}
 @media (max-width:860px){.rd-wrap{grid-template-columns:1fr}.rd-jump{position:static;max-height:none}.rd-body{padding:4px 14px 16px;font-size:16px}.rd-title{font-size:1.3rem}}
+.undobar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}.undobar .ub{min-height:40px;padding:8px 14px;border-radius:10px;font-weight:700;color:var(--maroon);background:#fff;border:1.5px solid var(--gold)}.undobar .ub:hover:not(:disabled){background:var(--gold-soft)}.undobar .ub:disabled{opacity:.45;cursor:not-allowed;border-color:var(--line)}.d-undo{margin:10px 0 4px}
+.d-note-box{margin:12px 0}.d-note-box textarea{min-height:60px;font:15px/1.5 inherit;font-family:inherit}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,150%);background:var(--maroon);color:#fff;border-bottom:4px solid var(--gold);border-radius:12px;padding:10px 10px 10px 16px;display:flex;gap:10px;align-items:center;z-index:80;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:calc(100% - 24px);transition:transform .2s;font-size:15px}.toast.show{transform:translate(-50%,0)}.toast button{background:var(--gold);color:var(--maroon-dark);border:0;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer;min-height:36px}.toast .tx{background:transparent;color:#fff;font-size:20px;padding:4px 8px}
+@media (max-width:860px){.toast{bottom:84px;left:12px;right:12px;max-width:none;transform:translateY(200%)}.toast.show{transform:none}.toast span{flex:1}.ukeys{display:none}}
+.editbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--gold-soft);border:2px solid var(--gold);border-radius:12px;padding:12px 16px;margin:0 0 14px}.editbar span{display:block;color:var(--ink-soft);margin-top:2px}
+.edtools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0 4px}.edtools .ub{min-height:40px;padding:8px 12px;border-radius:10px;font-weight:700;color:var(--maroon);background:#fff;border:1.5px solid var(--gold)}.edtools .ub:disabled{opacity:.45;cursor:not-allowed;border-color:var(--line)}
+.editbtn{white-space:nowrap}.d-edit{margin:12px 0;border:1.5px solid var(--gold);border-radius:10px;padding:8px 12px;background:var(--gold-soft)}.d-edit summary{cursor:pointer;font-weight:700;color:var(--maroon);min-height:32px;display:flex;align-items:center}.d-edit textarea{min-height:90px;font-family:inherit;font-size:15px;margin-top:6px}
 </style></head><body>
 <a class="skip" href="#main">Skip to content</a>
 <div class="mhead"><button type="button" class="back mback" id="mback" hidden>← Back</button><div class="mark" aria-hidden="true">S</div><b>Siyasat</b></div>
@@ -254,14 +261,16 @@ function draftForm(){
   return `<h1 class="page-h">New check</h1><p class="lead">Choose what you're verifying, paste it, and run.</p>
   <ol class="steps" aria-label="Progress"><li id="s1" class="done">Choose type</li><li id="s2" class="on">Add your sources</li><li id="s3">Verify</li></ol>
   <section class="card"><h2>Step 1 · What are you checking?</h2>${typeCards(false)}</section>
-  <section class="card"><h2>Step 2 · Paste your draft</h2>
+  ${STATE.editing?`<div class="editbar" role="region" aria-label="Editing a saved check"><div><b>✏️ Editing your draft: ${esc(STATE.editing.name)}</b><span>Change anything below, then press <b>Check again</b>. Your verdicts are kept for sentences you don't change.</span></div><button type="button" class="link" id="cancelEdit">Cancel editing</button></div>`:''}
+  <section class="card"><h2>Step 2 · ${STATE.editing?'Edit your draft':'Paste your draft'}</h2>
    <p class="oneline">Siyasat shows you what each source actually says. You decide if it backs up your sentence.</p>
    <label class="big" for="name">Name this check <span class="meta">(optional)</span></label><input type="text" id="name" placeholder="e.g. Results section draft">
    <p class="help" style="margin-top:12px">Paste prose with in-text citations, like <b>(Ji et al., 2023)</b>, <b>Dela Cruz (2022)</b> or <b>[1]</b>. A reference list under a <b>References</b> heading makes matching more reliable, but it's optional.</p>
+   <div class="edtools" role="toolbar" aria-label="Text undo and redo"><button type="button" class="ghost ub" id="edUndo" disabled>↶ Undo</button><button type="button" class="ghost ub" id="edRedo" disabled>↷ Redo</button>${STATE.editing?'<button type="button" class="ghost ub" id="edRestore" disabled>⟲ Undo all changes</button>':''}<span class="meta ukeys">Ctrl+Z / Ctrl+Y</span></div>
    <label class="big" for="input">Your draft</label><textarea id="input" style="min-height:220px" spellcheck="false" placeholder="Paste your paragraphs here…"></textarea>
    <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:650;color:var(--maroon)">My reference list is separate (optional)</summary>
     <label class="big" for="refsIn" style="margin-top:8px">Reference list</label><textarea id="refsIn" style="min-height:120px" placeholder="One reference per line"></textarea></details>
-   <div class="actions wiz-run"><button class="primary" id="run">Check claims</button><span class="count hint" id="count" aria-live="polite">0 in-text citations detected</span></div>
+   <div class="actions wiz-run"><button class="primary" id="run">${STATE.editing?'Check again':'Check claims'}</button><span class="count hint" id="count" aria-live="polite">0 in-text citations detected</span></div>
    <div class="actions" style="margin-top:4px"><button class="ghost" id="sample">Try the example</button><button class="ghost" id="sample2">Example with a reference list</button><button class="link" id="clear">Clear</button><button class="link" id="startOver">↺ Start over</button></div>
    <div id="msg" role="alert"></div>
    <div class="stepper" id="stepper" hidden aria-hidden="true">${DSTAGES.map(s=>`<div class="step"><div class="track"><i></i></div><div class="name">${s[0]}</div></div>`).join('')}</div>
@@ -285,7 +294,22 @@ function bindDraft(){
   $('sample2').onclick=()=>{inp.value=DRAFT_SAMPLE;ri.value='';if(!$('name').value)$('name').value='Example draft';upd();$('msg').innerHTML='';$('run').focus();};
   $('clear').onclick=()=>{inp.value='';ri.value='';upd();inp.focus();};
   $('run').onclick=runDraft;
+  if($('cancelEdit'))$('cancelEdit').onclick=()=>{const id=STATE.editing.id;STATE.editing=null;STATE.forms.draft=null;location.hash='#/results/'+id;};
+  const E=STATE.edh={h:[],i:-1,t:null};const snap=()=>({a:inp.value,b:ri.value});
+  const paint=()=>{if(!$('edUndo')||!inp.isConnected)return;$('edUndo').disabled=E.i<=0;$('edRedo').disabled=E.i>=E.h.length-1;if($('edRestore'))$('edRestore').disabled=!(STATE.editing&&(inp.value!==STATE.editing.input||ri.value!==STATE.editing.refsIn));};
+  const rec=()=>{clearTimeout(E.t);E.t=null;const v=snap(),l=E.h[E.i];if(l&&l.a===v.a&&l.b===v.b)return paint();E.h=E.h.slice(0,E.i+1);E.h.push(v);E.h=E.h.slice(-200);E.i=E.h.length-1;paint();};
+  const go=d=>{if(E.t)rec();const j=E.i+d;if(j<0||j>=E.h.length)return;E.i=j;inp.value=E.h[j].a;ri.value=E.h[j].b;upd();paint();toast(d<0?'Text change undone':'Text change redone',d<0?'r':'u');};
+  STATE.edInit=()=>{E.h=[snap()];E.i=0;paint();};STATE.edInit();
+  [inp,ri].forEach(t=>{t.addEventListener('input',e=>{if(e.isTrusted===false&&!E.h.length)return;clearTimeout(E.t);if(/[\s.,;]$/.test(t.value.slice(0,t.selectionStart))&&e.inputType!=='deleteContentBackward')rec();else E.t=setTimeout(rec,700);paint();});
+    t.addEventListener('keydown',e=>{if(!(e.ctrlKey||e.metaKey)||e.altKey)return;const k=e.key.toLowerCase();if(k==='z'&&!e.shiftKey){e.preventDefault();go(-1);}else if(k==='y'||(k==='z'&&e.shiftKey)){e.preventDefault();go(1);}});});
+  $('edUndo').onclick=()=>go(-1);$('edRedo').onclick=()=>go(1);
+  if($('edRestore'))$('edRestore').onclick=()=>{if(E.t)rec();inp.value=STATE.editing.input;ri.value=STATE.editing.refsIn;upd();rec();toast('Restored your original draft','u');};
+  ['sample','sample2','clear'].forEach(k=>{const f=$(k).onclick;$(k).onclick=()=>{f();rec();};});
 }
+function draftText(c){if(c.input!=null)return {input:c.input,refsIn:c.refsIn||''};
+  const refs=c.sources.map(s=>s.ref).filter(Boolean);return {input:c.claims.map(x=>x.sentence).join(' ')+(refs.length?'\n\nReferences\n'+refs.join('\n'):''),refsIn:''};}
+function editDraft(id){const c=load().find(x=>x.id===id);if(!c)return;const t=draftText(c);STATE.editing={id,name:c.name,input:t.input,refsIn:t.refsIn};STATE.type='draft';STATE.forms.draft={name:c.name,input:t.input,refsIn:t.refsIn};location.hash='#/new/draft';}
+const ckey=cl=>cl.sentence.replace(/\s+/g,' ').trim()+'|'+cl.cites.map(x=>x.key).join(',');
 function stage(i){const st=[...document.querySelectorAll('#stepper .step')];st.forEach((s,j)=>s.className='step'+(j<i?' done':j===i?' active':''));if(DSTAGES[i])$('ptext').innerHTML=`<span class="spin" aria-hidden="true"></span>${esc(DSTAGES[i][1])}`;}
 const dslim=r=>!r.match?{raw:r.raw,verdict:r.verdict,confidence:r.confidence,note:r.note,linked:r.linked||null,orphan:!!r.orphan,weak:!!r.weak}:({raw:r.raw,verdict:r.verdict,confidence:r.confidence,note:r.note,diffs:r.diffs,apa:r.apa,linked:r.linked||null,orphan:!!r.orphan,weak:!!r.weak,
   match:r.match&&{doi:r.match.doi,title:r.match.title,source:r.match.source,year:r.match.year,venue:r.match.venue}});
@@ -300,6 +324,8 @@ async function runDraft(){
   for(let i=0;i<a.sources.length;i++){const s=a.sources[i];
     $('ptext').innerHTML=`<span class="spin" aria-hidden="true"></span>Source ${i+1} of ${a.sources.length}: ${esc(s.label)} · linking and retrieving its abstract…`; if(i===Math.floor(a.sources.length/2)) stage(2);
     const claim=a.claims.find(c=>c.cites.some(x=>x.key===s.key)).sentence;
+    const prevC=STATE.editing&&load().find(x=>x.id===STATE.editing.id);const pi=prevC?prevC.sources.findIndex(p=>p.key===s.key&&(p.ref||'')===(s.ref||'')):-1;
+    if(pi>=0&&prevC.results[pi]&&prevC.results[pi].verdict!=='error'){s.result=prevC.results[pi];s.abstract=prevC.sources[pi].abstract;continue;}
     try{const r=await DRAFT.checkSource(s,claim,a.hasRefs);s.result=dslim(r.result);s.abstract=r.abstract;}catch(e){s.result={raw:s.ref||s.label,verdict:'error',note:e.message};errs++;}}
   stage(3); await new Promise(r=>setTimeout(r,250)); stage(4);
   STATE.running=false;
@@ -308,7 +334,13 @@ async function runDraft(){
   const c={id:Date.now().toString(36),name:($('name').value.trim()||('Draft check '+new Date().toLocaleDateString())),type:'draft',v:2,date:new Date().toISOString(),
     results,score:SIY.integrity(results),claims:a.claims.map(cl=>({sentence:cl.sentence,cites:cl.cites.map(x=>({label:x.label,key:x.key})),judgment:null})),
     sources:a.sources.map(s=>({key:s.key,label:s.label,ref:s.ref,year:s.year,abstract:s.abstract})),orphans:a.orphans,uncited:a.uncited,hasRefs:a.hasRefs};
-  const cs=load();cs.unshift(c);try{save(cs);}catch(e){} location.hash='#/results/'+c.id;
+  c.input=$('input').value;c.refsIn=$('refsIn').value;
+  const ed=STATE.editing;const cs=load();const old=ed&&cs.find(x=>x.id===ed.id);
+  if(old){const pv={};old.claims.forEach(cl=>{pv[ckey(cl)]=cl;});let kept=0;c.claims.forEach(cl=>{const o=pv[ckey(cl)];if(o){cl.judgment=o.judgment||null;if(o.note)cl.note=o.note;if(o.judgment)kept++;}});
+    c.id=old.id;c.version=(old.version||1)+1;c.created=old.created||old.date;const at=cs.indexOf(old);UNDO.push(old.id,{k:'ver',id:c.id,from:old,to:null,label:`updated "${c.name}" to version ${c.version}`});
+    cs.splice(at,1);cs.unshift(c);try{save(cs);}catch(e){}const h=JSON.parse(localStorage.getItem('siyasat.undo.v1')||'{}');const hs=h[old.id];if(hs&&hs.u.length)hs.u[hs.u.length-1].to=c;try{localStorage.setItem('siyasat.undo.v1',JSON.stringify(h));}catch(e){}
+    STATE.editing=null;STATE.forms.draft=null;STATE.toastNext=`Updated to version ${c.version} · ${kept} verdict${kept===1?'':'s'} kept`;location.hash='#/results/'+c.id;return;}
+  cs.unshift(c);try{save(cs);}catch(e){} location.hash='#/results/'+c.id;
 }
 /* --- the user's own verdicts (concept names; the author picks them, never Siyasat) --- */
 const JV={match:{t:'Supported',cls:'ok'},nomatch:{t:'Contradicted',cls:'bad'},unsure:{t:'Unverifiable',cls:'na'}};
@@ -342,8 +374,8 @@ function claimRows(c){return c.claims.map((cl,i)=>`<button class="drow" data-ope
 function dstats(c){const n=k=>c.claims.filter(x=>x.judgment===k).length,w=c.claims.filter(x=>!x.judgment).length;
   return `<div class="stat ok"><div class="n">${n('match')}</div><div class="l">Supported <small>(your call)</small></div></div><div class="stat bad"><div class="n">${n('nomatch')}</div><div class="l">Contradicted <small>(your call)</small></div></div><div class="stat na"><div class="n">${n('unsure')}</div><div class="l">Unverifiable <small>(your call)</small></div></div><div class="stat wait"><div class="n">${w}</div><div class="l">Waiting for you</div></div><div class="stat"><div class="n">${c.claims.length}</div><div class="l">Claims checked</div></div>`;}
 function draftResults(c,cs){
-  return `<div class="rowh res-head"><div><h1 class="page-h" id="rh" tabindex="-1">Draft check: claims vs. sources</h1><p class="lead">${esc(c.name)} · ${fmtDate(c.date)}</p></div>
-   <div class="actions" style="margin:0"><button class="ghost" data-rep="${c.id}">Download report</button><button class="link" data-json="${c.id}">Data (JSON)</button>${cs.length>1?`<label class="meta">Other checks: <select id="pick">${cs.map(x=>`<option value="${x.id}" ${x.id===c.id?'selected':''}>${esc(x.name)} (${fmtDate(x.date)})</option>`).join('')}</select></label>`:''}</div></div>
+  return `<div class="rowh res-head"><div><h1 class="page-h" id="rh" tabindex="-1">Draft check: claims vs. sources</h1><p class="lead">${esc(c.name)} · ${fmtDate(c.date)}${c.version>1?` · <span class="pill na">Version ${c.version}</span>`:''}</p></div>
+   <div class="actions" style="margin:0"><button class="primary editbtn" data-edit="${c.id}">✏️ Edit draft</button><button class="ghost" data-rep="${c.id}">Download report</button><button class="link" data-json="${c.id}">Data (JSON)</button>${cs.length>1?`<label class="meta">Other checks: <select id="pick">${cs.map(x=>`<option value="${x.id}" ${x.id===c.id?'selected':''}>${esc(x.name)} (${fmtDate(x.date)})</option>`).join('')}</select></label>`:''}</div></div>
   <p class="oneline">Siyasat shows you what each source actually says. You decide if it backs up your sentence. The verdicts below are yours.</p>
   <div class="stats" id="dstats">${dstats(c)}</div>
   ${c.orphans&&c.orphans.length?`<div class="msg info"><b>Cited but not in your reference list:</b> ${c.orphans.map(o=>esc(o.label)).join(', ')}. We matched these by author and year. Add them to your reference list to confirm.</div>`:''}
@@ -375,17 +407,66 @@ function drawerHTML(c,i){const cl=c.claims[i];
    <p class="d-verdict">${esc(cl.cites.map(ct=>evidence(c,cl,ct)).join(' | '))}</p>
    <div class="judge" role="group" aria-label="Your verdict for this claim"><span class="jq">Your verdict: does the source back up your sentence?</span>
     ${Object.entries(JV).map(([k,v])=>`<button type="button" data-claim="${i}" data-j="${k}" aria-pressed="${cl.judgment===k}"><b>${v.t}</b><small>${JHELP[k]}</small></button>`).join('')}
-    <span class="meta">Siyasat never decides this for you. Click again to undo.</span></div>
+    <span class="meta">Siyasat never decides this for you. Click again to clear it, or use ↶ Undo.</span></div>
+   <details class="d-edit"><summary>✏️ Edit this sentence</summary><label for="csent" class="sr">Edit the sentence</label><textarea id="csent" rows="4" data-ci="${i}">${esc(cl.sentence)}</textarea>
+    <div class="actions" style="margin-top:6px"><button type="button" class="primary" id="crecheck">Re-check this claim</button><button type="button" class="link" id="creset">Reset text</button><span class="meta" id="cmsg" aria-live="polite"></span></div>
+    <p class="meta">Keep the citation in the sentence, e.g. (Ji et al., 2023). Your draft text is updated too.</p></details>
+   <div class="d-note-box"><label for="cnote" class="jq">Your note <span class="meta">(optional, e.g. "check Table 2")</span></label><textarea id="cnote" data-note="${i}" rows="2" placeholder="Write a reminder for yourself…">${esc(cl.note||'')}</textarea></div>
+   <div class="undobar d-undo"></div>
    ${blocks}`;}
 function openDrawer(c,i,from){const d=$('drawer');d.innerHTML=`<div class="drawer-inner">${drawerHTML(c,i)}</div>`;d.hidden=false;$('scrim').hidden=false;requestAnimationFrame(()=>d.classList.add('open'));
   STATE.dfrom=from;STATE.dopen=i;d.querySelector('.d-close').onclick=closeDrawer;d.querySelector('[data-dback]').onclick=closeDrawer;d.querySelector('.d-close').focus();bindJudge(c.id);}
 function closeDrawer(){const d=$('drawer');if(!d||d.hidden)return;d.classList.remove('open');d.hidden=true;$('scrim').hidden=true;STATE.dopen=null;if(STATE.dfrom&&document.body.contains(STATE.dfrom))STATE.dfrom.focus();}
 function bindJudge(id){document.querySelectorAll('#drawer [data-claim]').forEach(b=>b.onclick=()=>{const cs=load();const c=cs.find(x=>x.id===id);const i=+b.dataset.claim;
-  c.claims[i].judgment=c.claims[i].judgment===b.dataset.j?null:b.dataset.j;save(cs);
-  document.querySelectorAll('#drawer [data-claim]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.j===c.claims[i].judgment));
-  const p=$('drawer').querySelector('.drawer-inner > .pill');if(p)p.outerHTML=claimPill(c,c.claims[i]);
-  if($('dstats'))$('dstats').innerHTML=dstats(c);if($('drows')){$('drows').innerHTML=claimRows(c);bindRows(id);STATE.dfrom=$('drows').querySelector(`[data-open="${i}"]`);}
-  $('live').textContent=c.claims[i].judgment?`Your verdict saved: ${JV[c.claims[i].judgment].t}`:'Verdict cleared';});}
+  const from=c.claims[i].judgment||null,to=from===b.dataset.j?null:b.dataset.j;
+  UNDO.push(id,{k:'claim',id,i,f:'judgment',from,to,label:to?`marked claim ${i+1} ${JV[to].t}`:`cleared the verdict on claim ${i+1}`});
+  setClaim(id,i,'judgment',to);toast(to?`Marked ${JV[to].t}`:'Verdict cleared');});
+  const n=$('cnote');if(n){n.onchange=()=>{const c=load().find(x=>x.id===id);const i=+n.dataset.note;const from=c.claims[i].note||'',to=n.value.trim();if(from===to)return;
+    UNDO.push(id,{k:'claim',id,i,f:'note',from,to,label:to?`edited the note on claim ${i+1}`:`removed the note on claim ${i+1}`});setClaim(id,i,'note',to,true);toast(to?'Note saved':'Note removed');};}
+  const cr=$('crecheck');if(cr){$('creset').onclick=()=>{const c=load().find(x=>x.id===id);$('csent').value=c.claims[+$('csent').dataset.ci].sentence;};cr.onclick=()=>recheckClaim(id,+$('csent').dataset.ci,$('csent').value.trim());}
+  UNDO.paint();}
+async function recheckClaim(id,i,txt){const msg=t=>{if($('cmsg'))$('cmsg').textContent=t;};const c0=load().find(x=>x.id===id);if(!c0)return;
+  if(!txt){msg('The sentence is empty.');return;}if(txt===c0.claims[i].sentence){msg('Nothing changed yet.');return;}
+  const refs=c0.sources.map(s=>s.ref).filter(Boolean);const a=DRAFT.analyze(txt+(refs.length?'\n\nReferences\n'+refs.join('\n'):''),'');const cl=a.claims[0];
+  if(!cl||!cl.cites.length){msg("We couldn't find a citation in that sentence. Keep one like (Ji et al., 2023).");return;}
+  $('crecheck').disabled=true;msg('Checking…');const before=JSON.parse(JSON.stringify({claims:c0.claims,sources:c0.sources,results:c0.results,input:c0.input,score:c0.score}));
+  const c=JSON.parse(JSON.stringify(c0));
+  for(const ct of cl.cites){if(c.sources.some(s=>s.key===ct.key))continue;const s=a.sources.find(x=>x.key===ct.key);if(!s)continue;let r;
+    try{r=await DRAFT.checkSource(s,txt,a.hasRefs);}catch(e){r={result:{raw:s.ref||s.label,verdict:'error',note:e.message}};}
+    c.sources.push({key:s.key,label:s.label,ref:s.ref,year:s.year,abstract:r.abstract});c.results.push(r.result.match||r.result.verdict==='error'?dslim(r.result):dslim(r.result));}
+  const oldS=c.claims[i].sentence;const t=draftText(c0);c.input=t.input.includes(oldS)?t.input.replace(oldS,txt):t.input;c.refsIn=t.refsIn;
+  c.claims[i]={sentence:cl.sentence,cites:cl.cites.map(x=>({label:x.label,key:x.key})),judgment:null,note:c.claims[i].note};c.score=SIY.integrity(c.results);
+  const after={claims:c.claims,sources:c.sources,results:c.results,input:c.input,score:c.score};
+  UNDO.push(id,{k:'snap',id,from:before,to:after,label:`edited claim ${i+1}`});
+  updateCheck(id,x=>Object.assign(x,JSON.parse(JSON.stringify(after))));const cc=load().find(x=>x.id===id);
+  if($('dstats'))$('dstats').innerHTML=dstats(cc);if($('drows')){$('drows').innerHTML=claimRows(cc);bindRows(id);}openDrawer(cc,i,$('drows')&&$('drows').querySelector(`[data-open="${i}"]`));toast(`Claim ${i+1} re-checked · pick your verdict again`);}
+function setClaim(id,i,f,v,keepDrawer){const c=updateCheck(id,x=>{x.claims[i][f]=v;});if(!c)return;
+  const d=$('drawer');if(d&&!d.hidden&&STATE.dopen===i){if(keepDrawer)UNDO.paint();else{const y=d.scrollTop;d.querySelector('.drawer-inner').innerHTML=drawerHTML(c,i);d.querySelector('.d-close').onclick=closeDrawer;d.querySelector('[data-dback]').onclick=closeDrawer;bindJudge(id);d.scrollTop=y;}}
+  if($('dstats'))$('dstats').innerHTML=dstats(c);if($('drows')){$('drows').innerHTML=claimRows(c);bindRows(id);if(STATE.dopen!=null)STATE.dfrom=$('drows').querySelector(`[data-open="${STATE.dopen}"]`);}
+  $('live').textContent=f==='judgment'?(v?`Your verdict saved: ${JV[v].t}`:'Verdict cleared'):'Note saved';UNDO.paint();}
+/* ---------- Undo / Redo (per check + saved-checks history), kept in localStorage ---------- */
+const UNDO=(()=>{const K='siyasat.undo.v1';const all=()=>{try{return JSON.parse(localStorage.getItem(K))||{}}catch(e){return {}}};
+  const put=o=>{try{localStorage.setItem(K,JSON.stringify(o))}catch(e){}};
+  const scope=()=>{const [r,a]=location.hash.replace(/^#\/?/,'').split('/');if(r==='results'){const c=a?load().find(x=>x.id===a):load()[0];if(c)return c.id;}return 'history';};
+  const st=sc=>{const o=all();return o[sc]||{u:[],r:[]};};
+  function push(sc,e){const o=all();const s=o[sc]||{u:[],r:[]};s.u.push(e);s.u=s.u.slice(-100);s.r=[];o[sc]=s;put(o);paint();}
+  function apply(e,dir){const v=dir==='u'?e.from:e.to;
+    if(e.k==='claim'){if(!load().find(x=>x.id===e.id))return false;const d=$('drawer');if(d&&!d.hidden&&STATE.dopen!==e.i){const c=load().find(x=>x.id===e.id);c.claims[e.i][e.f]=v;openDrawer(c,e.i,$('drows')&&$('drows').querySelector(`[data-open="${e.i}"]`));}setClaim(e.id,e.i,e.f,v);return true;}
+    if(e.k==='ver'||e.k==='snap'){const cs=load();const at=cs.findIndex(x=>x.id===e.id);const v2=dir==='u'?e.from:e.to;if(at<0||!v2)return false;
+      if(e.k==='snap'){Object.assign(cs[at],JSON.parse(JSON.stringify(v2)));}else cs[at]=v2;try{save(cs);}catch(er){return false;}closeDrawer();route();return true;}
+    if(e.k==='del'){let cs=load();if(dir==='u'){e.items.slice().sort((a,b)=>a.at-b.at).forEach(({c,at})=>{if(!cs.find(x=>x.id===c.id))cs.splice(Math.min(at,cs.length),0,c);});}else{const ids=e.items.map(x=>x.c.id);cs=cs.filter(x=>!ids.includes(x.id));}
+      try{save(cs);}catch(er){alert('Not enough browser storage to restore this check.');return false;}route();return true;}}
+  function step(dir){const sc=scope();const o=all();const s=o[sc]||{u:[],r:[]};const from=dir==='u'?s.u:s.r,to=dir==='u'?s.r:s.u;const e=from.pop();if(!e)return;
+    if(apply(e,dir)===false){o[sc]=s;put(o);paint();return;}to.push(e);o[sc]=s;put(o);paint();toast((dir==='u'?'Undone: ':'Redone: ')+e.label,dir==='u'?'r':'u');}
+  function paint(){const s=st(scope());const u=s.u[s.u.length-1],r=s.r[s.r.length-1];
+    document.querySelectorAll('.undobar').forEach(b=>{b.innerHTML=`<button type="button" class="ghost ub" data-undo ${u?'':'disabled'} title="${u?esc('Undo: '+u.label):'Nothing to undo'}" aria-label="${u?esc('Undo: '+u.label):'Undo (nothing to undo)'}">↶ Undo</button><button type="button" class="ghost ub" data-redo ${r?'':'disabled'} title="${r?esc('Redo: '+r.label):'Nothing to redo'}" aria-label="${r?esc('Redo: '+r.label):'Redo (nothing to redo)'}">↷ Redo</button><span class="meta ukeys">Ctrl+Z / Ctrl+Y</span>`;
+      b.querySelector('[data-undo]').onclick=()=>step('u');b.querySelector('[data-redo]').onclick=()=>step('r');});}
+  document.addEventListener('keydown',e=>{if(!(e.ctrlKey||e.metaKey)||e.altKey)return;const t=e.target;if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))return;const k=e.key.toLowerCase();
+    if(k==='z'&&!e.shiftKey){e.preventDefault();step('u');}else if(k==='y'||(k==='z'&&e.shiftKey)){e.preventDefault();step('r');}});
+  return {push,step,paint,scope};})();
+function toast(msg,act='u'){let t=$('toast');if(!t){document.body.insertAdjacentHTML('beforeend','<div class="toast" id="toast" role="status" aria-live="polite"></div>');t=$('toast');}
+  t.innerHTML=`<span>${esc(msg)}</span><button type="button">${act==='u'?'↶ Undo':'↷ Redo'}</button><button type="button" class="tx" aria-label="Dismiss">×</button>`;t.classList.add('show');
+  t.querySelector('button').onclick=()=>{t.classList.remove('show');UNDO.step(act);};t.querySelector('.tx').onclick=()=>t.classList.remove('show');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('show'),6000);}
 function bindRows(id){document.querySelectorAll('#drows [data-open]').forEach(b=>b.onclick=()=>{const c=load().find(x=>x.id===id);openDrawer(c,+b.dataset.open,b);});}
 function bindNew(){
   if($('startOver')) $('startOver').onclick=startOver;
@@ -625,22 +706,25 @@ function route(){
   const [r,...ra]=location.hash.replace(/^#\/?/,'').split('/'); const arg=ra.join('/'); const page=r||'dashboard';
   if(page==='new'&&arg&&['refs','corpus','draft'].includes(arg))STATE.type=arg;
   document.querySelectorAll('.nav a').forEach(a=>{if(a.dataset.r===page)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
-  M.innerHTML=backbar(page,arg)+(page==='new'?newCheck():page==='results'?results(arg):page==='reports'?reports():page==='read'?'<div id="reader" class="reader"></div>':dashboard());
+  M.innerHTML=backbar(page,arg)+(page==='new'||page==='read'?'':'<div class="undobar" role="toolbar" aria-label="Undo and redo"></div>')+(page==='new'?newCheck():page==='results'?results(arg):page==='reports'?reports():page==='read'?'<div id="reader" class="reader"></div>':dashboard());
   if(page==='read')READER.show($('reader'),decodeURIComponent(arg||''));
   const mb=$('mback'); if(mb){const b=backTarget();mb.hidden=page==='dashboard';mb.textContent='← Back to '+b.label;}
   M.querySelectorAll('[data-back]').forEach(b=>b.onclick=goBack);
   document.title=({new:'New check',results:'Results',reports:'Reports',read:'Full-text reader'}[page]||'Dashboard')+' · Siyasat';
-  if(page==='new'){bindNew();STATE.formType=STATE.type;restoreForm();} bindCommon(arg); window.scrollTo(0,0);
+  if(page!=='new'&&STATE.editing&&!STATE.running){STATE.editing=null;STATE.forms.draft=null;}
+  if(page==='new'){bindNew();STATE.formType=STATE.type;restoreForm();if(STATE.type==='draft'&&STATE.edInit)STATE.edInit();} bindCommon(arg); UNDO.paint(); window.scrollTo(0,0);
   if(route.started){const h=M.querySelector('h1');if(h){h.tabIndex=-1;h.focus({preventScroll:true});}} route.started=true;
 }
 function bindCommon(arg){
   const byId=id=>load().find(c=>c.id===id);
   M.querySelectorAll('[data-rep]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.rep);dl(fname(c,'html'),report(c),'text/html');});
   M.querySelectorAll('[data-json]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.json);dl(fname(c,'json'),json(c),'application/json');});
-  M.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.del);if(STATE.job&&STATE.job.active&&STATE.job.id===c.id){alert('This check is still running. Pause it first.');return;}if(confirm(`Delete "${c.name}"? This can't be undone.`)){save(load().filter(x=>x.id!==c.id));route();}});
-  if($('clearAll'))$('clearAll').onclick=()=>{if(confirm('Delete all your saved checks from this browser? This can\'t be undone.')){localStorage.removeItem(KEY);route();}};
+  M.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.del);if(STATE.job&&STATE.job.active&&STATE.job.id===c.id){alert('This check is still running. Pause it first.');return;}if(confirm(`Delete "${c.name}"? You can undo this right after.`)){const cs=load();const at=cs.findIndex(x=>x.id===c.id);UNDO.push('history',{k:'del',items:[{c,at}],label:`deleted "${c.name}"`});save(cs.filter(x=>x.id!==c.id));if(location.hash.startsWith('#/results'))location.hash='#/dashboard';else route();toast(`Deleted "${c.name}"`);}});
+  if($('clearAll'))$('clearAll').onclick=()=>{if(confirm('Delete all your saved checks from this browser? You can undo this right after.')){const cs=load();UNDO.push('history',{k:'del',items:cs.map((c,at)=>({c,at})),label:`deleted all ${cs.length} saved checks`});localStorage.removeItem(KEY);route();toast('Deleted all saved checks');}};
   if($('drows')) bindRows(arg||load()[0].id);
   M.querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{STATE.page=+b.dataset.pg;const c=byId(arg||load()[0].id);$('list').innerHTML=itemList(c);bindCommon(arg);$('list').scrollIntoView({block:'start'});const f=$('list').querySelector('article');if(f){f.tabIndex=-1;f.focus({preventScroll:true});}});
+  M.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editDraft(b.dataset.edit));
+  if(STATE.toastNext){const t=STATE.toastNext;STATE.toastNext=null;setTimeout(()=>toast(t),50);}
   M.querySelectorAll('[data-resume]').forEach(b=>b.onclick=()=>resumeJob(b.dataset.resume));
   M.querySelectorAll('[data-finish]').forEach(b=>b.onclick=()=>{updateCheck(b.dataset.finish,x=>{x.status='done';x.stoppedEarly=true;});route();});
   if(STATE.job&&STATE.job.active&&$('progress')) $('progress').hidden=false;
