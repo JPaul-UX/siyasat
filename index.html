@@ -149,6 +149,13 @@ mark{background:var(--gold-soft);color:var(--ink);border-bottom:2px solid var(--
 .d-back{margin:-6px 0 6px -8px}.drawer-inner>.pill{display:inline-flex}
 .mhead{display:none;align-items:center;gap:10px;background:var(--maroon);color:#fff;padding:12px 16px;border-bottom:4px solid var(--gold)}.mhead .mark{width:34px;height:34px;font-size:18px}
 @media print{nav.side,.mhead,.actions,.filters{display:none}.app{display:block}.card{box-shadow:none}}
+.readbtn{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:8px 14px;border-radius:10px;background:var(--gold-soft);border:1.5px solid var(--gold);color:var(--maroon);font-weight:600;text-decoration:none}.readbtn:hover{background:var(--gold)}
+.rd-title{font-size:1.6rem;line-height:1.3;margin:4px 0 6px}.rd-src{margin:8px 0}.rd-tip{background:var(--maroon-soft);border-left:5px solid var(--gold);padding:12px 14px;border-radius:10px;margin:14px 0;line-height:1.5}
+.rd-wrap{display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:start}.rd-jump{position:sticky;top:12px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;max-height:80vh;overflow:auto}.rd-jump ol{margin:6px 0 0;padding-left:18px}.rd-jump li{margin:4px 0}.rd-jump a{color:var(--maroon)}.rd-jump a.key-r,.rd-jump a.key-d{font-weight:700;background:var(--gold-soft);padding:1px 4px;border-radius:4px}
+.rd-body{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 24px 20px;font-size:17px;line-height:1.7;max-width:78ch;overflow-wrap:anywhere}.rd-body h2{color:var(--maroon);border-bottom:2px solid var(--gold);padding-bottom:4px;margin-top:28px}.rd-body h3,.rd-body h4{color:var(--maroon-dark)}.rd-body section{scroll-margin-top:84px}.rd-body section:focus{outline:none}.rd-x{color:var(--ink-soft);font-size:.9em}.rd-fig{margin:12px 0;padding:8px 12px;background:var(--paper);border-radius:8px;font-size:15px}
+.rd-open{display:inline-block;padding:12px 18px;border-radius:10px;background:var(--maroon);color:#fff!important;font-weight:700;text-decoration:none}.rd-open:hover{background:var(--maroon-dark)}.rd-none{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px}.rd-prev iframe{width:100%;height:75vh;border:1px solid var(--line);border-radius:10px;background:#fff}.rd-prev summary{cursor:pointer;font-weight:600;color:var(--maroon);margin:10px 0}.rd-load{padding:24px 0}
+.spin{display:inline-block;width:16px;height:16px;border:3px solid var(--gold-soft);border-top-color:var(--maroon);border-radius:50%;animation:rdspin 1s linear infinite;vertical-align:-3px}@keyframes rdspin{to{transform:rotate(360deg)}}
+@media (max-width:860px){.rd-wrap{grid-template-columns:1fr}.rd-jump{position:static;max-height:none}.rd-body{padding:4px 14px 16px;font-size:16px}.rd-title{font-size:1.3rem}}
 </style></head><body>
 <a class="skip" href="#main">Skip to content</a>
 <div class="mhead"><button type="button" class="back mback" id="mback" hidden>← Back</button><div class="mark" aria-hidden="true">S</div><b>Siyasat</b></div>
@@ -167,6 +174,7 @@ mark{background:var(--gold-soft);color:var(--ink);border-bottom:2px solid var(--
 </div>
 <script src="engine.js"></script>
 <script src="draft.js"></script>
+<script src="reader.js"></script>
 <script>
 const $=id=>document.getElementById(id), M=document.getElementById('main');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -349,7 +357,7 @@ function drawerHTML(c,i){const cl=c.claims[i];
     if(x.m&&x.ry)rows.push(['Year',String(x.cy||'—'),x.yearDiff?`<span class="val-fix">${x.ry}</span> <span class="meta">(in-text year should be ${x.ry})</span>`:'✓ '+x.ry]);
     if(nums.length)rows.push(['Numbers',esc(nums.join(', ')),x.abs?(cmp.missing.length?`<span class="val-bad">Not in abstract: ${esc(cmp.missing.join(', '))}</span>`:'✓ Found in the abstract'):'— no abstract to compare']);
     if(x.abs)rows.push(['Closest abstract sentence','<span class="meta">by shared words</span>',best?`<span class="cl">${DRAFT.compare(cl.sentence,best.text).abstractHTML}</span>`:'<span class="meta">No sentence shares words with your claim</span>']);
-    const links=[];if(x.m&&x.m.doi)links.push([`DOI record`,'https://doi.org/'+x.m.doi]);const ab=x.s.abstract||{};if(ab.openalex)links.push(['OpenAlex record',ab.openalex]);if(ab.oaUrl)links.push(['Free full text',ab.oaUrl]);
+    const links=[];if(x.m&&x.m.doi)links.push([`DOI record`,'https://doi.org/'+x.m.doi]);const ab=x.s.abstract||{};if(ab.openalex)links.push(['OpenAlex record',ab.openalex]);if(ab.oaUrl)links.push(['Free full text',ab.oaUrl]);if(x.m&&x.m.doi)links.readBtn=READER.btn(x.m.doi);
     const note=x.r.verdict==='not_found'&&!x.r.orphan&&/no reference list entry/.test(x.r.raw||'')?esc(x.r.note)+' Siyasat abstains rather than guessing: without a reference list it only knows the author and year.'
       :x.r.verdict==='not_found'?esc(x.r.note||'Marked for manual checking: try your university repository or the national library.')
       :x.r.verdict==='retracted'?'Real source, but retracted. Don\'t cite it as valid evidence; cite the retraction notice if you discuss it.'
@@ -358,7 +366,7 @@ function drawerHTML(c,i){const cl=c.claims[i];
       :x.abs?'Read the abstract below, then give your verdict. Abstracts can oversell; if it matters, read the results and discussion in the full article.'
       :'No free abstract is available for this source. Open the article to check it yourself.';
     return `<section class="dsrc"><table class="diff"><thead><tr><th scope="col">Check</th><th scope="col">Your draft</th><th scope="col">The record</th></tr></thead><tbody>${rows.map(r=>`<tr><th scope="row">${r[0]}</th><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</tbody></table>
-     <p class="d-note">${note}</p>${links.length?`<div class="d-links">${links.map(l=>`<a href="${esc(l[1])}" target="_blank" rel="noopener">${esc(l[0])} ↗<span class="sr"> (opens in a new tab)</span></a>`).join('')}</div>`:''}
+     <p class="d-note">${note}</p>${links.readBtn?`<div style="margin:10px 0">${links.readBtn}</div>`:''}${links.length?`<div class="d-links">${links.map(l=>`<a href="${esc(l[1])}" target="_blank" rel="noopener">${esc(l[0])} ↗<span class="sr"> (opens in a new tab)</span></a>`).join('')}</div>`:''}
      ${x.abs?`<div class="reader"><div class="rd-h">Built-in reader ${ab.isOA?'<span class="rp-oa">Open access</span>':''}<span class="rp-src">Abstract via ${esc(ab.from)}</span></div>
       ${x.m?`<div class="rd-t">${esc(x.m.title)}${x.ry?` (${x.ry})`:''}</div>`:''}<div class="rd-sec"><b>Abstract</b><p tabindex="0" aria-label="Source abstract">${cmp.abstractHTML}</p></div>
       <div class="rd-foot">Only the abstract is free to show here. To read the results and discussion (where abstracts sometimes oversell), ${ab.oaUrl?`open the <a href="${esc(ab.oaUrl)}" target="_blank" rel="noopener">free full text</a>`:'open the article'}. Reading stays your job; Siyasat just removes the friction.</div></div>`:''}</section>`;}).join('');
@@ -543,7 +551,7 @@ function itemList(c){const all=c.results.map((r,i)=>[r,r.i!=null?r.i:i]).filter(
   return pager+(shown.length?shown.map(([r,i])=>itemHTML(r,i)).join(''):'<div class="empty"><span class="big" aria-hidden="true">🎉</span>No problems found.</div>')+pager;}
 function itemHTML(r,i){const m=r.match;let h=`<article class="item v-${r.verdict}" aria-label="Reference ${i+1}: ${esc(LABEL[r.verdict])}"><span class="badge ${r.verdict}">${LABEL[r.verdict]}</span> <span class="meta">Reference ${i+1}${r.confidence!=null?` · match confidence ${Math.round(r.confidence*100)}%`:''}</span>
    <p class="what">${EXPLAIN[r.verdict]}</p><div class="cite"><span class="sr">You wrote: </span>${esc(r.raw)}</div>`;
-   if(m)h+=`<div class="meta">Matched record: <a href="https://doi.org/${esc(m.doi)}" target="_blank" rel="noopener">${esc(m.title)}<span class="sr"> (opens in new tab)</span></a> · ${esc(m.source)} · doi:${esc(m.doi)}</div>`;
+   if(m)h+=`<div class="meta">Matched record: <a href="https://doi.org/${esc(m.doi)}" target="_blank" rel="noopener">${esc(m.title)}<span class="sr"> (opens in new tab)</span></a> · ${esc(m.source)} · doi:${esc(m.doi)}</div><div style="margin-top:8px">${READER.btn(m.doi)}</div>`;
    if(r.note&&r.verdict!=='uncertain')h+=`<div class="meta" style="margin-top:4px">${esc(r.note)}</div>`;
    if(r.diffs&&r.diffs.length)h+=`<div class="tbl"><table><caption class="sr">Differences</caption><tr><th scope="col">Detail</th><th scope="col">You wrote</th><th scope="col">Official record</th></tr>${r.diffs.map(d=>`<tr><td>${d.field}</td><td>${esc(d.cited)}</td><td class="${d.suspect?'':'fix'}">${esc(d.actual)}${d.note?`<div class="note">${esc(d.note)}</div>`:''}</td></tr>`).join('')}</table></div>`;
    return h+'</article>';}
@@ -595,8 +603,8 @@ function track(){const h=norm(location.hash);if(HIST[HIST.length-1]===h){}else i
 const TNAME={refs:'Reference list',corpus:'Review corpus',draft:'Draft check'};
 function pageName(h,from){const [r,a]=h.replace('#/','').split('/');
   if(r==='new')return a?(from&&from.startsWith('#/new')?'step 2':'New check'):(from&&from.startsWith('#/new/')?'step 1':'New check');
-  return {results:'Results',reports:'Reports',dashboard:'Dashboard'}[r]||'Dashboard';}
-function parentOf(h){const [r,a]=h.replace('#/','').split('/');return r==='new'&&a?'#/new':'#/dashboard';}
+  return {results:'Results',reports:'Reports',dashboard:'Dashboard',read:'Reader'}[r]||'Dashboard';}
+function parentOf(h){const [r,a]=h.replace('#/','').split('/');return r==='new'&&a?'#/new':r==='read'?'#/results':'#/dashboard';}
 function backTarget(){const cur=norm(location.hash);const prev=HIST.length>1?HIST[HIST.length-2]:null;
   return prev?{h:prev,hist:true,label:pageName(prev,cur)}:{h:parentOf(cur),hist:false,label:pageName(parentOf(cur),cur)};}
 function goBack(){const b=backTarget();if(b.hist)history.back();else location.hash=b.h;}
@@ -604,6 +612,7 @@ function crumbs(page,arg){const L=[['Dashboard','#/dashboard']];
   if(page==='new'){L.push(['New check','#/new']);if(arg)L.push(['Step 2 · '+TNAME[arg],null]);else L[1][1]=null;}
   else if(page==='results'){const c=arg?load().find(x=>x.id===arg):load()[0];L.push(['Results',c?'#/results':null]);if(c)L.push([TNAME[c.type]||'Check',null]);}
   else if(page==='reports')L.push(['Reports',null]);
+  else if(page==='read'){L.push(['Results','#/results']);L.push(['Full-text reader',null]);}
   return `<nav class="crumbs" aria-label="Breadcrumb"><ol>${L.map(([n,h])=>`<li>${h?`<a href="${h}">${esc(n)}</a>`:`<span aria-current="page">${esc(n)}</span>`}</li>`).join('')}</ol></nav>`;}
 function backbar(page,arg){if(page==='dashboard')return '';const b=backTarget();
   return `<div class="backbar"><button type="button" class="back" data-back>← Back to ${esc(b.label)}</button>${crumbs(page,arg)}</div>`;}
@@ -613,13 +622,14 @@ function restoreForm(){const f=STATE.forms[STATE.type];if(!f||!$('input'))return
   if(STATE.type==='corpus'&&STATE.corpus&&STATE.corpus.sizeLabel&&$('chip')){$('chipName').textContent=STATE.corpus.file;$('chipCount').textContent=STATE.corpus.sizeLabel;$('chip').hidden=false;$('drop').hidden=true;}}
 function route(){
   saveForm(); STATE.formType=null; track();
-  const [r,arg]=location.hash.replace(/^#\/?/,'').split('/'); const page=r||'dashboard';
+  const [r,...ra]=location.hash.replace(/^#\/?/,'').split('/'); const arg=ra.join('/'); const page=r||'dashboard';
   if(page==='new'&&arg&&['refs','corpus','draft'].includes(arg))STATE.type=arg;
   document.querySelectorAll('.nav a').forEach(a=>{if(a.dataset.r===page)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
-  M.innerHTML=backbar(page,arg)+(page==='new'?newCheck():page==='results'?results(arg):page==='reports'?reports():dashboard());
+  M.innerHTML=backbar(page,arg)+(page==='new'?newCheck():page==='results'?results(arg):page==='reports'?reports():page==='read'?'<div id="reader" class="reader"></div>':dashboard());
+  if(page==='read')READER.show($('reader'),decodeURIComponent(arg||''));
   const mb=$('mback'); if(mb){const b=backTarget();mb.hidden=page==='dashboard';mb.textContent='← Back to '+b.label;}
   M.querySelectorAll('[data-back]').forEach(b=>b.onclick=goBack);
-  document.title=({new:'New check',results:'Results',reports:'Reports'}[page]||'Dashboard')+' · Siyasat';
+  document.title=({new:'New check',results:'Results',reports:'Reports',read:'Full-text reader'}[page]||'Dashboard')+' · Siyasat';
   if(page==='new'){bindNew();STATE.formType=STATE.type;restoreForm();} bindCommon(arg); window.scrollTo(0,0);
   if(route.started){const h=M.querySelector('h1');if(h){h.tabIndex=-1;h.focus({preventScroll:true});}} route.started=true;
 }
