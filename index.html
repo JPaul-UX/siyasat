@@ -164,6 +164,13 @@ mark{background:var(--gold-soft);color:var(--ink);border-bottom:2px solid var(--
 .edtools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0 4px}.edtools .ub{min-height:40px;padding:8px 12px;border-radius:10px;font-weight:700;color:var(--maroon);background:#fff;border:1.5px solid var(--gold)}.edtools .ub:disabled{opacity:.45;cursor:not-allowed;border-color:var(--line)}
 .editbtn{white-space:nowrap}.d-edit{margin:12px 0;border:1.5px solid var(--gold);border-radius:10px;padding:8px 12px;background:var(--gold-soft)}.d-edit summary{cursor:pointer;font-weight:700;color:var(--maroon);min-height:32px;display:flex;align-items:center}.d-edit textarea{min-height:90px;font-family:inherit;font-size:15px;margin-top:6px}
 .pdfup{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0 2px}.filechip-ok{background:#fff;border:1.5px solid var(--gold);color:var(--ok);font-weight:700;border-radius:999px;padding:3px 10px}
+.updrop-card{border:0;background:transparent;padding:0;box-shadow:none}.updrop{border:3px dashed var(--gold);background:linear-gradient(180deg,#fff,var(--gold-soft));border-radius:16px;padding:28px 20px;text-align:center;cursor:pointer;transition:background .15s,border-color .15s}.updrop:hover,.updrop:focus{border-color:var(--maroon);outline:none;box-shadow:0 0 0 3px var(--gold)}.updrop.over{background:var(--gold-soft);border-color:var(--maroon);border-style:solid}
+.updrop h2{margin:4px 0 6px;color:var(--maroon);font-size:1.4rem}.updrop p{margin:4px 0}.up-ico{font-size:34px}.updrop-card.compact .updrop{padding:18px 16px}.updrop-card.compact .up-ico{font-size:26px}.or{text-align:center;color:var(--ink-soft);margin:6px 0 14px}
+.up-steps{list-style:none;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0;margin:0 0 16px}.up-steps li{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--ink-soft);padding:10px;border-radius:10px;background:var(--paper);border:1px solid var(--line)}.up-steps li span{display:inline-flex;width:26px;height:26px;border-radius:50%;align-items:center;justify-content:center;background:#fff;border:2px solid var(--line);flex:none}
+.up-steps li.on{color:var(--maroon);border-color:var(--gold);background:var(--gold-soft)}.up-steps li.on span{border-color:var(--maroon)}.up-steps li.done{color:var(--ok)}.up-steps li.done span{background:var(--ok);color:#fff;border-color:var(--ok)}
+.up-prog .pbar{height:14px;background:var(--maroon-soft);border-radius:99px;overflow:hidden;border:1px solid var(--line)}.up-prog .pbar i{display:block;height:100%;background:linear-gradient(90deg,var(--maroon),var(--gold));transition:width .3s}
+.combo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:10px 0}.ctile{display:flex;flex-direction:column;gap:6px;align-items:flex-start;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff;text-decoration:none;color:var(--ink)}.ctile b{font-size:1.8rem}.ctile:hover{border-color:var(--gold)}.ctile.wait{background:var(--gold-soft);border-color:var(--gold)}
+@media (max-width:860px){.up-steps{grid-template-columns:1fr 1fr}}
 </style></head><body>
 <a class="skip" href="#main">Skip to content</a>
 <div class="mhead"><button type="button" class="back mback" id="mback" hidden>← Back</button><div class="mark" aria-hidden="true">S</div><b>Siyasat</b></div>
@@ -183,6 +190,7 @@ mark{background:var(--gold-soft);color:var(--ink);border-bottom:2px solid var(--
 <script src="engine.js"></script>
 <script src="draft.js"></script>
 <script src="reader.js"></script>
+<script src="upload.js"></script>
 <script>
 const $=id=>document.getElementById(id), M=document.getElementById('main');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -206,12 +214,12 @@ let STATE={type:'refs',filter:'all',running:false,forms:{}};
 function dashboard(){
   const cs=load(); const all=cs.flatMap(c=>c.results); const k=counts(all);
   const avg=cs.length?Math.round(cs.reduce((s,c)=>s+c.score,0)/cs.length):0;
-  if(!cs.length){ return `<h1 class="page-h">Welcome to Siyasat</h1><p class="lead">A friendly checker for the sources in your paper.</p>
+  if(!cs.length){ return `<h1 class="page-h">Welcome to Siyasat</h1><p class="lead">A friendly checker for the sources in your paper.</p>${UP.zone()}
   <section class="card welcome"><h2>Is every source in your paper real?</h2><p>AI tools sometimes make up references or get the details wrong. Siyasat checks each one against real scholarly databases in seconds, for free.</p>
   <ol class="how"><li><b>Paste your references</b>Copy your reference list from your paper. Any citation style works.</li><li><b>Let Siyasat check them</b>Each one is looked up in Crossref and OpenAlex, including retraction notices.</li><li><b>Fix and copy</b>See what's wrong, then copy a corrected APA 7 list.</li></ol>
   <a class="btn primary" href="#/new">Start your first check →</a></section>
   <section class="card"><h2>Your dashboard</h2><div class="empty"><span class="big" aria-hidden="true">📋</span>No checks yet. Your numbers and recent checks will show up here after your first check.<br>They're saved only in this browser.</div></section>`;}
-  return `<div class="rowh"><div><h1 class="page-h">Dashboard</h1><p class="lead">Your checks on this device.</p></div><a class="btn primary" href="#/new">+ New check</a></div>
+  return `<div class="rowh"><div><h1 class="page-h">Dashboard</h1><p class="lead">Your checks on this device.</p></div><a class="btn primary" href="#/new">+ New check</a></div>${UP.zone(true)}
   <div class="stats" role="list">
    <div class="stat" role="listitem"><b>${cs.length}</b><span>Checks run ${tip('How many times you have run a check on this device.')}</span></div>
    <div class="stat" role="listitem"><b>${k.verified+k.correction}</b><span>Sources confirmed real ${tip('References found in the databases (including ones that only needed small fixes).')}</span></div>
@@ -240,7 +248,7 @@ function typeCards(asLinks){
 function newCheck(){
   const refs=STATE.type==='refs';
   if(STATE.type==='draft') return draftForm();
-  return `<h1 class="page-h">New check</h1><p class="lead">Three quick steps. Results arrive in seconds.</p>
+  return `<h1 class="page-h">New check</h1><p class="lead">Three quick steps. Results arrive in seconds.</p>${UP.zone(true)}<p class="or">— or choose step by step —</p>
   <ol class="steps" aria-label="Progress"><li id="s1" class="done">Choose type</li><li id="s2" class="on">Add sources</li><li id="s3">Verify</li></ol>
   <section class="card"><h2>Step 1 · What are you checking?</h2>${typeCards(false)}</section>
   <section class="card"><h2>Step 2 · ${refs?'Paste your references':'Upload your library export'}</h2>
@@ -355,6 +363,7 @@ async function runDraft(){
   c.input=$('input').value;c.refsIn=$('refsIn').value;
   const ed=STATE.editing;const cs=load();const old=ed&&cs.find(x=>x.id===ed.id);
   if(old){const pv={};old.claims.forEach(cl=>{pv[ckey(cl)]=cl;});let kept=0;c.claims.forEach(cl=>{const o=pv[ckey(cl)];if(o){cl.judgment=o.judgment||null;if(o.note)cl.note=o.note;if(o.judgment)kept++;}});
+    if(old.combo){c.combo=true;c.file=old.file;const ents=SIY.splitEntries(c.refsIn&&c.refsIn.trim()?c.refsIn:DRAFT.splitDraft(c.input).refs);$('ptext').innerHTML='<span class="spin" aria-hidden="true"></span>Checking your reference list…';c.refResults=await UP.buildRefResults(ents,a.sources,old.refResults);c.refScore=SIY.integrity(c.refResults);}
     c.id=old.id;c.version=(old.version||1)+1;c.created=old.created||old.date;const at=cs.indexOf(old);UNDO.push(old.id,{k:'ver',id:c.id,from:old,to:null,label:`updated "${c.name}" to version ${c.version}`});
     cs.splice(at,1);cs.unshift(c);try{save(cs);}catch(e){}const h=JSON.parse(localStorage.getItem('siyasat.undo.v1')||'{}');const hs=h[old.id];if(hs&&hs.u.length)hs.u[hs.u.length-1].to=c;try{localStorage.setItem('siyasat.undo.v1',JSON.stringify(h));}catch(e){}
     STATE.editing=null;STATE.forms.draft=null;STATE.toastNext=`Updated to version ${c.version} · ${kept} verdict${kept===1?'':'s'} kept`;location.hash='#/results/'+c.id;return;}
@@ -622,9 +631,10 @@ async function runJob(id, inputs){
 function resumeJob(id){ if(STATE.job&&STATE.job.active){alert('Another check is running. Wait for it or pause it first.');return;} location.hash='#/results/'+id; setTimeout(()=>runJob(id),50); }
 /* ---------- Results ---------- */
 function results(id){
-  const cs=load(); const c=id?cs.find(x=>x.id===id):cs[0];
+  const cs=load(); const [cid,sub]=(id||'').split('/'); let c=cid?cs.find(x=>x.id===cid):cs[0];
+  if(c&&sub==='refs'&&c.refResults)c={...c,type:'refs',results:c.refResults,score:c.refScore,total:c.refResults.length,status:'done',_combo:true};
   if(!c) return `<h1 class="page-h">Results</h1><section class="card"><div class="empty"><span class="big" aria-hidden="true">🔍</span>${id?"We couldn't find that check. It may have been deleted.":'No results yet. Run a check to see results here.'}<div class="actions" style="justify-content:center"><a class="btn primary" href="#/new">Start a check</a></div></div></section>`;
-  if(c.type==='draft') return draftResults(c,cs);
+  if(c.type==='draft') return UP.summary(c)+draftResults(c,cs);
   const k=counts(c.results); STATE.page=STATE.pageFor===c.id?STATE.page:0; STATE.pageFor=c.id;
   const running=STATE.job&&STATE.job.active&&STATE.job.id===c.id;
   const unfinished=c.total&&c.results.length<c.total&&c.status!=='done';
@@ -702,15 +712,16 @@ function track(){const h=norm(location.hash);if(HIST[HIST.length-1]===h){}else i
 const TNAME={refs:'Reference list',corpus:'Review corpus',draft:'Draft check'};
 function pageName(h,from){const [r,a]=h.replace('#/','').split('/');
   if(r==='new')return a?(from&&from.startsWith('#/new')?'step 2':'New check'):(from&&from.startsWith('#/new/')?'step 1':'New check');
-  return {results:'Results',reports:'Reports',dashboard:'Dashboard',read:'Reader'}[r]||'Dashboard';}
+  return {results:'Results',reports:'Reports',dashboard:'Dashboard',read:'Reader',upload:'Upload'}[r]||'Dashboard';}
 function parentOf(h){const [r,a]=h.replace('#/','').split('/');return r==='new'&&a?'#/new':r==='read'?'#/results':'#/dashboard';}
 function backTarget(){const cur=norm(location.hash);const prev=HIST.length>1?HIST[HIST.length-2]:null;
   return prev?{h:prev,hist:true,label:pageName(prev,cur)}:{h:parentOf(cur),hist:false,label:pageName(parentOf(cur),cur)};}
 function goBack(){const b=backTarget();if(b.hist)history.back();else location.hash=b.h;}
 function crumbs(page,arg){const L=[['Dashboard','#/dashboard']];
   if(page==='new'){L.push(['New check','#/new']);if(arg)L.push(['Step 2 · '+TNAME[arg],null]);else L[1][1]=null;}
-  else if(page==='results'){const c=arg?load().find(x=>x.id===arg):load()[0];L.push(['Results',c?'#/results':null]);if(c)L.push([TNAME[c.type]||'Check',null]);}
+  else if(page==='results'){const [cid,sub]=(arg||'').split('/');const c=cid?load().find(x=>x.id===cid):load()[0];L.push(['Results',c?'#/results':null]);if(c){if(sub==='refs'){L.push([c.combo?'Summary':'Check','#/results/'+c.id]);L.push(['Reference results',null]);}else L.push([c.combo?'Upload & check':(TNAME[c.type]||'Check'),null]);}}
   else if(page==='reports')L.push(['Reports',null]);
+  else if(page==='upload')L.push(['Upload & check',null]);
   else if(page==='read'){L.push(['Results','#/results']);L.push(['Full-text reader',null]);}
   return `<nav class="crumbs" aria-label="Breadcrumb"><ol>${L.map(([n,h])=>`<li>${h?`<a href="${h}">${esc(n)}</a>`:`<span aria-current="page">${esc(n)}</span>`}</li>`).join('')}</ol></nav>`;}
 function backbar(page,arg){if(page==='dashboard')return '';const b=backTarget();
@@ -724,7 +735,8 @@ function route(){
   const [r,...ra]=location.hash.replace(/^#\/?/,'').split('/'); const arg=ra.join('/'); const page=r||'dashboard';
   if(page==='new'&&arg&&['refs','corpus','draft'].includes(arg))STATE.type=arg;
   document.querySelectorAll('.nav a').forEach(a=>{if(a.dataset.r===page)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
-  M.innerHTML=backbar(page,arg)+(page==='new'||page==='read'?'':'<div class="undobar" role="toolbar" aria-label="Undo and redo"></div>')+(page==='new'?newCheck():page==='results'?results(arg):page==='reports'?reports():page==='read'?'<div id="reader" class="reader"></div>':dashboard());
+  M.innerHTML=backbar(page,arg)+(page==='new'||page==='read'?'':'<div class="undobar" role="toolbar" aria-label="Undo and redo"></div>')+(page==='new'?newCheck():page==='results'?results(arg):page==='reports'?reports():page==='read'?'<div id="reader" class="reader"></div>':page==='upload'?UP.page():dashboard());
+  if(page==='upload')UP.bindPage(); else UP.bind();
   if(page==='read')READER.show($('reader'),decodeURIComponent(arg||''));
   const mb=$('mback'); if(mb){const b=backTarget();mb.hidden=page==='dashboard';mb.textContent='← Back to '+b.label;}
   M.querySelectorAll('[data-back]').forEach(b=>b.onclick=goBack);
@@ -734,12 +746,13 @@ function route(){
   if(route.started){const h=M.querySelector('h1');if(h){h.tabIndex=-1;h.focus({preventScroll:true});}} route.started=true;
 }
 function bindCommon(arg){
-  const byId=id=>load().find(c=>c.id===id);
+  const byId0=id=>load().find(c=>c.id===id);const byId=id=>{const [a,sub]=(id||'').split('/');const c=byId0(a);return c&&sub==='refs'&&c.refResults?{...c,type:'refs',results:c.refResults}:c;};
   M.querySelectorAll('[data-rep]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.rep);dl(fname(c,'html'),report(c),'text/html');});
   M.querySelectorAll('[data-json]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.json);dl(fname(c,'json'),json(c),'application/json');});
   M.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.del);if(STATE.job&&STATE.job.active&&STATE.job.id===c.id){alert('This check is still running. Pause it first.');return;}if(confirm(`Delete "${c.name}"? You can undo this right after.`)){const cs=load();const at=cs.findIndex(x=>x.id===c.id);UNDO.push('history',{k:'del',items:[{c,at}],label:`deleted "${c.name}"`});save(cs.filter(x=>x.id!==c.id));if(location.hash.startsWith('#/results'))location.hash='#/dashboard';else route();toast(`Deleted "${c.name}"`);}});
   if($('clearAll'))$('clearAll').onclick=()=>{if(confirm('Delete all your saved checks from this browser? You can undo this right after.')){const cs=load();UNDO.push('history',{k:'del',items:cs.map((c,at)=>({c,at})),label:`deleted all ${cs.length} saved checks`});localStorage.removeItem(KEY);route();toast('Deleted all saved checks');}};
   if($('drows')) bindRows(arg||load()[0].id);
+  M.querySelectorAll('[data-goclaims],a[href="#claims"]').forEach(a=>a.onclick=e=>{e.preventDefault();const t=$('dstats');if(t)t.scrollIntoView({behavior:'smooth',block:'start'});});
   M.querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{STATE.page=+b.dataset.pg;const c=byId(arg||load()[0].id);$('list').innerHTML=itemList(c);bindCommon(arg);$('list').scrollIntoView({block:'start'});const f=$('list').querySelector('article');if(f){f.tabIndex=-1;f.focus({preventScroll:true});}});
   M.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editDraft(b.dataset.edit));
   if(STATE.toastNext){const t=STATE.toastNext;STATE.toastNext=null;setTimeout(()=>toast(t),50);}
