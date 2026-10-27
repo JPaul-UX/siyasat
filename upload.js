@@ -43,7 +43,7 @@ async function start(file){if(S&&S.running){alert('A check is already running. P
     const d=detect(file.name,r.text);S.mode=d.mode;route();
     const name=file.name.replace(/\.[^.]+$/,'');
     if(d.mode==='refs'){if(d.entries.length>SOFT){S.running=false;const c={id:Date.now().toString(36),name,type:'refs',date:new Date().toISOString(),inputs:d.entries,total:d.entries.length,results:[],score:0,status:'running',file:file.name};
-        const cs=load();cs.unshift(c);trySave(cs);location.hash='#/results/'+c.id;setTimeout(()=>runJob(c.id,d.entries),50);S=null;return;}
+        const cs=load();cs.unshift(c);trySave(cs);location.replace('#/results/'+c.id);setTimeout(()=>runJob(c.id,d.entries),50);S=null;return;}
       S.step=2;let done=0;const tot=d.entries.length;const upd=()=>{done++;S.pct=15+Math.round(80*done/tot);S.text=`Checking reference ${done} of ${tot}…`;paint();};
       const res=await pool(d.entries,async(e,i)=>{let x;try{x=slim(await SIY.verify(e));}catch(er){x={raw:e,verdict:'error',note:er.message};}x.i=i;return x;},upd);
       if(res.every(x=>x.verdict==='error'))throw err("We couldn't reach the databases. Check your internet connection and try again in a minute.");
@@ -66,7 +66,7 @@ async function buildRefResults(entries,sources,prev,onDone){const n=s=>(s||'').r
     if(!r&&prev){const p=prev.find(x=>n(x.raw)===n(e)&&x.verdict!=='error');if(p)r={...p};}
     if(!r){try{r=slim(await SIY.verify(e));}catch(er){r={raw:e,verdict:'error',note:er.message};}}r.raw=e;r.i=i;return r;},onDone||(()=>{}));}
 function finish(c){S.step=4;S.pct=100;S.text='Done!';S.running=false;paint();const cs=load();cs.unshift(c);trySave(cs);
-  setTimeout(()=>{S=null;if(location.hash==='#/upload')location.hash='#/results/'+c.id;toast(`Checked ${c.file}`);},500);}
+  setTimeout(()=>{S=null;if(location.hash==='#/upload')location.replace('#/results/'+c.id);toast(`Checked ${c.file}`);},500);}
 /* summary card shown on top of a combined check */
 function summary(c){if(!c.combo||!c.refResults)return '';const k=counts(c.refResults);const w=c.claims.filter(x=>!x.judgment).length;
   return `<section class="card combo" aria-labelledby="cmbH"><h2 id="cmbH">Summary of ${esc(c.file||c.name)}</h2>

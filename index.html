@@ -715,11 +715,12 @@ function pageName(h,from){const [r,a]=h.replace('#/','').split('/');
   return {results:'Results',reports:'Reports',dashboard:'Dashboard',read:'Reader',upload:'Upload'}[r]||'Dashboard';}
 function parentOf(h){const [r,a]=h.replace('#/','').split('/');return r==='new'&&a?'#/new':r==='read'?'#/results':'#/dashboard';}
 function backTarget(){const cur=norm(location.hash);const prev=HIST.length>1?HIST[HIST.length-2]:null;
+  if(prev==='#/upload'&&cur!=='#/upload')return{h:'#/dashboard',hist:false,label:'Dashboard'};
   return prev?{h:prev,hist:true,label:pageName(prev,cur)}:{h:parentOf(cur),hist:false,label:pageName(parentOf(cur),cur)};}
 function goBack(){const b=backTarget();if(b.hist)history.back();else location.hash=b.h;}
 function crumbs(page,arg){const L=[['Dashboard','#/dashboard']];
   if(page==='new'){L.push(['New check','#/new']);if(arg)L.push(['Step 2 · '+TNAME[arg],null]);else L[1][1]=null;}
-  else if(page==='results'){const [cid,sub]=(arg||'').split('/');const c=cid?load().find(x=>x.id===cid):load()[0];L.push(['Results',c?'#/results':null]);if(c){if(sub==='refs'){L.push([c.combo?'Summary':'Check','#/results/'+c.id]);L.push(['Reference results',null]);}else L.push([c.combo?'Upload & check':(TNAME[c.type]||'Check'),null]);}}
+  else if(page==='results'){const [cid,sub]=(arg||'').split('/');const c=cid?load().find(x=>x.id===cid):load()[0];L.push(['Results',c?'#/results':null]);if(c){if(sub==='refs'){L.push([c.combo?'Upload & check results':'Check','#/results/'+c.id]);L.push(['Reference results',null]);}else L.push([c.combo?'Upload & check results':(TNAME[c.type]||'Check'),null]);}}
   else if(page==='reports')L.push(['Reports',null]);
   else if(page==='upload')L.push(['Upload & check',null]);
   else if(page==='read'){L.push(['Results','#/results']);L.push(['Full-text reader',null]);}
