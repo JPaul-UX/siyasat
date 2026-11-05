@@ -608,6 +608,7 @@ async function runJob(id, inputs){
   const doneIdx=new Set(c.results.map(r=>r.i)); const queue=inputs.map((x,i)=>i).filter(i=>!doneIdx.has(i));
   const job=STATE.job={id,active:true,stop:null,total:inputs.length,done:doneIdx.size,errs:0,pending:[]};
   updateCheck(id,x=>x.status='running');
+  if(location.hash==='#/results/'+id) route();
   const show=()=>{ const p=$('progress'); if(!p) return; p.hidden=false; $('jobctl').hidden=false;
     const pct=Math.round(job.done/job.total*100); $('pfill').style.width=pct+'%'; $('pbar').setAttribute('aria-valuenow',pct);
     $('ptext').textContent=job.stop==='pause'?`Pausing after the current references… (${job.done} of ${job.total} checked)`:`Checking ${job.done.toLocaleString()} of ${job.total.toLocaleString()}… ${job.total-job.done>30?'('+eta(job.total-job.done)+' left)':''}`;
@@ -625,6 +626,7 @@ async function runJob(id, inputs){
   if(job.errs&&job.errs===job.done&&job.stop!=='pause'){ const m=$('msg'); if(m) m.innerHTML='<div class="msg err">We couldn\'t reach the databases. Check your internet connection and try again in a minute.</div>'; }
   if(location.hash.startsWith('#/new')||location.hash.startsWith('#/results/'+id)||location.hash==='#/results') { if(location.hash==='#/results/'+id) route(); else location.hash='#/results/'+id; }
 }
+window.addEventListener('siyasat-busy',ev=>{const n=Date.now();if(n-(window._busyT||0)<60000)return;window._busyT=n;toast(/openalex/.test(ev.detail)?'OpenAlex is busy — continuing with Crossref only':'A lookup service is busy — retrying, then finishing with what we have',null);});
 function resumeJob(id){ if(STATE.job&&STATE.job.active){alert('Another check is running. Wait for it or pause it first.');return;} location.hash='#/results/'+id; setTimeout(()=>runJob(id),50); }
 /* ---------- Results ---------- */
 function results(id){

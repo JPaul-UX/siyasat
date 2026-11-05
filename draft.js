@@ -44,7 +44,8 @@ function analyze(text, extraRefs){
     if(!sources[c.key]) sources[c.key]={key:c.key,label:c.label,ref:c.ref||null,authors:c.authors,year:c.year,first:c.first}; }));
   return {claims, sources:Object.values(sources), orphans, uncited:refs.filter(r=>!r.cited).map(r=>r.raw), hasRefs:refs.length>0};
 }
-async function j(u){ for(let i=0;i<2;i++){ try{const r=await fetch(u); if(r.status===404) return null; if(r.ok) return await r.json();}catch(e){} await new Promise(r=>setTimeout(r,700)); } return null; }
+async function j(u){ const h=new URL(u).host; const N=SIY.net; if((N.down[h]||0)>Date.now()) return null;
+  for(let i=0;i<2;i++){ try{const r=await SIY.fetchT(u); if(r.status===404) return null; if(r.ok) return await r.json(); if(r.status===429){N.trip(h);return null;} if(r.status<500) return null;}catch(e){ if(e.name==='AbortError'){N.trip(h);return null;} } await new Promise(r=>setTimeout(r,700)); } return null; }
 const fold=s=>(s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'');
 async function findByAuthorYear(src, claim){
   const words=claim.replace(/\([^)]*\)/g,' ').replace(/\[[^\]]*\]/g,' ').slice(0,220);

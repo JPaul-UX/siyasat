@@ -48,12 +48,19 @@ function parse(raw){
     if(v){ r.venue=v[1]; r.volume=v[2]; r.issue=v[3]; r.pages=v[4].replace(/\s/g,'').replace('-','–'); } else r.venue=r.rest.split(/[,.]/)[0]; }
   return r;
 }
-async function getJSON(url, fetchFn){ let last='';
-  for(let i=0;i<6;i++){ try{ const res=await fetchFn(url); if(res.status===404) return null; if(res.ok) return await res.json();
-      last='HTTP '+res.status; if(res.status===429||res.status>=500){ const ra=+(res.headers&&res.headers.get&&res.headers.get('retry-after'))||0; await new Promise(r=>setTimeout(r, ra?ra*1000:Math.min(20000,1000*2**i)+Math.random()*500)); continue; }
-      if(res.status>=400 && res.status<500) return null;
-    }catch(e){ last=e.message; } await new Promise(r=>setTimeout(r,800*(i+1)+Math.random()*400)); }
-  throw new Error('Network error contacting '+new URL(url).host+(last?' ('+last+')':'')); }
+const NET={down:{},busy:0};
+function fetchT(url,ms=9000){const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),ms);return fetch(url,{signal:ctl.signal}).finally(()=>clearTimeout(t));}
+function trip(host){NET.down[host]=Date.now()+90000;NET.busy=Date.now();try{window.dispatchEvent(new CustomEvent('siyasat-busy',{detail:host}))}catch(e){}}
+async function getJSON(url, fetchFn){ let last=''; const host=new URL(url).host;
+  if((NET.down[host]||0)>Date.now()){ if(/openalex/.test(host)) return null; throw new Error(host+' is busy — try again in a minute'); }
+  for(let i=0;i<2;i++){ try{ const res=await (fetchFn===DEF?fetchT(url):fetchFn(url)); if(res.status===404) return null; if(res.ok) return await res.json();
+      last='HTTP '+res.status; if(res.status===429){ trip(host); if(/openalex/.test(host)) return null; await new Promise(r=>setTimeout(r,1500)); continue; }
+      if(res.status>=500){ await new Promise(r=>setTimeout(r,1000)); continue; }
+      if(res.status>=400) return null;
+    }catch(e){ last=e.name==='AbortError'?'timed out':e.message; if(e.name==='AbortError'&&/openalex/.test(host)){trip(host);return null;} } await new Promise(r=>setTimeout(r,600)); }
+  if(/openalex/.test(host)) return null;
+  throw new Error('Service busy ('+host+(last?', '+last:'')+') — try again'); }
+const DEF=(u)=>fetchT(u);
 function fromCrossref(w){ return { source:'Crossref', doi:(w.DOI||'').toLowerCase(), title:(w.title||[''])[0], authors:(w.author||[]).map(a=>({family:a.family||a.name||'', given:a.given||''})),
   year:((w.issued||w['published-print']||w['published-online']||{})['date-parts']||[[null]])[0][0], venue:(w['container-title']||[''])[0], volume:w.volume, issue:w.issue, pages:(w.page||'').replace('-','–'), type:w.type, cites:w['is-referenced-by-count']||0,
   retracted: !!((w['updated-by']||[]).some(u=>/retract/i.test(u.type)) || /^retracted\b/i.test((w.title||[''])[0])), raw:w }; }
@@ -95,7 +102,7 @@ function apa(c){
   if(c.venue){ s+=` <i>${c.venue}</i>`; if(c.volume) s+=`, <i>${c.volume}</i>`; if(c.issue) s+=`(${c.issue})`; if(c.pages) s+=`, ${c.pages}`; s+='.'; }
   if(c.doi) s+=` https://doi.org/${c.doi}`; return s;
 }
-async function verify(raw, fetchFn = (u)=>fetch(u)){
+async function verify(raw, fetchFn = DEF){
   const p = parse(raw); let cands=[];
   if(p.doi){ const w = await getJSON(`https://api.crossref.org/works/${encodeURIComponent(p.doi)}?mailto=${MAILTO}`, fetchFn).catch(()=>null); if(w) cands.push(fromCrossref(w.message)); }
   const q = raw.replace(/https?:\/\/\S+|10\.\d{4,9}\/\S+/g,'').slice(0,400);
@@ -125,6 +132,7 @@ async function verify(raw, fetchFn = (u)=>fetch(u)){
   return res;
 }
 function integrity(results){ if(!results.length) return 0; const w={verified:1,correction:0.6,uncertain:0.7,retracted:0,not_found:0,error:0.5}; return Math.round(100*results.reduce((s,r)=>s+(w[r.verdict]??0),0)/results.length); }
-return {verify, parse, splitEntries, cleanText, integrity, apa, sim};
+const verifyCapped=(raw,f)=>Promise.race([verify(raw,f),new Promise((_,rj)=>setTimeout(()=>rj(new Error('Service busy — this lookup took too long, try again')),30000))]);
+return {verify:verifyCapped, net:{down:NET.down,trip}, fetchT, parse, splitEntries, cleanText, integrity, apa, sim};
 })();
 if (typeof module!=='undefined') module.exports = SIY;

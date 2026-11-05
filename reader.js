@@ -2,7 +2,7 @@
 const READER=(()=>{
 const EMAIL='jpmcarnaje@gmail.com', cache={};
 const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-async function get(u,type){const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),20000);
+async function get(u,type){const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),10000);
   try{const r=await fetch(u,{signal:ctl.signal});if(r.status===404)return null;if(!r.ok)throw new Error('HTTP '+r.status);return type==='xml'?await r.text():await r.json();}finally{clearTimeout(t);}}
 const clean=d=>String(d||'').trim().replace(/^https?:\/\/(dx\.)?doi\.org\//i,'').replace(/^doi:\s*/i,'');
 /* turn inline JATS into safe HTML */
