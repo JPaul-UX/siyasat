@@ -66,7 +66,7 @@ async function buildRefResults(entries,sources,prev,onDone){const n=s=>(s||'').r
     if(!r&&prev){const p=prev.find(x=>n(x.raw)===n(e)&&x.verdict!=='error');if(p)r={...p};}
     if(!r){try{r=slim(await SIY.verify(e));}catch(er){r={raw:e,verdict:'error',note:er.message};}}r.raw=e;r.i=i;return r;},onDone||(()=>{}));}
 function finish(c){S.step=4;S.pct=100;S.text='Done!';S.running=false;paint();const cs=load();cs.unshift(c);trySave(cs);
-  setTimeout(()=>{S=null;if(location.hash==='#/upload')location.replace('#/results/'+c.id);toast(`Checked ${c.file}`);},500);}
+  setTimeout(()=>{S=null;if(location.hash==='#/upload')location.replace('#/results/'+c.id);toast(`Checked ${c.file}`,null);},500);}
 /* summary card shown on top of a combined check */
 function summary(c){if(!c.combo||!c.refResults)return '';const k=counts(c.refResults);const w=c.claims.filter(x=>!x.judgment).length;
   return `<section class="card combo" aria-labelledby="cmbH"><h2 id="cmbH">Summary of ${esc(c.file||c.name)}</h2>
