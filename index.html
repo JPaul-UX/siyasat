@@ -188,11 +188,11 @@ mark{background:var(--gold-soft);color:var(--ink);border-bottom:2px solid var(--
 </nav>
 <main id="main" tabindex="-1"></main>
 </div>
-<script src="engine.js?v=b3"></script>
-<script src="draft.js?v=b3"></script>
-<script src="reader.js?v=b3"></script>
-<script src="upload.js?v=b3"></script>
-<script src="export.js?v=b3"></script>
+<script src="engine.js?v=b4"></script>
+<script src="draft.js?v=b4"></script>
+<script src="reader.js?v=b4"></script>
+<script src="upload.js?v=b4"></script>
+<script src="export.js?v=b4"></script>
 <script>
 const $=id=>document.getElementById(id), M=document.getElementById('main');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -652,14 +652,17 @@ function results(id){
     ${['verified','correction','uncertain','not_found','retracted'].map(v=>`<div class="tile"><span class="badge ${v}">${LABEL[v]}</span><b>${k[v]}</b></div>`).join('')}
    </div>
    <ul class="legend" aria-label="What the labels mean">${['verified','correction','uncertain','not_found','retracted'].map(v=>`<li><span class="badge ${v}">${LABEL[v]}</span><br>${EXPLAIN[v]}</li>`).join('')}</ul>
-   <p class="decide"><b>How Siyasat decides:</b> ${LABEL.verified} = Verified · ${LABEL.correction} = Minor error · ${LABEL.not_found} = Possible AI hallucination · ${LABEL.retracted} = Retracted. You can change any verdict on a reference if you know better.</p>
+   <p class="decide"><b>How Siyasat decides:</b> ${LABEL.verified} = Verified · ${LABEL.correction} = Minor error · ${LABEL.not_found} = Possible AI hallucination · ${LABEL.retracted} = Retracted. Repeated sources are flagged ⧉ Duplicate. Unlike citation-only checkers, Siyasat also flags retracted papers, screens review libraries (RIS/BibTeX), and lets you check each claim against its source. You can change any verdict if you know better.</p>
   </section>
   <section class="card"><h2>Each reference</h2><div class="filters" role="group" aria-label="Show"><button aria-pressed="${STATE.filter==='all'}" data-f="all">All (${c.results.length})</button><button aria-pressed="${STATE.filter==='problems'}" data-f="problems">Only problems (${c.results.length-k.verified})</button></div><div id="list">${itemList(c)}</div></section>
   <section class="card"><h2>Corrected bibliography (APA 7)</h2><p class="help">Built from the real records, sorted A–Z. References we couldn't find or that are retracted are left out and listed below.</p>${bib(c)}
    <div class="actions"><button class="primary" id="copy">Copy bibliography</button><button class="ghost" data-rep="${c.id}">Download report</button><button class="link" data-json="${c.id}">Download data (JSON)</button><span id="copied" class="count" aria-live="polite"></span></div></section>
   <section class="card"><h2>Download for your reference manager</h2>${EXP.buttons(c,c.type==='corpus'||/\.(ris|bib|csv)$/i.test(c.file||''))}</section>`;}
 const PAGE=50;
-function itemList(c){const all=c.results.map((r,i)=>[r,r.i!=null?r.i:i]).filter(([r])=>STATE.filter==='all'||r.verdict!=='verified');
+/* Duplicates: same DOI, or same title + year, appearing more than once */
+function dupMap(c){const seen={},out={};c.results.forEach((r,ri)=>{const m=r.match;const keys=[];if(m&&m.doi)keys.push('d:'+m.doi);const t=(m&&m.title)||(r.parsed&&r.parsed.title);const y=(m&&m.year)||(r.parsed&&r.parsed.year);if(t&&t.length>15)keys.push('t:'+t.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()+'|'+(y||''));
+  for(const k of keys){if(k in seen){out[ri]=seen[k];break;}}keys.forEach(k=>{if(!(k in seen))seen[k]=ri;});});return out;}
+function itemList(c){STATE.dups=dupMap(c);STATE.dupsOf=c.results;const all=c.results.map((r,i)=>[r,r.i!=null?r.i:i]).filter(([r])=>STATE.filter==='all'||r.verdict!=='verified');
   const pages=Math.max(1,Math.ceil(all.length/PAGE)); const pg=Math.min(STATE.page||0,pages-1); const shown=all.slice(pg*PAGE,pg*PAGE+PAGE);
   const pager=all.length>PAGE?`<nav class="pager" aria-label="Pages"><button class="ghost" data-pg="${pg-1}" ${pg===0?'disabled':''}>← Previous</button><span class="meta">Showing ${pg*PAGE+1}–${pg*PAGE+shown.length} of ${all.length.toLocaleString()}</span><button class="ghost" data-pg="${pg+1}" ${pg>=pages-1?'disabled':''}>Next →</button></nav>`:'';
   return pager+(shown.length?shown.map(([r,i])=>itemHTML(r,i,c.results.indexOf(r))).join(''):'<div class="empty"><span class="big" aria-hidden="true">🎉</span>No problems found.</div>')+pager;}
@@ -670,8 +673,10 @@ function overrideHTML(r,ri){if(ri==null||ri<0)return '';const opts=['verified','
   return `<details class="ovr"><summary>Change this verdict</summary><label class="meta">New verdict <select data-ovsel="${ri}">${opts.map(v=>`<option value="${v}" ${v===r.verdict?'selected':''}>${LABEL[v]}</option>`).join('')}</select></label>
    <label class="meta">Why (optional) <input type="text" data-ovnote="${ri}" maxlength="200" value="${esc(r.ovNote||'')}" placeholder="e.g. I found it in the library catalogue"></label>
    <button class="primary" data-ovsave="${ri}">Save my verdict</button>${r.auto?` <button class="link" data-ovreset="${ri}">Go back to Siyasat's verdict (${LABEL[r.auto]})</button>`:''}</details>`;}
-function itemHTML(r,i,ri){const m=r.match;let h=`<article class="item v-${r.verdict}" aria-label="Reference ${i+1}: ${esc(LABEL[r.verdict])}"><span class="badge ${r.verdict}">${LABEL[r.verdict]}</span>${r.auto?`<span class="ovmark" title="Siyasat said: ${esc(LABEL[r.auto])}">You overrode this</span>`:''} <span class="meta">Reference ${i+1}${r.confidence!=null?` · match confidence ${Math.round(r.confidence*100)}%`:''}</span>
+function itemHTML(r,i,ri){const m=r.match;let h=`<article class="item v-${r.verdict}" aria-label="Reference ${i+1}: ${esc(LABEL[r.verdict])}"><span class="badge ${r.verdict}">${LABEL[r.verdict]}</span>${STATE.dups&&STATE.dups[ri]!=null?`<span class="ovmark" style="background:#efe3d0">⧉ Duplicate of reference ${((c=>c.i!=null?c.i:STATE.dups[ri])(STATE.dupsOf?STATE.dupsOf[STATE.dups[ri]]:{}))+1}</span>`:''}${r.auto?`<span class="ovmark" title="Siyasat said: ${esc(LABEL[r.auto])}">You overrode this</span>`:''} <span class="meta">Reference ${i+1}${r.confidence!=null?` · match confidence ${Math.round(r.confidence*100)}%`:''}</span>
    <p class="what">${EXPLAIN[r.verdict]}</p>${r.auto?`<div class="meta">Siyasat said “${esc(LABEL[r.auto])}”. You changed it${r.ovNote?`: ${esc(r.ovNote)}`:'.'}</div>`:''}<div class="cite"><span class="sr">You wrote: </span>${esc(r.raw)}</div>`;
+   const dd=(r.diffs||[]).find(d=>d.field==='DOI')||(r.verdict==='correction'&&m&&m.doi&&!/10\.\d{4,9}\//.test(r.raw)?{cited:'(none)',actual:m.doi,add:1}:null);
+   if(dd)h+=`<div class="msg info" style="margin-top:8px"><b>${dd.add?'Add this DOI':'Corrected DOI'}:</b> ${dd.add?'':`<s>${esc(dd.cited)}</s> → `}<a href="https://doi.org/${esc(dd.actual)}" target="_blank" rel="noopener">${esc(dd.actual)}</a> <button class="link" data-cdoi="${esc(dd.actual)}">Copy DOI</button></div>`;
    if(m){h+=`<div class="meta">Matched record: <a href="https://doi.org/${esc(m.doi)}" target="_blank" rel="noopener">${esc(m.title)}<span class="sr"> (opens in new tab)</span></a> · ${esc(m.source)}</div>${venueHTML(m)}
     <div class="enr">${m.doi?`<a class="btn ghost" href="https://doi.org/${esc(m.doi)}" target="_blank" rel="noopener">🔗 doi.org/${esc(m.doi)}</a><button class="link" data-cdoi="${esc(m.doi)}">Copy DOI</button>`:''}${READER.btn(m.doi,'Read in Siyasat')}${m.ven&&m.ven.oaUrl?`<a class="btn ghost" href="${esc(m.ven.oaUrl)}" target="_blank" rel="noopener">📄 Open free PDF</a>`:''}</div>`;}
    if(r.note&&r.verdict!=='uncertain')h+=`<div class="meta" style="margin-top:4px">${esc(r.note)}</div>`;
@@ -723,7 +728,7 @@ function report(c){const css=document.querySelector('style').outerHTML;
   if(c.type==='draft') return draftReport(c,css);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Siyasat verification report · ${esc(c.name)}</title>${css}</head><body><div class="mhead" style="display:flex"><div class="mark">S</div><b>Siyasat verification report</b></div><main style="margin:0 auto">
   <h1 class="page-h">${esc(c.name)}</h1><p class="lead">Checked ${esc(new Date(c.date).toString())} · ${c.type==='draft'?`Draft check · ${c.claims.length} claims · ${c.sources.length} sources`:c.results.length+' references'} · Integrity score <b>${c.score}/100</b><br>Sources queried: Crossref REST API (incl. Retraction Watch data) and OpenAlex. Verdicts marked “You overrode this” were changed by the author. To save as PDF: File → Print → Save as PDF.</p>
-  <section class="card"><h2>Each reference</h2>${c.results.map((r,i)=>itemHTML(r,r.i!=null?r.i:i)).join('').replace(/<details class="ovr">[\s\S]*?<\/details>/g,'')}</section><section class="card"><h2>Corrected bibliography (APA 7)</h2>${bib(c)}</section></main></body></html>`;}
+  <section class="card"><h2>Each reference</h2>${(STATE.dups=dupMap(c),STATE.dupsOf=c.results,c.results.map((r,i)=>itemHTML(r,r.i!=null?r.i:i,i)).join('')).replace(/<details class="ovr">[\s\S]*?<\/details>/g,'')}</section><section class="card"><h2>Corrected bibliography (APA 7)</h2>${bib(c)}</section></main></body></html>`;}
 function json(c){if(c.type==='draft')return JSON.stringify({tool:'Siyasat',type:'draft',name:c.name,checked_at:c.date,claims:c.claims.map(cl=>({sentence:cl.sentence,citations:cl.cites.map(x=>x.label),author_verdict:cl.judgment?JV[cl.judgment].t:null,author_verdict_note:'chosen by the author, not by Siyasat',sources:cl.cites.map(x=>{const i=c.sources.findIndex(s=>s.key===x.key);const r=c.results[i]||{};return {citation:x.label,reference:c.sources[i].ref,verdict:r.verdict,doi:r.match&&r.match.doi,abstract:c.sources[i].abstract&&c.sources[i].abstract.text,abstract_from:c.sources[i].abstract&&c.sources[i].abstract.from};})})),cited_not_listed:c.orphans,listed_not_cited:c.uncited},null,2);
   return JSON.stringify({tool:'Siyasat',name:c.name,checked_at:c.date,integrity:c.score,results:c.results.map(r=>({input:r.raw,verdict:r.verdict,confidence:r.confidence,doi:r.match&&r.match.doi,matched_title:r.match&&r.match.title,differences:r.diffs,note:r.note,apa:r.apa,siyasat_verdict:r.auto||r.verdict,overridden_by_author:!!r.auto,author_note:r.ovNote||undefined,venue:r.match&&r.match.ven||undefined}))},null,2);}
 
