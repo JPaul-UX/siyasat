@@ -1,6 +1,6 @@
 /* Siyasat Draft check: citation extraction, claim linking, abstracts. Reading aid only — never judges support. */
 const DRAFT = (() => {
-const MAILTO='siyasat-checker@example.org';
+const MAILTO='jpmcarnaje@gmail.com';
 const HEAD=/^\s*(references|reference list|bibliography|works cited|sources|literature cited)\s*:?\s*$/im;
 function splitDraft(text){ text=SIY.cleanText(text); const m=text.match(HEAD); if(!m) return {prose:text.trim(), refs:''};
   return {prose:text.slice(0,m.index).trim(), refs:text.slice(m.index+m[0].length).trim()}; }

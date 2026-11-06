@@ -6,7 +6,7 @@ let S=null; // current job state
 function zone(compact){return `<section class="card updrop-card${compact?' compact':''}" aria-labelledby="upH"><div class="updrop" id="updrop" tabindex="0" role="button" aria-describedby="upHelp">
   <div class="up-ico" aria-hidden="true">⬆️</div><h2 id="upH">Upload &amp; check</h2>
   <p id="upHelp">Drop your paper or reference file here, or <b>tap to choose a file</b>. Siyasat reads it and checks everything automatically.</p>
-  <p class="meta">PDF · Word (.docx) · .txt · .ris · .bib — stays on your device, nothing is uploaded to a server</p>
+  <p class="meta">PDF · Word (.docx) · .txt · .ris · .bib — we find every reference and check it in seconds</p>
   <input type="file" id="upFile" class="sr" tabindex="-1" aria-hidden="true" accept=".pdf,.docx,.txt,.md,.ris,.bib,.bibtex,.nbib,.enw,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
   </div><div id="upErr" aria-live="polite"></div></section>`;}
 function bind(){const z=$('updrop');if(!z)return;const f=$('upFile');z.onclick=()=>f.click();z.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();f.click();}};

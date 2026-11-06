@@ -70,6 +70,7 @@ textarea:focus,input[type=text]:focus{border-color:var(--maroon);outline:none;bo
 .sbar{height:8px;background:rgba(255,255,255,.25);border-radius:9px;margin-top:8px;overflow:hidden}.sbar i{display:block;height:100%;background:var(--gold)}
 .badge{display:inline-flex;align-items:center;gap:6px;padding:3px 11px;border-radius:99px;font-size:13.5px;font-weight:750;white-space:nowrap}
 .verified{color:var(--ok);background:var(--ok-bg)}.correction{color:var(--warn);background:var(--warn-bg)}.not_found,.error{color:var(--bad);background:var(--bad-bg)}.retracted{color:var(--ret);background:var(--ret-bg)}.uncertain{color:var(--unc);background:var(--unc-bg)}
+.exports{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.exports button{min-height:44px}.decide{font-size:13.5px;color:var(--ink-soft);background:var(--cream,#F7F1E6);border-radius:10px;padding:8px 12px;margin:10px 0 0}.enr{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}.enr a,.enr button{min-height:44px;display:inline-flex;align-items:center}.vline{font-size:13.5px;color:var(--ink-soft);margin-top:6px}.vpill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#e8f3ea;color:#1d5b2a;margin-left:4px}.ovr{margin-top:10px}.ovr summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:#771712;font-weight:600}.ovr select,.ovr input{min-height:44px;margin:4px 8px 4px 0;max-width:100%}.ovmark{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:#F5C544;color:#3b2a00;margin-left:6px}
 .legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin:12px 0 4px;padding:0;list-style:none}.legend li{font-size:13.5px;color:var(--ink-soft)}
 .filters{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 4px}.filters button{min-height:36px;padding:4px 12px;background:#fff;border:1px solid var(--line);font-size:14px}.filters button[aria-pressed=true]{background:var(--maroon);color:#fff;border-color:var(--maroon)}
 .item{border:1px solid var(--line);border-left:6px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:12px}
@@ -176,28 +177,29 @@ mark{background:var(--gold-soft);color:var(--ink);border-bottom:2px solid var(--
 <div class="mhead"><button type="button" class="back mback" id="mback" hidden>← Back</button><div class="mark" aria-hidden="true">S</div><b>Siyasat</b></div>
 <div class="app">
 <nav class="side" aria-label="Main">
- <div class="brand"><div class="mark" aria-hidden="true">S</div><div><b>Siyasat</b><small>verify · validate · gate</small></div></div>
+ <div class="brand"><div class="mark" aria-hidden="true">S</div><div><b>Siyasat</b><small>Catch AI hallucinations</small></div></div>
  <div class="nav">
   <a href="#/dashboard" data-r="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</a>
   <a href="#/new" data-r="new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>New check</a>
   <a href="#/results" data-r="results"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>Results</a>
   <a href="#/reports" data-r="reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Reports</a>
  </div>
- <div class="foot">Runs in your browser. Your checks are saved only on this device.</div>
+ <div class="foot">Your counter against AI hallucinations. Catch them before you submit.</div>
 </nav>
 <main id="main" tabindex="-1"></main>
 </div>
-<script src="engine.js?v=b2"></script>
-<script src="draft.js?v=b2"></script>
-<script src="reader.js?v=b2"></script>
-<script src="upload.js?v=b2"></script>
+<script src="engine.js?v=b3"></script>
+<script src="draft.js?v=b3"></script>
+<script src="reader.js?v=b3"></script>
+<script src="upload.js?v=b3"></script>
+<script src="export.js?v=b3"></script>
 <script>
 const $=id=>document.getElementById(id), M=document.getElementById('main');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const KEY='siyasat.checks.v1';
 const load=()=>{try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]}}, save=a=>localStorage.setItem(KEY,JSON.stringify(a));
 const LABEL={verified:'✓ Looks good',correction:'✎ Fix details',uncertain:'? Double-check',not_found:"✕ Can't find it",retracted:'⚠ Retracted',error:"! Couldn't check"};
-const EXPLAIN={verified:'This source is real and the details you wrote match the official record.',correction:'This source is real, but some details are wrong. Use the corrected version below.',uncertain:"We found a similar record but couldn't confirm the original publication. Check it yourself before citing.",not_found:"We searched Crossref and OpenAlex and found no paper that matches. It may have been made up by AI. Don't cite it unless you can find the real source.",retracted:"This paper was officially withdrawn by its journal. Don't use it as evidence in your work.",error:"We couldn't reach the databases for this one. Check your internet connection and try again."};
+const EXPLAIN={verified:'This source is real and the details you wrote match the official record.',correction:'This source is real, but some details are wrong. Use the corrected version below.',uncertain:"We found a similar record but couldn't confirm the original publication. Check it yourself before citing.",not_found:"We searched Crossref and OpenAlex and found no paper that matches. This is the classic sign of an AI hallucination (a made-up source). Don't cite it unless you can find the real source.",retracted:"This paper was officially withdrawn by its journal. Don't use it as evidence in your work.",error:"We couldn't reach the databases for this one. Check your internet connection and try again."};
 const SAMPLE=`Navarro, R. T., & Kim, S. (2020). Psychological distress and depressive symptoms during COVID-19 lockdowns: A longitudinal study of twelve countries. International Journal of Pandemic Mental Health, 8(2), 145–162.
 LeCun, Y., Bengio, Y., & Hinton, G. (2015). Deep learning. Nature, 521(7553), 436–444.
 Smith, J., & Bengio, Y. (2012). Deep learning. Nature, 521(7553), 436–444.
@@ -207,7 +209,8 @@ Wakefield, A. J., Murch, S. H., Anthony, A., et al. (1998). Ileal-lymphoid-nodul
 const counts=rs=>{const c={verified:0,correction:0,uncertain:0,not_found:0,retracted:0,error:0};rs.forEach(r=>c[r.verdict]=(c[r.verdict]||0)+1);return c;};
 const fmtDate=s=>new Date(s).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
 const tip=t=>`<button class="tip" type="button" aria-label="${esc(t)}">?<span aria-hidden="true">${esc(t)}</span></button>`;
-const slim=r=>({raw:r.raw,verdict:r.verdict,confidence:r.confidence,note:r.note,diffs:r.diffs,apa:r.apa,match:r.match&&{doi:r.match.doi,title:r.match.title,source:r.match.source}});
+const slim=r=>({raw:r.raw,verdict:r.verdict,confidence:r.confidence,note:r.note,diffs:r.diffs,apa:r.apa,match:r.match&&mslim(r.match)});
+const mslim=m=>({doi:m.doi,title:m.title,source:m.source,authors:(m.authors||[]).slice(0,40).map(a=>({family:a.family,given:a.given})),year:m.year,venue:m.venue,volume:m.volume,issue:m.issue,pages:m.pages,type:m.type,ven:m.ven});
 let STATE={type:'refs',filter:'all',running:false,forms:{}};
 
 /* ---------- Dashboard ---------- */
@@ -218,10 +221,10 @@ function dashboard(){
   <section class="card welcome"><h2>Is every source in your paper real?</h2><p>AI tools sometimes make up references or get the details wrong. Siyasat checks each one against real scholarly databases in seconds, for free.</p>
   <ol class="how"><li><b>Paste your references</b>Copy your reference list from your paper. Any citation style works.</li><li><b>Let Siyasat check them</b>Each one is looked up in Crossref and OpenAlex, including retraction notices.</li><li><b>Fix and copy</b>See what's wrong, then copy a corrected APA 7 list.</li></ol>
   <a class="btn primary" href="#/new">Start your first check →</a></section>
-  <section class="card"><h2>Your dashboard</h2><div class="empty"><span class="big" aria-hidden="true">📋</span>No checks yet. Your numbers and recent checks will show up here after your first check.<br>They're saved only in this browser.</div></section>`;}
-  return `<div class="rowh"><div><h1 class="page-h">Dashboard</h1><p class="lead">Your checks on this device.</p></div><a class="btn primary" href="#/new">+ New check</a></div>${UP.zone(true)}
+  <section class="card"><h2>Your dashboard</h2><div class="empty"><span class="big" aria-hidden="true">📋</span>No checks yet. Your numbers and recent checks will show up here after your first check.</div></section>`;}
+  return `<div class="rowh"><div><h1 class="page-h">Dashboard</h1><p class="lead">Your checks at a glance.</p></div><a class="btn primary" href="#/new">+ New check</a></div>${UP.zone(true)}
   <div class="stats" role="list">
-   <div class="stat" role="listitem"><b>${cs.length}</b><span>Checks run ${tip('How many times you have run a check on this device.')}</span></div>
+   <div class="stat" role="listitem"><b>${cs.length}</b><span>Checks run ${tip('How many checks you have run.')}</span></div>
    <div class="stat" role="listitem"><b>${k.verified+k.correction}</b><span>Sources confirmed real ${tip('References found in the databases (including ones that only needed small fixes).')}</span></div>
    <div class="stat" role="listitem"><b>${k.not_found}</b><span>Possibly fake ${tip("References we couldn't find anywhere. These may have been made up by AI.")}</span></div>
    <div class="stat" role="listitem"><b>${k.retracted}</b><span>Retracted ${tip('Papers that were officially withdrawn by their journal.')}</span></div>
@@ -482,6 +485,7 @@ const UNDO=(()=>{const K='siyasat.undo.v1';const all=()=>{try{return JSON.parse(
     if(e.k==='claim'){if(!load().find(x=>x.id===e.id))return false;const d=$('drawer');if(d&&!d.hidden&&STATE.dopen!==e.i){const c=load().find(x=>x.id===e.id);c.claims[e.i][e.f]=v;openDrawer(c,e.i,$('drows')&&$('drows').querySelector(`[data-open="${e.i}"]`));}setClaim(e.id,e.i,e.f,v);return true;}
     if(e.k==='ver'||e.k==='snap'){const cs=load();const at=cs.findIndex(x=>x.id===e.id);const v2=dir==='u'?e.from:e.to;if(at<0||!v2)return false;
       if(e.k==='snap'){Object.assign(cs[at],JSON.parse(JSON.stringify(v2)));}else cs[at]=v2;try{save(cs);}catch(er){return false;}closeDrawer();route();return true;}
+    if(e.k==='ovr'){if(!load().find(x=>x.id===e.id))return false;applyVerdict(e.id,e.key,e.ri,dir==='u'?e.from:e.to);route();return true;}
     if(e.k==='del'){let cs=load();if(dir==='u'){e.items.slice().sort((a,b)=>a.at-b.at).forEach(({c,at})=>{if(!cs.find(x=>x.id===c.id))cs.splice(Math.min(at,cs.length),0,c);});}else{const ids=e.items.map(x=>x.c.id);cs=cs.filter(x=>!ids.includes(x.id));}
       try{save(cs);}catch(er){alert('Not enough browser storage to restore this check.');return false;}route();return true;}}
   function paint(){document.querySelectorAll('.d-undo').forEach(b=>{const e=last,c=e&&e.k==='claim'&&e.f==='judgment'&&STATE.dopen===e.i&&scope()===e.id;
@@ -648,21 +652,42 @@ function results(id){
     ${['verified','correction','uncertain','not_found','retracted'].map(v=>`<div class="tile"><span class="badge ${v}">${LABEL[v]}</span><b>${k[v]}</b></div>`).join('')}
    </div>
    <ul class="legend" aria-label="What the labels mean">${['verified','correction','uncertain','not_found','retracted'].map(v=>`<li><span class="badge ${v}">${LABEL[v]}</span><br>${EXPLAIN[v]}</li>`).join('')}</ul>
+   <p class="decide"><b>How Siyasat decides:</b> ${LABEL.verified} = Verified · ${LABEL.correction} = Minor error · ${LABEL.not_found} = Possible AI hallucination · ${LABEL.retracted} = Retracted. You can change any verdict on a reference if you know better.</p>
   </section>
   <section class="card"><h2>Each reference</h2><div class="filters" role="group" aria-label="Show"><button aria-pressed="${STATE.filter==='all'}" data-f="all">All (${c.results.length})</button><button aria-pressed="${STATE.filter==='problems'}" data-f="problems">Only problems (${c.results.length-k.verified})</button></div><div id="list">${itemList(c)}</div></section>
   <section class="card"><h2>Corrected bibliography (APA 7)</h2><p class="help">Built from the real records, sorted A–Z. References we couldn't find or that are retracted are left out and listed below.</p>${bib(c)}
-   <div class="actions"><button class="primary" id="copy">Copy bibliography</button><button class="ghost" data-rep="${c.id}">Download report</button><button class="link" data-json="${c.id}">Download data (JSON)</button><span id="copied" class="count" aria-live="polite"></span></div></section>`;}
+   <div class="actions"><button class="primary" id="copy">Copy bibliography</button><button class="ghost" data-rep="${c.id}">Download report</button><button class="link" data-json="${c.id}">Download data (JSON)</button><span id="copied" class="count" aria-live="polite"></span></div></section>
+  <section class="card"><h2>Download for your reference manager</h2>${EXP.buttons(c,c.type==='corpus'||/\.(ris|bib|csv)$/i.test(c.file||''))}</section>`;}
 const PAGE=50;
 function itemList(c){const all=c.results.map((r,i)=>[r,r.i!=null?r.i:i]).filter(([r])=>STATE.filter==='all'||r.verdict!=='verified');
   const pages=Math.max(1,Math.ceil(all.length/PAGE)); const pg=Math.min(STATE.page||0,pages-1); const shown=all.slice(pg*PAGE,pg*PAGE+PAGE);
   const pager=all.length>PAGE?`<nav class="pager" aria-label="Pages"><button class="ghost" data-pg="${pg-1}" ${pg===0?'disabled':''}>← Previous</button><span class="meta">Showing ${pg*PAGE+1}–${pg*PAGE+shown.length} of ${all.length.toLocaleString()}</span><button class="ghost" data-pg="${pg+1}" ${pg>=pages-1?'disabled':''}>Next →</button></nav>`:'';
-  return pager+(shown.length?shown.map(([r,i])=>itemHTML(r,i)).join(''):'<div class="empty"><span class="big" aria-hidden="true">🎉</span>No problems found.</div>')+pager;}
-function itemHTML(r,i){const m=r.match;let h=`<article class="item v-${r.verdict}" aria-label="Reference ${i+1}: ${esc(LABEL[r.verdict])}"><span class="badge ${r.verdict}">${LABEL[r.verdict]}</span> <span class="meta">Reference ${i+1}${r.confidence!=null?` · match confidence ${Math.round(r.confidence*100)}%`:''}</span>
-   <p class="what">${EXPLAIN[r.verdict]}</p><div class="cite"><span class="sr">You wrote: </span>${esc(r.raw)}</div>`;
-   if(m)h+=`<div class="meta">Matched record: <a href="https://doi.org/${esc(m.doi)}" target="_blank" rel="noopener">${esc(m.title)}<span class="sr"> (opens in new tab)</span></a> · ${esc(m.source)} · doi:${esc(m.doi)}</div><div style="margin-top:8px">${READER.btn(m.doi)}</div>`;
+  return pager+(shown.length?shown.map(([r,i])=>itemHTML(r,i,c.results.indexOf(r))).join(''):'<div class="empty"><span class="big" aria-hidden="true">🎉</span>No problems found.</div>')+pager;}
+function venueHTML(m){const v=m.ven;if(!v&&!m.venue)return '';const name=(v&&v.name)||m.venue;const bits=[];
+  if(v&&v.publisher)bits.push(esc(v.publisher));if(v&&v.type&&v.type!=='journal')bits.push(esc(v.type));if(v&&v.cites!=null)bits.push(`cited ${(+v.cites).toLocaleString()} times`);
+  return `<div class="vline"><b>Venue:</b> ${esc(name)}${bits.length?' · '+bits.join(' · '):''}${v&&v.doaj?'<span class="vpill">In DOAJ</span>':''}${v&&v.oaVenue?'<span class="vpill">Open-access venue</span>':''}${v&&v.isOa&&!v.oaVenue?'<span class="vpill">Free to read</span>':''}</div>`;}
+function overrideHTML(r,ri){if(ri==null||ri<0)return '';const opts=['verified','correction','uncertain','not_found','retracted'];
+  return `<details class="ovr"><summary>Change this verdict</summary><label class="meta">New verdict <select data-ovsel="${ri}">${opts.map(v=>`<option value="${v}" ${v===r.verdict?'selected':''}>${LABEL[v]}</option>`).join('')}</select></label>
+   <label class="meta">Why (optional) <input type="text" data-ovnote="${ri}" maxlength="200" value="${esc(r.ovNote||'')}" placeholder="e.g. I found it in the library catalogue"></label>
+   <button class="primary" data-ovsave="${ri}">Save my verdict</button>${r.auto?` <button class="link" data-ovreset="${ri}">Go back to Siyasat's verdict (${LABEL[r.auto]})</button>`:''}</details>`;}
+function itemHTML(r,i,ri){const m=r.match;let h=`<article class="item v-${r.verdict}" aria-label="Reference ${i+1}: ${esc(LABEL[r.verdict])}"><span class="badge ${r.verdict}">${LABEL[r.verdict]}</span>${r.auto?`<span class="ovmark" title="Siyasat said: ${esc(LABEL[r.auto])}">You overrode this</span>`:''} <span class="meta">Reference ${i+1}${r.confidence!=null?` · match confidence ${Math.round(r.confidence*100)}%`:''}</span>
+   <p class="what">${EXPLAIN[r.verdict]}</p>${r.auto?`<div class="meta">Siyasat said “${esc(LABEL[r.auto])}”. You changed it${r.ovNote?`: ${esc(r.ovNote)}`:'.'}</div>`:''}<div class="cite"><span class="sr">You wrote: </span>${esc(r.raw)}</div>`;
+   if(m){h+=`<div class="meta">Matched record: <a href="https://doi.org/${esc(m.doi)}" target="_blank" rel="noopener">${esc(m.title)}<span class="sr"> (opens in new tab)</span></a> · ${esc(m.source)}</div>${venueHTML(m)}
+    <div class="enr">${m.doi?`<a class="btn ghost" href="https://doi.org/${esc(m.doi)}" target="_blank" rel="noopener">🔗 doi.org/${esc(m.doi)}</a><button class="link" data-cdoi="${esc(m.doi)}">Copy DOI</button>`:''}${READER.btn(m.doi,'Read in Siyasat')}${m.ven&&m.ven.oaUrl?`<a class="btn ghost" href="${esc(m.ven.oaUrl)}" target="_blank" rel="noopener">📄 Open free PDF</a>`:''}</div>`;}
    if(r.note&&r.verdict!=='uncertain')h+=`<div class="meta" style="margin-top:4px">${esc(r.note)}</div>`;
    if(r.diffs&&r.diffs.length)h+=`<div class="tbl"><table><caption class="sr">Differences</caption><tr><th scope="col">Detail</th><th scope="col">You wrote</th><th scope="col">Official record</th></tr>${r.diffs.map(d=>`<tr><td>${d.field}</td><td>${esc(d.cited)}</td><td class="${d.suspect?'':'fix'}">${esc(d.actual)}${d.note?`<div class="note">${esc(d.note)}</div>`:''}</td></tr>`).join('')}</table></div>`;
-   return h+'</article>';}
+   return h+overrideHTML(r,ri)+'</article>';}
+/* Human override: change a verdict, keep Siyasat's original in r.auto, recalc score, undoable */
+function setVerdict(arg,ri,to,note){const [cid,sub]=(arg||'').split('/');const cs=load();const c=cid?cs.find(x=>x.id===cid):cs[0];if(!c)return;const key=sub==='refs'?'refResults':'results';const r=c[key][ri];if(!r)return;
+  const from={verdict:r.verdict,auto:r.auto||null,ovNote:r.ovNote||''};const auto=r.auto||r.verdict;
+  const nx=to===auto?{verdict:auto,auto:null,ovNote:''}:{verdict:to,auto,ovNote:note||''};
+  applyVerdict(c.id,key,ri,nx);UNDO.push(c.id,{k:'ovr',id:c.id,key,ri,from,to:nx,label:`verdict on reference ${(r.i!=null?r.i:ri)+1}`});route();toast(nx.auto?`Saved your verdict: ${LABEL[to]}`:'Back to Siyasat’s verdict');}
+function applyVerdict(id,key,ri,v){updateCheck(id,x=>{const r=x[key][ri];if(!r)return;r.verdict=v.verdict;if(v.auto)r.auto=v.auto;else delete r.auto;if(v.ovNote)r.ovNote=v.ovNote;else delete r.ovNote;x[key==='refResults'?'refScore':'score']=SIY.integrity(x[key]);});}
+/* Fill in venue / free-PDF info for older checks, a few records at a time */
+async function enrichVisible(arg){if(enrichVisible.busy)return;enrichVisible.busy=1;try{const [cid,sub]=(arg||'').split('/');const c0=cid?load().find(x=>x.id===cid):load()[0];if(!c0||c0.type==='draft')return;const key=sub==='refs'?'refResults':'results';
+  const todo=(c0[key]||[]).map((r,ri)=>[r,ri]).filter(([r])=>r.match&&r.match.doi&&r.match.ven===undefined).slice(0,25);if(!todo.length)return;
+  for(const [r,ri] of todo){const e=await SIY.enrich(r.match.doi);updateCheck(c0.id,x=>{const y=x[key][ri];if(y&&y.match)y.match.ven=(e&&e.ven)||null;});}
+  if(location.hash.replace(/^#\/?/,'').startsWith('results')&&(location.hash.split('/')[2]||'')===(cid||'')){const y=window.scrollY;route();window.scrollTo(0,y);}}finally{enrichVisible.busy=0;}}
 function bib(c){const seen=new Set();const ok=c.results.filter(r=>r.apa&&r.verdict!=='retracted'&&!(r.match&&r.match.doi&&seen.has(r.match.doi))&&(r.match&&seen.add(r.match.doi),true)).map(r=>r.apa).sort((a,b)=>a.replace(/<[^>]+>/g,'').localeCompare(b.replace(/<[^>]+>/g,'')));
   const bad=c.results.filter(r=>['not_found','retracted','error'].includes(r.verdict));
   return `<div class="apa" id="apa">${ok.length?ok.map(a=>`<p>${a}</p>`).join(''):'<div class="empty">No confirmed references to list.</div>'}</div>`+(bad.length?`<div class="meta" style="margin-top:10px"><b>Left out, please review:</b><ul>${bad.map(r=>`<li><span class="badge ${r.verdict}">${LABEL[r.verdict]}</span> ${esc(r.raw.slice(0,110))}${r.raw.length>110?'…':''}</li>`).join('')}</ul></div>`:'');}
@@ -697,10 +722,10 @@ function draftReport(c,css){const when=new Date(c.date);
 function report(c){const css=document.querySelector('style').outerHTML;
   if(c.type==='draft') return draftReport(c,css);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Siyasat verification report · ${esc(c.name)}</title>${css}</head><body><div class="mhead" style="display:flex"><div class="mark">S</div><b>Siyasat verification report</b></div><main style="margin:0 auto">
-  <h1 class="page-h">${esc(c.name)}</h1><p class="lead">Checked ${esc(new Date(c.date).toString())} · ${c.type==='draft'?`Draft check · ${c.claims.length} claims · ${c.sources.length} sources`:c.results.length+' references'} · Integrity score <b>${c.score}/100</b><br>Sources queried: Crossref REST API (incl. Retraction Watch data) and OpenAlex. To save as PDF: File → Print → Save as PDF.</p>
-  <section class="card"><h2>Each reference</h2>${c.results.map((r,i)=>itemHTML(r,r.i!=null?r.i:i)).join('')}</section><section class="card"><h2>Corrected bibliography (APA 7)</h2>${bib(c)}</section></main></body></html>`;}
+  <h1 class="page-h">${esc(c.name)}</h1><p class="lead">Checked ${esc(new Date(c.date).toString())} · ${c.type==='draft'?`Draft check · ${c.claims.length} claims · ${c.sources.length} sources`:c.results.length+' references'} · Integrity score <b>${c.score}/100</b><br>Sources queried: Crossref REST API (incl. Retraction Watch data) and OpenAlex. Verdicts marked “You overrode this” were changed by the author. To save as PDF: File → Print → Save as PDF.</p>
+  <section class="card"><h2>Each reference</h2>${c.results.map((r,i)=>itemHTML(r,r.i!=null?r.i:i)).join('').replace(/<details class="ovr">[\s\S]*?<\/details>/g,'')}</section><section class="card"><h2>Corrected bibliography (APA 7)</h2>${bib(c)}</section></main></body></html>`;}
 function json(c){if(c.type==='draft')return JSON.stringify({tool:'Siyasat',type:'draft',name:c.name,checked_at:c.date,claims:c.claims.map(cl=>({sentence:cl.sentence,citations:cl.cites.map(x=>x.label),author_verdict:cl.judgment?JV[cl.judgment].t:null,author_verdict_note:'chosen by the author, not by Siyasat',sources:cl.cites.map(x=>{const i=c.sources.findIndex(s=>s.key===x.key);const r=c.results[i]||{};return {citation:x.label,reference:c.sources[i].ref,verdict:r.verdict,doi:r.match&&r.match.doi,abstract:c.sources[i].abstract&&c.sources[i].abstract.text,abstract_from:c.sources[i].abstract&&c.sources[i].abstract.from};})})),cited_not_listed:c.orphans,listed_not_cited:c.uncited},null,2);
-  return JSON.stringify({tool:'Siyasat',name:c.name,checked_at:c.date,integrity:c.score,results:c.results.map(r=>({input:r.raw,verdict:r.verdict,confidence:r.confidence,doi:r.match&&r.match.doi,matched_title:r.match&&r.match.title,differences:r.diffs,note:r.note,apa:r.apa}))},null,2);}
+  return JSON.stringify({tool:'Siyasat',name:c.name,checked_at:c.date,integrity:c.score,results:c.results.map(r=>({input:r.raw,verdict:r.verdict,confidence:r.confidence,doi:r.match&&r.match.doi,matched_title:r.match&&r.match.title,differences:r.diffs,note:r.note,apa:r.apa,siyasat_verdict:r.auto||r.verdict,overridden_by_author:!!r.auto,author_note:r.ovNote||undefined,venue:r.match&&r.match.ven||undefined}))},null,2);}
 
 /* ---------- Router ---------- */
 /* ---------- Back + breadcrumb (in-app history) ---------- */
@@ -760,7 +785,12 @@ function bindCommon(arg){
   M.querySelectorAll('[data-finish]').forEach(b=>b.onclick=()=>{updateCheck(b.dataset.finish,x=>{x.status='done';x.stoppedEarly=true;});route();});
   if(STATE.job&&STATE.job.active&&$('progress')) $('progress').hidden=false;
   if($('pick'))$('pick').onchange=e=>location.hash='#/results/'+e.target.value;
-  M.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{STATE.filter=b.dataset.f;STATE.page=0;const id=arg||load()[0].id;$('list').innerHTML=itemList(byId(id));M.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
+  M.querySelectorAll('.filters button').forEach(b=>b.onclick=()=>{STATE.filter=b.dataset.f;STATE.page=0;const id=arg||load()[0].id;$('list').innerHTML=itemList(byId(id));M.querySelectorAll('.filters button').forEach(x=>x.setAttribute('aria-pressed',x===b));bindCommon(arg);});
+  M.querySelectorAll('[data-exp]').forEach(b=>b.onclick=()=>{const c=byId(b.dataset.eid);if(c)EXP.run(b.dataset.exp,c,dl);});
+  M.querySelectorAll('[data-cdoi]').forEach(b=>b.onclick=async()=>{const t='https://doi.org/'+b.dataset.cdoi;try{await navigator.clipboard.writeText(t);}catch(e){}b.textContent='✓ Copied';setTimeout(()=>b.textContent='Copy DOI',2500);});
+  M.querySelectorAll('[data-ovsave]').forEach(b=>b.onclick=()=>{const ri=+b.dataset.ovsave;setVerdict(arg,ri,M.querySelector(`[data-ovsel="${ri}"]`).value,M.querySelector(`[data-ovnote="${ri}"]`).value.trim());});
+  M.querySelectorAll('[data-ovreset]').forEach(b=>b.onclick=()=>{const ri=+b.dataset.ovreset;const [cid,sub]=(arg||'').split('/');const c=cid?load().find(x=>x.id===cid):load()[0];const r=c&&c[sub==='refs'?'refResults':'results'][ri];if(r&&r.auto)setVerdict(arg,ri,r.auto,'');});
+  if($('list')&&!(STATE.job&&STATE.job.active))setTimeout(()=>enrichVisible(arg),400);
   if($('copy'))$('copy').onclick=async()=>{const t=[...$('apa').querySelectorAll('p')].map(p=>p.innerText).join('\n');if(!t)return;
     try{await navigator.clipboard.writeText(t);}catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();}
     $('copied').textContent='✓ Copied! Paste it into your document.';setTimeout(()=>$('copied').textContent='',4000);};

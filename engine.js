@@ -1,6 +1,6 @@
 /* Siyasat verification engine — runs in browser and in node */
 const SIY = (() => {
-const MAILTO = 'siyasat-checker@example.org';
+const MAILTO = 'jpmcarnaje@gmail.com';
 const norm = s => (s||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/<[^>]+>/g,' ').replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
 const STOP = new Set('a an the of and in on for to with by from at as is are or'.split(' '));
 const toks = s => norm(s).split(' ').filter(w => w && !STOP.has(w));
@@ -66,7 +66,7 @@ function fromCrossref(w){ return { source:'Crossref', doi:(w.DOI||'').toLowerCas
   retracted: !!((w['updated-by']||[]).some(u=>/retract/i.test(u.type)) || /^retracted\b/i.test((w.title||[''])[0])), raw:w }; }
 function fromOpenAlex(w){ const b=w.biblio||{}; return { source:'OpenAlex', doi:(w.doi||'').replace('https://doi.org/','').toLowerCase(), title:w.title||'',
   authors:(w.authorships||[]).map(a=>{const n=(a.author&&a.author.display_name)||''; const p=n.trim().split(/\s+/); return {family:p.pop()||'', given:p.join(' ')}}), year:w.publication_year,
-  venue:(w.primary_location&&w.primary_location.source&&w.primary_location.source.display_name)||'', volume:b.volume, issue:b.issue, pages:b.first_page?(b.first_page+(b.last_page&&b.last_page!==b.first_page?'–'+b.last_page:'')):'', retracted:!!w.is_retracted, type:w.type, cites:w.cited_by_count||0 }; }
+  venue:(w.primary_location&&w.primary_location.source&&w.primary_location.source.display_name)||'', volume:b.volume, issue:b.issue, pages:b.first_page?(b.first_page+(b.last_page&&b.last_page!==b.first_page?'–'+b.last_page:'')):'', retracted:!!w.is_retracted, type:w.type, cites:w.cited_by_count||0, ven:venueInfo(w) }; }
 function score(p, c){
   const tSim = p.title ? sim(p.title, c.title) : coverage(c.title, p.raw);
   const fam = c.authors.map(a=>norm(a.family));
@@ -76,12 +76,19 @@ function score(p, c){
   const doiOk = p.doi && c.doi && p.doi.toLowerCase()===c.doi ? 1 : 0;
   return { total: doiOk ? Math.max(0.9, tSim) : 0.6*tSim+0.2*aOk+0.1*yOk+0.1*vOk, tSim, aOk, yOk, vOk, doiOk };
 }
+/* Venue + open-access signals from OpenAlex (fail soft: any field may be missing) */
+function venueInfo(w){ if(!w) return null; const src=(w.primary_location&&w.primary_location.source)||{}; const oa=w.open_access||{};
+  const pdf=(w.best_oa_location&&(w.best_oa_location.pdf_url||w.best_oa_location.landing_page_url))||oa.oa_url||'';
+  return { name:src.display_name||'', publisher:src.host_organization_name||'', type:src.type||'', doaj:!!src.is_in_doaj, oaVenue:!!src.is_oa, isOa:!!oa.is_oa, oaUrl:pdf, cites:w.cited_by_count }; }
+async function enrich(doi, fetchFn=DEF){ if(!doi) return null;
+  const w = await getJSON(`https://api.openalex.org/works/doi:${doi}?select=is_retracted,primary_location,open_access,best_oa_location,cited_by_count&mailto=${MAILTO}`, fetchFn).catch(()=>null);
+  return w ? {retracted:!!w.is_retracted, ven:venueInfo(w)} : {ven:null}; }
 async function checkRetraction(c, fetchFn){
+  const e = c.doi ? await enrich(c.doi, fetchFn) : null; if(e && e.ven) c.ven = e.ven;
   if(c.retracted) return true; if(!c.doi) return false;
   const n = await getJSON(`https://api.crossref.org/works?filter=updates:${encodeURIComponent(c.doi)}&rows=5&mailto=${MAILTO}`, fetchFn).catch(()=>null);
   if(n && n.message.items.some(it=>(it['update-to']||[]).some(u=>/retract/i.test(u.type) && u.DOI.toLowerCase()===c.doi))) return true;
-  const oa = await getJSON(`https://api.openalex.org/works/doi:${c.doi}?mailto=${MAILTO}`, fetchFn).catch(()=>null);
-  return !!(oa && oa.is_retracted);
+  return !!(e && e.retracted);
 }
 function diffs(p, c){
   const out=[]; const fam=c.authors.map(a=>norm(a.family));
@@ -133,6 +140,6 @@ async function verify(raw, fetchFn = DEF){
 }
 function integrity(results){ if(!results.length) return 0; const w={verified:1,correction:0.6,uncertain:0.7,retracted:0,not_found:0,error:0.5}; return Math.round(100*results.reduce((s,r)=>s+(w[r.verdict]??0),0)/results.length); }
 const verifyCapped=(raw,f)=>Promise.race([verify(raw,f),new Promise((_,rj)=>setTimeout(()=>rj(new Error('Service busy — this lookup took too long, try again')),30000))]);
-return {verify:verifyCapped, net:{down:NET.down,trip}, fetchT, parse, splitEntries, cleanText, integrity, apa, sim};
+return {verify:verifyCapped, enrich, MAILTO, net:{down:NET.down,trip}, fetchT, parse, splitEntries, cleanText, integrity, apa, sim};
 })();
 if (typeof module!=='undefined') module.exports = SIY;
