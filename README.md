@@ -14,11 +14,35 @@ and notes), IEEE, Vancouver, AMA and ACS are each recognised by their shape, so 
 or page range is caught whichever style it is written in (`packages/core/src/parse.ts`). A reference in no
 recognisable shape is still matched, on its DOI or on how much of a record's title appears in it.
 
-The corrected bibliography, the "copy corrected reference" button and the downloaded report can be written in
-APA 7, MLA 9, Chicago author-date, Harvard, IEEE or Vancouver (`packages/core/src/styles.ts`). IEEE and
-Vancouver lists are numbered in the order of the list that was checked; the others are sorted by author.
-Journal articles come out complete. For a book or a chapter the databases do not give the publisher or the
-editors, so those entries need finishing by hand.
+The corrected bibliography, the "copy corrected reference" button, the spreadsheet and the downloaded report can
+be written in APA 7, MLA 9, Chicago author-date, Harvard, IEEE or Vancouver (`packages/core/src/styles.ts`).
+IEEE and Vancouver lists are numbered in the order of the list that was checked; the others are sorted by
+author. Journal articles, books, chapters, conference papers and preprints each have their own layout, with
+the publisher, place and editors when the database holds them. What it does not hold is left out, never
+invented.
+
+### Capitals and abbreviations
+
+A style also says how a title is capitalised and whether a journal is named in full. Databases hold a title
+however its publisher typed it, so it is rewritten for the style (`packages/core/src/casing.ts`): sentence
+case for APA, Harvard, IEEE and Vancouver, title case for MLA and Chicago. Going to sentence case means
+deciding which capitals are real, and each word is decided on evidence, strongest first:
+
+1. its own shape ("NumPy", "mRNA", "COVID-19");
+2. the abstract, which shows how words are written in running text, including names of several words;
+3. another copy of the same title in sentence case: the author's own reference, or a second database record;
+4. a list of names (countries, peoples, languages, Philippine places, people whose names became terms);
+5. failing all of those, lower case.
+
+A title that is not in English is left as it is.
+
+Vancouver and IEEE cite journals by abbreviation. The abbreviation is looked up in the NLM Catalog by ISSN,
+then taken from the publisher's own short title, and only then worked out by ISO 4 from a word list
+(`packages/core/src/journals.ts`).
+
+The app explains all of this, and how a reference is scored, on its **How it works** page. That page reads
+its numbers from `packages/core/src/scoring.ts`, the one table every threshold lives in, and computes its
+worked examples with the checker's own functions.
 
 ## How it is built
 
@@ -90,7 +114,10 @@ browser-only version of Siyasat (`test/fixtures/legacy-golden.json`), including 
 responses it saw. A change that alters a verdict fails there, so it has to be deliberate; the few places where
 the engine now does better than the original on purpose are named in that file with the reason.
 
-`packages/core/test/citation-styles.test.ts` covers reading, checking and writing each citation style.
+`packages/core/test/citation-styles.test.ts` covers reading, checking and writing each citation style, for
+each kind of work. `casing.test.ts` and `journals.test.ts` cover capitalisation and journal abbreviation, with
+the hard cases: names, abbreviations, titles in capitals, titles not in English, and what is lost when there
+is no abstract.
 
 ## Deploying
 
@@ -118,6 +145,7 @@ Every route is under `/api`. All but the first two need `Authorization: Bearer <
 | `POST /verify` | Check one reference |
 | `POST /draft/source` | Check one source cited in a draft, and fetch its abstract |
 | `GET /enrich?doi=` | Venue and open-access details for a DOI |
+| `POST /journals/abbreviations` | The NLM Catalog's abbreviations for journals, by ISSN |
 | `GET /fulltext?doi=` | A free full text for a DOI, when one exists |
 | `GET /checks` | Summaries of the workspace's saved checks |
 | `GET`, `PUT`, `PATCH`, `DELETE /checks/:id` | Read, save, change, or delete one check |

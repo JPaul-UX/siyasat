@@ -1,4 +1,5 @@
 /* Exports: spreadsheet (CSV), BibTeX, RIS, EndNote (.enw), and the screened library for reviews. */
+import { correctedReference, styleInfo, type CitationStyle } from './styles.js';
 import { stripTags } from './text.js';
 import type { Match, RefResult, Verdict } from './types.js';
 
@@ -59,10 +60,14 @@ const CSV_VERDICT: Record<Verdict, string> = {
   error: "Couldn't check",
 };
 
-export function toCsv(c: Exportable): string {
+/**
+ * Every reference and its verdict as a spreadsheet. The last column is the corrected reference, in the
+ * citation style asked for.
+ */
+export function toCsv(c: Exportable, style: CitationStyle = 'apa'): string {
   const head = [
     '#', 'You wrote', 'Verdict', 'Overridden by you', 'Your note', 'Match confidence', 'DOI', 'DOI link', 'Title', 'Authors',
-    'Year', 'Venue', 'Volume', 'Issue', 'Pages', 'Differences', 'Open-access link', 'APA 7',
+    'Year', 'Venue', 'Volume', 'Issue', 'Pages', 'Differences', 'Open-access link', styleInfo(style).name,
   ];
   const rows = c.results.map((r, i) => {
     const m: Partial<Match> = r.match || {};
@@ -85,7 +90,7 @@ export function toCsv(c: Exportable): string {
       m.pages || '',
       (r.diffs || []).map((d) => d.field + ': ' + d.cited + ' → ' + d.actual).join(' | '),
       v?.oaUrl || '',
-      stripTags(r.apa),
+      stripTags(correctedReference(r, style) ?? ''),
     ];
   });
   // The byte-order mark makes Excel read the file as UTF-8.
@@ -160,11 +165,11 @@ export interface ExportFile {
 }
 
 /** Build the download for one export format. */
-export function exportFile(kind: ExportKind, c: Exportable): ExportFile {
+export function exportFile(kind: ExportKind, c: Exportable, style: CitationStyle = 'apa'): ExportFile {
   const base = `siyasat-${c.name.replace(/[^\w-]+/g, '-').slice(0, 40)}`;
   switch (kind) {
     case 'csv':
-      return { name: base + '.csv', data: toCsv(c), type: 'text/csv;charset=utf-8' };
+      return { name: base + '.csv', data: toCsv(c, style), type: 'text/csv;charset=utf-8' };
     case 'bib':
       return { name: base + '.bib', data: toBibtex(c), type: 'application/x-bibtex' };
     case 'ris':

@@ -122,3 +122,22 @@ export function splitEntries(input?: string | null): string[] {
   if (cur) out.push(cur);
   return out.map(fin).filter((p) => p.length > 8);
 }
+
+/** Small words inside a surname that are written in lower case: "van der Walt", "de la Cruz". */
+const NAME_PARTICLES = new Set(['van', 'von', 'der', 'den', 'de', 'del', 'la', 'ter']);
+
+/**
+ * A person some databases hold in capitals ("RUMELHART, DAVID E.") written the usual way. A name that
+ * already has lower-case letters is left alone, and so are initials.
+ */
+export function tidyPerson<T extends { family: string; given: string }>(person: T): T {
+  const whole = `${person.family} ${person.given}`;
+  if (/\p{Ll}/u.test(whole) || !/\p{Lu}{3}/u.test(whole)) return person;
+  const tidy = (name: string) =>
+    name.replace(/\p{L}{2,}/gu, (word, at: number) => {
+      const lower = word.toLowerCase();
+      if (NAME_PARTICLES.has(lower) && at + word.length < name.length) return lower;
+      return word[0] + lower.slice(1);
+    });
+  return { ...person, family: tidy(person.family), given: tidy(person.given) };
+}

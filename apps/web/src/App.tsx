@@ -1,5 +1,5 @@
 import type { CheckSummary } from '@siyasat/core';
-import { ArrowLeft, ChevronRight, FileText, LayoutDashboard, ListChecks, Plus, WifiOff } from 'lucide-react';
+import { ArrowLeft, ChevronRight, FileText, LayoutDashboard, ListChecks, Plus, WifiOff, Workflow } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { Empty, Logo, Spinner } from './components/bits';
@@ -9,13 +9,14 @@ import { backTarget, paths, setNavigate, trackVisit, typeName } from './lib/nav'
 import { Dashboard } from './pages/Dashboard';
 import { NewCheck } from './pages/NewCheck';
 import { Reader } from './pages/Reader';
+import { HowItWorks } from './pages/HowItWorks';
 import { Reports } from './pages/Reports';
 import { Results } from './pages/Results';
 import { UploadPage } from './pages/UploadPage';
 import { initChecks, useChecks } from './store/checks';
 import { stopEditing, useForms } from './store/forms';
 
-const TITLES: Record<string, string> = { new: 'New check', results: 'Results', reports: 'Reports', read: 'Full-text reader', upload: 'Upload & check' };
+const TITLES: Record<string, string> = { new: 'New check', results: 'Results', reports: 'Reports', 'how-it-works': 'How it works', read: 'Full-text reader', upload: 'Upload & check' };
 
 type Crumb = [name: string, to: string | null];
 
@@ -34,6 +35,7 @@ function crumbs(page: string, parts: string[], summaries: CheckSummary[]): Crumb
       else trail.push([c.name, null]);
     }
   } else if (page === 'reports') trail.push(['Reports', null]);
+  else if (page === 'how-it-works') trail.push(['How it works', null]);
   else if (page === 'upload') trail.push(['Upload & check', null]);
   else if (page === 'read') trail.push(['Results', paths.results()], ['Full-text reader', null]);
   return trail;
@@ -117,6 +119,10 @@ export function App() {
               <FileText aria-hidden="true" />
               Reports
             </NavLink>
+            <NavLink to={paths.how}>
+              <Workflow aria-hidden="true" />
+              How it works
+            </NavLink>
           </nav>
           <div className="side-foot">
             <b>Catch AI hallucinations</b>
@@ -166,6 +172,7 @@ export function App() {
                 <Route path="/new/:type?" element={<NewCheck />} />
                 <Route path="/results/:id?/:view?" element={<Results />} />
                 <Route path="/reports" element={<Reports />} />
+                <Route path="/how-it-works" element={<HowItWorks />} />
                 <Route path="/read" element={<Reader />} />
                 <Route path="/upload" element={<UploadPage />} />
                 <Route path="*" element={<Dashboard />} />
@@ -191,6 +198,10 @@ export function App() {
         <NavLink to={paths.reports}>
           <FileText aria-hidden="true" />
           Reports
+        </NavLink>
+        <NavLink to={paths.how} aria-label="How it works">
+          <Workflow aria-hidden="true" />
+          Method
         </NavLink>
       </nav>
 

@@ -18,6 +18,7 @@ import { Bibliography, duplicates, RefItem } from '../components/RefItem';
 import { ReportButtons } from '../components/ReportButtons';
 import { api } from '../lib/api';
 import { copyText, download } from '../lib/download';
+import { fetchAbbreviations, needingAbbreviation } from '../lib/journals';
 import { EXPLAIN, LABEL, MAIN_VERDICTS } from '../lib/labels';
 import { patchCheck, upsertResults } from '../store/checks';
 import { eta, resumeJob, useJobs } from '../store/jobs';
@@ -69,11 +70,11 @@ function scoreSummary(results: RefResult[], verified: number): string {
   return `${problems} of ${results.length} ${results.length === 1 ? 'reference needs' : 'references need'} a look.`;
 }
 
-function ExportTab({ view }: { view: RefsView }) {
+function ExportTab({ view, style }: { view: RefsView; style: CitationStyle }) {
   const all = exportableRecords(view).length;
   const screened = exportableRecords(view, true).length;
   const save = (kind: ExportKind) => {
-    const file = exportFile(kind, view);
+    const file = exportFile(kind, view, style);
     download(file.name, file.data, file.type);
   };
   return (
@@ -100,7 +101,7 @@ function ExportTab({ view }: { view: RefsView }) {
         <button type="button" className="ghost" onClick={() => save('csv')}>
           <FileSpreadsheet className="ic" aria-hidden="true" />
           <span>
-            Spreadsheet (.csv)<small>Every reference and verdict</small>
+            Spreadsheet (.csv)<small>Every reference and verdict, corrected in {styleInfo(style).name}</small>
           </span>
         </button>
         <button type="button" className="ghost" disabled={!all} onClick={() => save('bib')}>
@@ -153,6 +154,18 @@ function useVenueBackfill(view: RefsView, paused: boolean): void {
   }, [view.id, view.kind, paused]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
+/**
+ * Vancouver and IEEE cite journals by abbreviation. When one of them is chosen, look the journals up in the
+ * NLM Catalog; until the answer arrives the abbreviation is worked out by rule.
+ */
+function useJournalAbbreviations(view: RefsView, style: CitationStyle, paused: boolean): void {
+  const waiting = needingAbbreviation(view.results).length;
+  useEffect(() => {
+    if (paused || !waiting || !styleInfo(style).abbreviates) return;
+    void fetchAbbreviations(view.id, view.results, view.kind);
+  }, [view.id, view.kind, style, paused, waiting]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 export function RefsResults({ view, header }: { view: RefsView; header: ReactNode }) {
   const running = useJobs((s) => s.job?.id === view.id);
   const style = usePrefs((s) => s.style);
@@ -166,6 +179,7 @@ export function RefsResults({ view, header }: { view: RefsView; header: ReactNod
   const counts = countVerdicts(view.results);
   const dups = useMemo(() => duplicates(view.results), [view.results]);
   useVenueBackfill(view, running);
+  useJournalAbbreviations(view, style, running);
 
   const needle = query.trim().toLowerCase();
   const rows = view.results
@@ -444,7 +458,7 @@ export function RefsResults({ view, header }: { view: RefsView; header: ReactNod
         {tab === 'export' && (
           <section className="card">
             <h2>Download your results</h2>
-            <ExportTab view={view} />
+            <ExportTab view={view} style={style} />
           </section>
         )}
       </div>

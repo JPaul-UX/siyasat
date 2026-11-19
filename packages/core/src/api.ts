@@ -41,6 +41,18 @@ export interface EnrichResponse {
   ven: VenueInfo | null;
 }
 
+/** POST /api/journals/abbreviations: the catalogued abbreviations of journals, by ISSN. */
+export interface JournalAbbreviationsRequest {
+  issns: string[];
+}
+export interface JournalAbbreviationsResponse {
+  /**
+   * ISSN → the abbreviation in the NLM Catalog, or null when the journal is not catalogued. An ISSN that
+   * could not be looked up just now is left out, so that it is asked for again later.
+   */
+  abbreviations: Record<string, string | null>;
+}
+
 /** GET /api/fulltext?doi= */
 export type FullTextResponse = FullText;
 
@@ -84,4 +96,6 @@ export const LIMITS = {
   resultsPerRequest: 200,
   /** Most references in one check. */
   referencesPerCheck: 20000,
+  /** Most journals in one request for abbreviations. */
+  journalsPerRequest: 300,
 } as const;

@@ -26,6 +26,8 @@ import {
   integrity,
   norm,
   parse,
+  parseCsv,
+  tidyPerson,
   parseLibraryFile,
   score,
   sentences,
@@ -49,6 +51,24 @@ const golden: any = JSON.parse(readFileSync(new URL('./fixtures/legacy-golden.js
 
 /** JSON round trip: drops undefined fields, the way the stored golden values did. */
 const plain = <T>(x: T): T => JSON.parse(JSON.stringify(x));
+
+/** A reference without its capitals and italics: what is left is the wording and the order. */
+const wording = (reference: string) =>
+  reference
+    .replace(/<\/?i>/g, '')
+    .replace(/\b(\w+)–\1\b/, '$1') // a single page was written "407–407"
+    .toLowerCase();
+
+/**
+ * What the original would have recorded for a result produced now. Two things differ on purpose everywhere:
+ * a match carries more fields than it did, and the APA entry is in sentence case.
+ */
+function asBefore(got: any, was: any): any {
+  const out = { ...got };
+  if (got.match && was.match) out.match = Object.fromEntries(Object.keys(got.match).filter((k) => k in was.match).map((k) => [k, got.match[k]]));
+  if (got.apa && was.apa && wording(got.apa).replace(/\.(?= https)/, '') === wording(was.apa).replace(/\.(?= https)/, '')) out.apa = was.apa;
+  return out;
+}
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 /** The original highlighter returned HTML; render segments the same way to compare. */
@@ -125,8 +145,12 @@ describe('matching', () => {
     expect(golden.cands.length).toBeGreaterThan(5);
     for (const g of golden.cands) {
       const c = g.kind === 'cr' ? fromCrossref(g.w) : fromOpenAlex(g.w);
-      expect(plain(c)).toEqual(g.cand);
-      expect(apa(c)).toBe(g.apa);
+      // A record now carries more than the original read from it (publisher, editors, ISSN, short title…).
+      // Names a database holds in capitals ("UHLMANN") are now written the usual way.
+      expect(plain(c)).toMatchObject({ ...g.cand, authors: g.cand.authors.map(tidyPerson) });
+      // The APA entry is now put in sentence case, so only a journal article's wording can be compared, and
+      // not its capitals. Books, chapters, conference papers and preprints are laid out differently on purpose.
+      if (c.type === 'journal-article' && c.venue) expect(wording(apa(c))).toBe(wording(g.apa));
       golden.refs.slice(0, 8).forEach((raw: string, i: number) => {
         const p = parse(raw);
         // Compound surnames: the original counted "Walt" (for van der Walt) and "Gomez" (indexed as
@@ -134,7 +158,9 @@ describe('matching', () => {
         const compound = c.authors.some((a) => /[\s.]/.test(a.family.trim()) && p.surnames.some((s) => norm(a.family).endsWith(' ' + s)));
         if (compound) return;
         expect(score(p, c)).toEqual(g.scored[i].score);
-        expect(plain(diffs(p, c))).toEqual(g.scored[i].diffs);
+        // The record's authors are shown in a difference; their capitals are the only thing that may have changed.
+        const calm = (list: any[]) => list.map((d) => (d.field === 'Authors' ? { ...d, actual: d.actual.toLowerCase() } : d));
+        expect(calm(plain(diffs(p, c)))).toEqual(calm(g.scored[i].diffs));
       });
     }
   });
@@ -215,7 +241,16 @@ describe('verify', () => {
       (was) => ({ ...was, diffs: was.diffs.filter((d: any) => d.field !== 'Authors') }),
     ],
     ['Ji, Ziwei, et al.', 'the venue of an MLA reference is now read, and it matches', (was) => ({ ...was, confidence: 1 })],
-    ['[12] K. He', 'the authors of an IEEE reference are now read, and they match', (was) => ({ ...was, confidence: expect.closeTo(0.95, 5) })],
+    [
+      '[12] K. He',
+      'the authors of an IEEE reference are now read, and they match; and a conference paper is cited as part of its proceedings',
+      (was) => ({ ...was, confidence: expect.closeTo(0.95, 5), apa: expect.stringContaining('Deep residual learning for image recognition. In <i>2016 IEEE Conference') }),
+    ],
+    [
+      'Devlin, J., Chang',
+      'a conference paper is cited as part of its proceedings: "In Proceedings… (pp. 4171–4186)"',
+      (was) => ({ ...was, apa: expect.stringMatching(/BERT: Pre-training of deep bidirectional transformers for language understanding\. In <i>Proceedings .*<\/i> \(pp\. 4171–4186\)\./) }),
+    ],
     [
       'World Health Organization.',
       'an organisation as author now matches the same organisation on a record, so the closest (still wrong) record is one of its own',
@@ -225,7 +260,8 @@ describe('verify', () => {
 
   it.each(cases.map((v: any) => [v.result.verdict, v.raw.slice(0, 70), v]) as [string, string, any][])('%s: %s', async (_verdict, _name, v) => {
     const better = BETTER_NOW.find(([start]) => v.raw.startsWith(start));
-    const got = plain(await verify(v.raw, recorded));
+    const made = plain(await verify(v.raw, recorded));
+    const got = asBefore(made, v.result);
     if (!better) return expect(got).toEqual(v.result);
     expect(got).toEqual(better[2](v.result));
     // The verdict itself only moves where the reason says so.
@@ -274,7 +310,15 @@ describe('verify', () => {
 describe('exports', () => {
   it('CSV, BibTeX, RIS and EndNote', () => {
     const { check } = golden.exports;
-    expect(toCsv(check)).toBe(golden.exports.csv);
+    // The last column was the stored APA entry. It is now written afresh in the style asked for, in sentence
+    // case, so its capitals may differ; every other cell is as it was.
+    const cells = (csv: string) => parseCsv(csv).map((row) => row.map((cell) => cell.trim()));
+    const now = cells(toCsv(check));
+    const was = cells(golden.exports.csv);
+    expect(now.map((row) => row.slice(0, -1))).toEqual(was.map((row) => row.slice(0, -1)));
+    expect(now.map((row) => !!row.at(-1))).toEqual(was.map((row) => !!row.at(-1)));
+    expect(now[0]!.at(-1)).toBe('APA 7');
+    expect(cells(toCsv(check, 'vancouver'))[0]!.at(-1)).toBe('Vancouver');
     expect(toBibtex(check)).toBe(golden.exports.bib);
     expect(toBibtex(check, true)).toBe(golden.exports.bibScreened);
     expect(toRis(check)).toBe(golden.exports.ris);

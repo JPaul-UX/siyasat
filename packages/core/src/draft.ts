@@ -3,6 +3,7 @@
  * with what the source says. This is a reading aid only. It never judges whether a source supports a claim.
  */
 import { parse } from './parse.js';
+import { SCORING } from './scoring.js';
 import { cleanText, splitEntries } from './text.js';
 import type { Citation, CiteRef, DraftAnalysis, SourceInput } from './types.js';
 
@@ -331,7 +332,7 @@ export async function findByAuthorYear(
     if (found) crossrefAnswered = true;
     const items = (found || []).filter((w) => fold(w.firstFamily).includes(family));
     const scored = items.map((w) => ({ w, f: fit(w.title) })).sort((x, y) => y.f - x.f);
-    if (scored[0] && scored[0].f >= 0.3) return { doi: scored[0].w.doi, title: scored[0].w.title, strength: 'strong' };
+    if (scored[0] && scored[0].f >= SCORING.authorYearFit.crossref) return { doi: scored[0].w.doi, title: scored[0].w.title, strength: 'strong' };
     if (!weak && items[0]) weak = { doi: items[0].doi, title: items[0].title, strength: 'weak' };
   }
   const oa = await lk.openalexAuthorYear(surname + ' ' + words, src.year - 1, src.year + 1);
@@ -341,7 +342,7 @@ export async function findByAuthorYear(
       .map((p) => ({ p, f: fit(p.title) }))
       .filter((x) => fold(x.p.firstAuthor).includes(family))
       .sort((x, y) => y.f - x.f)[0];
-  if (hit && hit.f >= 0.25 && hit.p.doi) {
+  if (hit && hit.f >= SCORING.authorYearFit.openalex && hit.p.doi) {
     return { doi: hit.p.doi.replace('https://doi.org/', ''), title: hit.p.title, strength: 'strong' };
   }
   // Crossref is the main index. If it never answered, finding nothing is an outage, not evidence about the citation.

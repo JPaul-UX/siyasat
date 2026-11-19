@@ -23,9 +23,25 @@ const OPENALEX = 'https://api.openalex.org';
 
 /** The Crossref fields the matcher reads. Asking for only these keeps responses small. */
 const CROSSREF_FIELDS =
-  'DOI,title,author,issued,published-print,published-online,container-title,volume,issue,page,type,is-referenced-by-count,updated-by';
+  'DOI,title,author,issued,published-print,published-online,container-title,volume,issue,page,type,is-referenced-by-count,updated-by,' +
+  // What a reference to a book or a chapter needs, the journal's own abbreviation, and the abstract (which
+  // shows how the words of the title are written in running text).
+  'short-container-title,ISSN,publisher,publisher-location,editor,abstract';
 const OPENALEX_FIELDS =
-  'doi,title,authorships,publication_year,primary_location,biblio,is_retracted,type,cited_by_count,open_access,best_oa_location';
+  'doi,title,authorships,publication_year,primary_location,biblio,is_retracted,type,cited_by_count,open_access,best_oa_location,language';
+
+const NCBI = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+const ISSN = /^\d{4}-\d{3}[\dX]$/;
+/** How many ISSNs go into one catalogue search. The search is one URL, so it cannot be long. */
+const ISSNS_PER_SEARCH = 40;
+
+/** OpenAlex stores an abstract as word → positions; put the words back in order. */
+function abstractFromIndex(index: Record<string, number[]> | null | undefined): string {
+  if (!index) return '';
+  const words: string[] = [];
+  for (const [word, positions] of Object.entries(index)) positions.forEach((p) => (words[p] = word));
+  return words.filter((w) => w != null).join(' ').trim();
+}
 
 interface CrossrefWork {
   candidate: Candidate;
@@ -48,8 +64,65 @@ export class SourcesService implements Lookups, AuthorYearLookups {
   private readonly enrichments = new TtlCache<Enrichment>(8000);
   private readonly notices = new TtlCache<boolean | null>(8000);
   private readonly abstracts = new TtlCache<AbstractInfo | null>(4000);
+  /** ISSN → the NLM Catalog's abbreviation, or null for a journal the catalogue does not hold. */
+  private readonly abbreviations = new TtlCache<string | null>(20000);
 
   constructor(private readonly upstream: UpstreamService) {}
+
+  /* ---------- Journal abbreviations ---------- */
+
+  /**
+   * The abbreviations medical journals go by ("N Engl J Med"), from the NLM Catalog, which is where the
+   * Vancouver style takes them from. Looked up by ISSN, many at a time: one search finds the catalogue records
+   * of up to forty journals, and one more request reads them all.
+   *
+   * An ISSN that could not be looked up is left out of the answer and is not cached.
+   */
+  async journalAbbreviations(issns: string[]): Promise<Record<string, string | null>> {
+    const out: Record<string, string | null> = {};
+    const wanted: string[] = [];
+    for (const issn of new Set(issns.map((i) => i.trim().toUpperCase()).filter((i) => ISSN.test(i)))) {
+      const known = this.abbreviations.get(issn);
+      if (known !== undefined) out[issn] = known;
+      else wanted.push(issn);
+    }
+    for (let at = 0; at < wanted.length; at += ISSNS_PER_SEARCH) {
+      const batch = wanted.slice(at, at + ISSNS_PER_SEARCH);
+      const found = await this.catalogued(batch);
+      if (!found) continue;
+      for (const issn of batch) {
+        const abbreviation = found.get(issn) ?? null;
+        // A journal's abbreviation does not change; a journal missing from the catalogue may be added.
+        this.abbreviations.set(issn, abbreviation, abbreviation ? 30 * DAY : 7 * DAY);
+        out[issn] = abbreviation;
+      }
+    }
+    return out;
+  }
+
+  /** ISSN → abbreviation for the journals the catalogue holds, or null when the catalogue could not be read. */
+  private async catalogued(issns: string[]): Promise<Map<string, string> | null> {
+    const term = issns.map((i) => `"${i}"[ISSN]`).join(' OR ');
+    const search = await this.upstream.getJsonSoft<Json>(`${NCBI}/esearch.fcgi?db=nlmcatalog&retmode=json&retmax=${issns.length * 4}&term=${encodeURIComponent(term)}`);
+    const ids: string[] | undefined = search?.esearchresult?.idlist;
+    if (!Array.isArray(ids)) return null;
+    const found = new Map<string, string>();
+    if (!ids.length) return found;
+    const summary = await this.upstream.getJsonSoft<Json>(`${NCBI}/esummary.fcgi?db=nlmcatalog&retmode=json&id=${ids.join(',')}`);
+    if (!summary?.result) return null;
+    for (const id of ids) {
+      const record = summary.result[id];
+      const abbreviation = typeof record?.medlineta === 'string' ? record.medlineta.trim() : '';
+      if (!abbreviation) continue;
+      // One ISSN can bring back several records (an overseas edition, a predecessor): each record is taken
+      // only for the ISSNs it lists itself.
+      for (const entry of record.issnlist || []) {
+        const issn = String(entry?.issn || '').toUpperCase();
+        if (issns.includes(issn) && !found.has(issn)) found.set(issn, abbreviation);
+      }
+    }
+    return found;
+  }
 
   /* ---------- Lookups: what verify() needs ---------- */
 
@@ -111,9 +184,11 @@ export class SourcesService implements Lookups, AuthorYearLookups {
         doi.toLowerCase(),
         async () => {
           const w = await this.upstream.getJson<Json>(
-            `${OPENALEX}/works/doi:${encodeURIComponent(doi)}?select=is_retracted,primary_location,open_access,best_oa_location,cited_by_count`,
+            `${OPENALEX}/works/doi:${encodeURIComponent(doi)}?select=is_retracted,primary_location,open_access,best_oa_location,cited_by_count,language,abstract_inverted_index`,
           );
-          return w ? { retracted: !!w.is_retracted, ven: venueInfo(w) } : { ven: null };
+          if (!w) return { ven: null };
+          const abstract = abstractFromIndex(w.abstract_inverted_index);
+          return { retracted: !!w.is_retracted, ven: venueInfo(w), ...(w.language ? { lang: w.language } : {}), ...(abstract ? { abstract } : {}) };
         },
         (e) => (e.ven ? DAY : 0),
       );
@@ -189,12 +264,7 @@ export class SourcesService implements Lookups, AuthorYearLookups {
     if (oa) {
       info = { openalex: oa.id || null, isOA: !!oa.open_access?.is_oa, oaUrl: oa.open_access?.oa_url || null };
       if (oa.abstract_inverted_index) {
-        // OpenAlex stores abstracts as word → positions; put the words back in order.
-        const words: string[] = [];
-        for (const [word, positions] of Object.entries(oa.abstract_inverted_index as Record<string, number[]>)) {
-          positions.forEach((p) => (words[p] = word));
-        }
-        const text = words.filter((w) => w != null).join(' ').trim();
+        const text = abstractFromIndex(oa.abstract_inverted_index);
         if (text.length > 40) return { text, from: 'OpenAlex', ...info };
       }
     }

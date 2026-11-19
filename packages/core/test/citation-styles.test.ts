@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import {
+import { tidyPerson, correctedReference,
   CITATION_STYLES,
   formatReference,
   fromCrossref,
@@ -194,8 +194,8 @@ describe('writing a reference in each style', () => {
   it('a journal article with three authors', () => {
     expect(Object.fromEntries(CITATION_STYLES.map((s) => [s.id, formatReference(article, s.id)]))).toEqual({
       apa: 'LeCun, Y., Bengio, Y., & Hinton, G. (2015). Deep learning. <i>Nature</i>, <i>521</i>(7553), 436–444. https://doi.org/10.1038/nature14539',
-      mla: 'LeCun, Yann, et al. “Deep learning.” <i>Nature</i>, vol. 521, no. 7553, 2015, pp. 436–444, https://doi.org/10.1038/nature14539.',
-      chicago: 'LeCun, Yann, Yoshua Bengio, and Geoffrey Hinton. 2015. “Deep learning.” <i>Nature</i> 521 (7553): 436–444. https://doi.org/10.1038/nature14539.',
+      mla: 'LeCun, Yann, et al. “Deep Learning.” <i>Nature</i>, vol. 521, no. 7553, 2015, pp. 436–444, https://doi.org/10.1038/nature14539.',
+      chicago: 'LeCun, Yann, Yoshua Bengio, and Geoffrey Hinton. 2015. “Deep Learning.” <i>Nature</i> 521 (7553): 436–444. https://doi.org/10.1038/nature14539.',
       harvard: 'LeCun, Y., Bengio, Y. and Hinton, G. (2015) ‘Deep learning’, <i>Nature</i>, 521(7553), pp. 436–444. Available at: https://doi.org/10.1038/nature14539.',
       ieee: 'Y. LeCun, Y. Bengio, and G. Hinton, “Deep learning,” <i>Nature</i>, vol. 521, no. 7553, pp. 436–444, 2015, doi: 10.1038/nature14539.',
       vancouver: 'LeCun Y, Bengio Y, Hinton G. Deep learning. Nature. 2015;521(7553):436-44. doi: 10.1038/nature14539.',
@@ -207,7 +207,7 @@ describe('writing a reference in each style', () => {
     const two = { ...article, authors: article.authors.slice(0, 2) };
     expect(formatReference(one, 'mla')).toMatch(/^LeCun, Yann\. “/);
     expect(formatReference(two, 'mla')).toMatch(/^LeCun, Yann, and Yoshua Bengio\. “/);
-    expect(formatReference(two, 'chicago')).toMatch(/^LeCun, Yann and Yoshua Bengio\. 2015\./);
+    expect(formatReference(two, 'chicago')).toMatch(/^LeCun, Yann, and Yoshua Bengio\. 2015\./);
     expect(formatReference(two, 'harvard')).toMatch(/^LeCun, Y\. and Bengio, Y\. \(2015\)/);
     expect(formatReference(two, 'ieee')).toMatch(/^Y\. LeCun and Y\. Bengio, “/);
     expect(formatReference(one, 'vancouver')).toMatch(/^LeCun Y\. Deep learning\./);
@@ -224,20 +224,117 @@ describe('writing a reference in each style', () => {
 
   it('copes with what a record may lack', () => {
     const bare: Citable = { authors: [], year: null, title: 'Does it work?', venue: '', doi: '' };
-    expect(formatReference(bare, 'mla')).toBe('<i>Does it work?</i>');
-    expect(formatReference(bare, 'chicago')).toBe('n.d. <i>Does it work?</i>');
+    expect(formatReference(bare, 'apa')).toBe('(n.d.). <i>Does it work?</i>');
+    expect(formatReference(bare, 'mla')).toBe('<i>Does It Work?</i>');
+    expect(formatReference(bare, 'chicago')).toBe('n.d. <i>Does It Work?</i>');
     expect(formatReference(bare, 'harvard')).toBe('(no date) <i>Does it work?</i>');
-    expect(formatReference(bare, 'ieee')).toBe('<i>Does it work?</i>.');
+    expect(formatReference(bare, 'ieee')).toBe('<i>Does It Work?</i>.');
     expect(formatReference(bare, 'vancouver')).toBe('Does it work?');
     const question = { ...article, title: 'Can language models be too big?', issue: undefined, pages: '610' };
     expect(formatReference(question, 'ieee')).toContain('“Can language models be too big?” <i>Nature</i>, vol. 521, p. 610, 2015');
-    expect(formatReference(question, 'mla')).toContain('“Can language models be too big?” <i>Nature</i>, vol. 521, 2015, p. 610,');
+    expect(formatReference(question, 'mla')).toContain('“Can Language Models Be Too Big?” <i>Nature</i>, vol. 521, 2015, p. 610,');
     expect(formatReference(question, 'chicago')).toContain('<i>Nature</i> 521: 610.');
     expect(formatReference(question, 'vancouver')).toContain('Can language models be too big? Nature. 2015;521:610.');
   });
 
   it('drops a "RETRACTED:" prefix from the title, as the APA form does', () => {
     for (const s of CITATION_STYLES) expect(formatReference({ ...article, title: 'RETRACTED: Deep learning' }, s.id)).not.toContain('RETRACTED');
+  });
+
+  const A = (family: string, given: string) => ({ family, given });
+  const all = (record: Citable) => Object.fromEntries(CITATION_STYLES.map((s) => [s.id, formatReference(record, s.id)]));
+
+  it('a book, with its publisher and place', () => {
+    const book: Citable = { authors: [A('Goodfellow', 'Ian'), A('Bengio', 'Yoshua'), A('Courville', 'Aaron')], year: 2016, title: 'Deep Learning', venue: '', publisher: 'MIT Press', place: 'Cambridge, MA', doi: '', type: 'book' };
+    expect(all(book)).toEqual({
+      apa: 'Goodfellow, I., Bengio, Y., & Courville, A. (2016). <i>Deep learning.</i> MIT Press.',
+      mla: 'Goodfellow, Ian, et al. <i>Deep Learning.</i> MIT Press, 2016.',
+      chicago: 'Goodfellow, Ian, Yoshua Bengio, and Aaron Courville. 2016. <i>Deep Learning.</i> Cambridge, MA: MIT Press.',
+      harvard: 'Goodfellow, I., Bengio, Y. and Courville, A. (2016) <i>Deep learning.</i> Cambridge, MA: MIT Press.',
+      ieee: 'I. Goodfellow, Y. Bengio, and A. Courville, <i>Deep Learning</i>. Cambridge, MA: MIT Press, 2016.',
+      vancouver: 'Goodfellow I, Bengio Y, Courville A. Deep learning. Cambridge, MA: MIT Press; 2016.',
+    });
+  });
+
+  it('a chapter, inside its book and with its editors', () => {
+    const chapter: Citable = {
+      authors: [A('Rumelhart', 'David E.'), A('Hinton', 'Geoffrey E.')], year: 1986, title: 'Learning Internal Representations by Error Propagation',
+      venue: 'Parallel distributed processing', publisher: 'MIT Press', place: 'Cambridge, MA', editors: [A('Rumelhart', 'David E.'), A('McClelland', 'James L.')],
+      pages: '318-362', doi: '10.7551/mitpress/5236.003.0012', type: 'book-chapter',
+    };
+    expect(all(chapter)).toEqual({
+      apa: 'Rumelhart, D. E., & Hinton, G. E. (1986). Learning internal representations by error propagation. In D. E. Rumelhart & J. L. McClelland (Eds.), <i>Parallel distributed processing</i> (pp. 318–362). MIT Press. https://doi.org/10.7551/mitpress/5236.003.0012',
+      mla: 'Rumelhart, David E., and Geoffrey E. Hinton. “Learning Internal Representations by Error Propagation.” <i>Parallel Distributed Processing</i>, edited by David E. Rumelhart and James L. McClelland, MIT Press, 1986, pp. 318–362, https://doi.org/10.7551/mitpress/5236.003.0012.',
+      chicago: 'Rumelhart, David E., and Geoffrey E. Hinton. 1986. “Learning Internal Representations by Error Propagation.” In <i>Parallel Distributed Processing</i>, edited by David E. Rumelhart and James L. McClelland, 318–362. Cambridge, MA: MIT Press. https://doi.org/10.7551/mitpress/5236.003.0012.',
+      harvard: 'Rumelhart, D.E. and Hinton, G.E. (1986) ‘Learning internal representations by error propagation’, in Rumelhart, D.E. and McClelland, J.L. (eds.) <i>Parallel distributed processing</i>. Cambridge, MA: MIT Press, pp. 318–362. Available at: https://doi.org/10.7551/mitpress/5236.003.0012.',
+      ieee: 'D. E. Rumelhart and G. E. Hinton, “Learning internal representations by error propagation,” in <i>Parallel Distributed Processing</i>, D. E. Rumelhart and J. L. McClelland, Eds. Cambridge, MA: MIT Press, 1986, pp. 318–362, doi: 10.7551/mitpress/5236.003.0012.',
+      vancouver: 'Rumelhart DE, Hinton GE. Learning internal representations by error propagation. In: Rumelhart DE, McClelland JL, editors. Parallel distributed processing. Cambridge, MA: MIT Press; 1986. p. 318-62. doi: 10.7551/mitpress/5236.003.0012.',
+    });
+    // What the database does not hold is left out, not invented.
+    expect(formatReference({ ...chapter, editors: [], publisher: undefined, place: undefined }, 'apa')).toBe(
+      'Rumelhart, D. E., & Hinton, G. E. (1986). Learning internal representations by error propagation. In <i>Parallel distributed processing</i> (pp. 318–362). https://doi.org/10.7551/mitpress/5236.003.0012',
+    );
+  });
+
+  it('a conference paper, as part of its proceedings', () => {
+    const paper: Citable = {
+      authors: [A('He', 'Kaiming'), A('Zhang', 'Xiangyu')], year: 2016, title: 'Deep Residual Learning for Image Recognition',
+      venue: '2016 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)', publisher: 'IEEE', pages: '770-778', doi: '10.1109/cvpr.2016.90', type: 'proceedings-article',
+    };
+    expect(formatReference(paper, 'apa')).toBe(
+      'He, K., & Zhang, X. (2016). Deep residual learning for image recognition. In <i>2016 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)</i> (pp. 770–778). IEEE. https://doi.org/10.1109/cvpr.2016.90',
+    );
+    expect(formatReference(paper, 'ieee')).toBe('K. He and X. Zhang, “Deep residual learning for image recognition,” in <i>2016 IEEE Conf. Comput. Vis. Pattern Recognit.</i>, 2016, pp. 770–778, doi: 10.1109/cvpr.2016.90.');
+    expect(formatReference(paper, 'vancouver')).toContain('In: 2016 IEEE Conference on Computer Vision and Pattern Recognition (CVPR). IEEE; 2016. p. 770-8.');
+    // The volume of proceedings itself is named after the conference, which keeps its capitals.
+    const volume: Citable = { authors: [], year: 2021, title: 'Proceedings of the 2021 ACM Conference on Fairness, Accountability, and Transparency', venue: '', publisher: 'ACM', doi: '10.1145/3442188', type: 'proceedings' };
+    expect(formatReference(volume, 'apa')).toBe('(2021). <i>Proceedings of the 2021 ACM Conference on Fairness, Accountability, and Transparency.</i> ACM. https://doi.org/10.1145/3442188');
+  });
+
+  it('a preprint, with the server that holds it', () => {
+    const preprint: Citable = { authors: [A('Vaswani', 'Ashish')], year: 2017, title: 'Attention Is All You Need', venue: '', publisher: 'arXiv', doi: '10.48550/arxiv.1706.03762', type: 'posted-content' };
+    expect(all(preprint)).toEqual({
+      apa: 'Vaswani, A. (2017). <i>Attention is all you need.</i> arXiv. https://doi.org/10.48550/arxiv.1706.03762',
+      mla: 'Vaswani, Ashish. “Attention Is All You Need.” arXiv, 2017, https://doi.org/10.48550/arxiv.1706.03762.',
+      chicago: 'Vaswani, Ashish. 2017. “Attention Is All You Need.” arXiv. https://doi.org/10.48550/arxiv.1706.03762.',
+      harvard: 'Vaswani, A. (2017) ‘Attention is all you need’. arXiv. Available at: https://doi.org/10.48550/arxiv.1706.03762.',
+      ieee: 'A. Vaswani, “Attention is all you need,” arXiv, 2017, doi: 10.48550/arxiv.1706.03762.',
+      vancouver: 'Vaswani A. Attention is all you need. arXiv; 2017. doi: 10.48550/arxiv.1706.03762.',
+    });
+  });
+
+  it('capitalises the title the way each style asks, whatever the database holds', () => {
+    const titled = { ...article, title: 'The NumPy Array: A Structure for Efficient Numerical Computation' };
+    const sentence = { ...article, title: 'The NumPy array: a structure for efficient numerical computation' };
+    for (const record of [titled, sentence]) {
+      expect(formatReference(record, 'apa')).toContain('The NumPy array: A structure for efficient numerical computation.');
+      expect(formatReference(record, 'ieee')).toContain('“The NumPy array: A structure for efficient numerical computation,”');
+      expect(formatReference(record, 'harvard')).toContain('‘The NumPy array: a structure for efficient numerical computation’');
+      expect(formatReference(record, 'vancouver')).toContain('The NumPy array: a structure for efficient numerical computation.');
+      expect(formatReference(record, 'mla')).toContain('“The NumPy Array: A Structure for Efficient Numerical Computation.”');
+      expect(formatReference(record, 'chicago')).toContain('“The NumPy Array: A Structure for Efficient Numerical Computation.”');
+    }
+    // A title the checker has already settled, using the abstract, is what every style starts from.
+    const settled = { ...article, title: 'A Survey of Students in Santo Tomas', titleSentence: 'A survey of students in Santo Tomas' };
+    expect(formatReference(settled, 'apa')).toContain('A survey of students in Santo Tomas.');
+    expect(formatReference(settled, 'mla')).toContain('“A Survey of Students in Santo Tomas.”');
+  });
+
+  it('a corrected reference learns names from the way the author typed the title', () => {
+    const match = { ...article, title: 'Flood Risk in Kalawit and Labason', source: 'Crossref' as const, type: 'journal-article' };
+    const typed = 'Reyes, A. (2015). Flood risk in Kalawit and Labason. Nature, 521(7553), 436–444.';
+    expect(correctedReference({ raw: typed, verdict: 'verified', match }, 'apa')).toContain('Flood risk in Kalawit and Labason.');
+    expect(correctedReference({ raw: typed.replace('Flood risk in Kalawit and Labason', 'Flood Risk in Kalawit and Labason'), verdict: 'verified', match }, 'apa')).toContain('Flood risk in kalawit and labason.');
+    expect(correctedReference({ raw: typed, verdict: 'not_found', match: null }, 'apa')).toBeNull();
+  });
+
+  it('writes a name the database holds in capitals the usual way', () => {
+    const shouting = { ...article, authors: [A('RUMELHART', 'D.E.'), A('VAN DER WALT', 'STEFAN J.'), A('LI', 'WEI')] };
+    expect(formatReference(shouting, 'apa')).toMatch(/^Rumelhart, D\. E\., van der Walt, S\. J\., & Li, W\. \(2015\)/);
+    expect(formatReference(shouting, 'chicago')).toMatch(/^Rumelhart, D\.E\., Stefan J\. van der Walt, and Wei Li\./);
+    // Names with lower-case letters are as their owners write them.
+    expect(formatReference({ ...article, authors: [A('LeCun', 'Yann'), A('de la Cruz', 'J')] }, 'apa')).toMatch(/^LeCun, Y\., & de la Cruz, J\./);
+    expect(tidyPerson(A('HE', 'K')) ).toEqual(A('HE', 'K'));
   });
 
   it('writes what it reads: each style round-trips through the reader', () => {

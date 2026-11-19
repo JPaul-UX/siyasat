@@ -1,11 +1,19 @@
 /* The verification decision: given a reference and a way to look records up, decide what it is. */
-import { apa, diffs, score, toMatch } from './match.js';
+import { evidenceFromText, namesFromTitle, sentenceCase } from './casing.js';
+import { diffs, score, toMatch } from './match.js';
 import { parse } from './parse.js';
+import { SCORING } from './scoring.js';
+import { norm } from './text.js';
+import { apa } from './styles.js';
 import type { Candidate, MatchScore, RefResult, VenueInfo } from './types.js';
 
 export interface Enrichment {
   retracted?: boolean;
   ven: VenueInfo | null;
+  /** The language of the work, as a code such as "en". */
+  lang?: string;
+  /** The abstract, as evidence of how the words of the title are written in running text. */
+  abstract?: string;
 }
 
 /** The lookups `verify` needs. The API implements these against Crossref and OpenAlex. */
@@ -44,6 +52,8 @@ function pickBest(p: ReturnType<typeof parse>, cands: Candidate[], current: Scor
 async function checkRetraction(c: Candidate, lk: Lookups): Promise<boolean> {
   const e = c.doi ? await lk.enrich(c.doi) : null;
   if (e && e.ven) c.ven = e.ven;
+  if (e?.lang && !c.lang) c.lang = e.lang;
+  if (e?.abstract && !c.abstract) c.abstract = e.abstract;
   if (c.retracted) return true;
   if (!c.doi) return false;
   if (await lk.crossrefRetractionNotice(c.doi)) return true;
@@ -73,31 +83,32 @@ export async function verify(raw: string, lk: Lookups): Promise<RefResult> {
   let top = pickBest(p, cands, null);
 
   // Crossref had nothing convincing: try OpenAlex, which indexes more preprints and regional journals.
-  if (!top || top.s.total < 0.8) {
+  if (!top || top.s.total < SCORING.askOpenAlexBelow) {
     const t = (p.title || q).slice(0, 250);
     const oa = t.trim() ? await lk.openalexSearch(t) : null;
     if (oa) cands.push(...oa.filter((c) => c.title));
     top = pickBest(p, cands, top);
   }
   // Crossref found the title but the details disagree: see whether OpenAlex has a record that agrees better.
-  if (top && top.s.tSim >= 0.85 && diffs(p, top.c).length && !cands.some((c) => c.source === 'OpenAlex')) {
+  if (top && top.s.tSim >= SCORING.sameTitle && diffs(p, top.c).length && !cands.some((c) => c.source === 'OpenAlex')) {
     const oa = await lk.openalexSearch((p.title || top.c.title).slice(0, 250));
     if (oa) cands.push(...oa.filter((c) => c.title));
   }
   // Among strong title matches, prefer the record that agrees with the citation most.
-  if (top && top.s.tSim >= 0.85) {
-    const floor = top.s.total - 0.15;
-    const strong = cands.map((c) => ({ c, s: score(p, c) })).filter((x) => x.s.tSim >= 0.85 && x.s.total >= floor);
+  if (top && top.s.tSim >= SCORING.sameTitle) {
+    const floor = top.s.total - SCORING.sameTitleWindow;
+    const strong = cands.map((c) => ({ c, s: score(p, c) })).filter((x) => x.s.tSim >= SCORING.sameTitle && x.s.total >= floor);
+    const cost = SCORING.disagreement;
     const disagreement = (c: Candidate) =>
-      (p.year && c.year && c.year - p.year > 2 ? 3 : 0) +
-      (c.type === 'posted-content' ? 1 : 0) +
-      diffs(p, c).reduce((n, d) => n + (/Authors|Year/.test(d.field) ? 2 : 1), 0) -
-      Math.log10(1 + (c.cites || 0)) * 0.5;
+      (p.year && c.year && c.year - p.year > SCORING.repost.yearsLater ? cost.muchLater : 0) +
+      (c.type === 'posted-content' ? cost.preprint : 0) +
+      diffs(p, c).reduce((n, d) => n + (/Authors|Year/.test(d.field) ? cost.authorsOrYear : cost.otherDetail), 0) -
+      Math.log10(1 + (c.cites || 0)) * cost.perTenfoldCitations;
     strong.sort((x, y) => disagreement(x.c) - disagreement(y.c));
     if (strong.length) top = strong[0]!;
   }
 
-  if (!top || top.s.total < 0.62 || (top.s.tSim < 0.6 && !top.s.doiOk)) {
+  if (!top || top.s.total < SCORING.accept || (top.s.tSim < SCORING.titleFloor && !top.s.doiOk)) {
     if (doiLookupFailed) throw doiLookupFailed;
     return {
       raw,
@@ -114,11 +125,21 @@ export async function verify(raw: string, lk: Lookups): Promise<RefResult> {
 
   const retracted = await checkRetraction(found, lk);
   const all = diffs(p, found);
-  const res: RefResult = { raw, verdict: 'verified', confidence: s.total, diffs: all, apa: apa(found), match: toMatch(found) };
+
+  // How the title's words are really written. The abstract shows it; so does any other copy of the same title
+  // written in sentence case, whether the author's own or a second database record. With that, the title can
+  // be put in sentence case without losing the capitals of names.
+  const evidence = evidenceFromText(found.abstract);
+  namesFromTitle(p.title, evidence);
+  const sameTitle = norm(found.title);
+  for (const c of cands) if (c !== found && norm(c.title) === sameTitle) namesFromTitle(c.title, evidence);
+  found.titleSentence = sentenceCase(found.title, { evidence, lang: found.lang });
+
+  const res: RefResult = { raw, verdict: 'verified', confidence: s.total, diffs: all, apa: apa(found, { evidence }), match: toMatch(found) };
 
   if (!retracted && all.some((d) => d.suspect)) {
     // Keep the author's year in the APA entry, and list the real differences before the suspect one.
-    res.apa = apa({ ...found, year: p.year ?? null });
+    res.apa = apa({ ...found, year: p.year ?? null }, { evidence });
     res.diffs = all.filter((d) => !d.suspect).concat(all.filter((d) => d.suspect));
     res.confidence = Math.min(s.total, 0.6);
     res.verdict = 'uncertain';

@@ -1,9 +1,8 @@
 export * from './types.js';
 export * from './api.js';
-export { cleanText, coverage, norm, sim, splitEntries, stripTags, toks } from './text.js';
+export { cleanText, coverage, norm, sim, splitEntries, stripTags, tidyPerson, toks } from './text.js';
 export { parse } from './parse.js';
 export {
-  apa,
   countVerdicts,
   diffs,
   emptyCounts,
@@ -24,5 +23,9 @@ export { exportableRecords, exportFile, toBibtex, toCsv, toEndNote, toRis } from
 export type { Exportable, ExportFile, ExportKind } from './exports.js';
 export { isUnfinished, summarize, summarizeCheck } from './summary.js';
 export type { CheckMeta } from './summary.js';
-export { CITATION_STYLES, formatReference, styleInfo } from './styles.js';
-export type { Citable, CitationStyle, StyleInfo } from './styles.js';
+export { apa, CITATION_STYLES, correctedReference, evidenceFromCitation, formatReference, styleInfo } from './styles.js';
+export type { Citable, CitationStyle, FormatOptions, StyleInfo } from './styles.js';
+export { evidenceFromText, isEnglish, isSentenceCase, namesFromTitle, noEvidence, sentenceCase, titleCase } from './casing.js';
+export type { CaseEvidence } from './casing.js';
+export { abbreviateJournal, isAbbreviated, withoutStops, withStops } from './journals.js';
+export { SCORING } from './scoring.js';

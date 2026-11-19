@@ -7,6 +7,7 @@ import type {
   CheckSourceResponse,
   CheckSummary,
   EnrichResponse,
+  JournalAbbreviationsResponse,
   FullText,
   RefResult,
   ResultKind,
@@ -118,6 +119,7 @@ export const api = {
   verify: (raw: string) => request<VerifyResponse>('POST', '/verify', { body: { raw }, timeoutMs: 60_000 }),
   checkSource: (req: CheckSourceRequest) => request<CheckSourceResponse>('POST', '/draft/source', { body: req, timeoutMs: 90_000 }),
   enrich: (doi: string) => request<EnrichResponse>('GET', `/enrich?doi=${enc(doi)}`),
+  journalAbbreviations: (issns: string[]) => request<JournalAbbreviationsResponse>('POST', '/journals/abbreviations', { body: { issns }, timeoutMs: 60_000 }),
   fullText: (doi: string) => request<FullText>('GET', `/fulltext?doi=${enc(doi)}`, { timeoutMs: 45_000 }),
 
   listChecks: () => request<CheckSummary[]>('GET', '/checks'),

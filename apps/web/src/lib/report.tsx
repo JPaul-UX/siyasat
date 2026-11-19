@@ -1,5 +1,5 @@
 /* The downloadable reports: a standalone HTML page to print or share, and the same facts as JSON. */
-import { styleInfo, type Check, type CitationStyle, type DraftCheck, type RefResult } from '@siyasat/core';
+import { correctedReference, styleInfo, type Check, type CitationStyle, type DraftCheck, type RefResult } from '@siyasat/core';
 import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Badge, Chevron } from '../components/bits';
@@ -191,7 +191,7 @@ const refsJson = (c: RefsReportView) => ({
     matched_title: r.match?.title,
     differences: r.diffs,
     note: r.note,
-    apa: r.apa,
+    apa: correctedReference(r, 'apa') ?? undefined,
     siyasat_verdict: r.auto || r.verdict,
     overridden_by_author: !!r.auto,
     author_note: r.ovNote || undefined,

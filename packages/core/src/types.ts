@@ -53,6 +53,21 @@ export interface Candidate {
   retracted: boolean;
   /** `undefined` means venue info has not been fetched yet; `null` means it was tried and unavailable. */
   ven?: VenueInfo | null;
+  /** The journal's ISSN, which identifies it whatever its name is written as. */
+  issn?: string;
+  /** The short form of the venue's name that its publisher registered, when there is one. */
+  venueShort?: string;
+  publisher?: string;
+  /** Where the publisher is, for books. */
+  place?: string;
+  /** Editors of the book a chapter is in. */
+  editors?: Author[];
+  /** The language of the work, as a code such as "en". */
+  lang?: string;
+  /** The title in sentence case, where that differs from the title as the database holds it. */
+  titleSentence?: string;
+  /** The abstract, used while checking as evidence of how the title's words are written. Not stored. */
+  abstract?: string;
 }
 
 export interface MatchScore {
@@ -86,6 +101,18 @@ export interface Match {
   pages?: string;
   type?: string;
   ven?: VenueInfo | null;
+  issn?: string;
+  venueShort?: string;
+  /**
+   * The abbreviation the NLM Catalog gives for the journal. `undefined` means it has not been looked up;
+   * `null` means the catalog does not list the journal.
+   */
+  venueNlm?: string | null;
+  publisher?: string;
+  place?: string;
+  editors?: Author[];
+  lang?: string;
+  titleSentence?: string;
 }
 
 /** The stored outcome of checking one reference. */

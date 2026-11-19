@@ -1,5 +1,6 @@
 /* Turning Crossref and OpenAlex records into candidates, and comparing a candidate with what the author wrote. */
-import { coverage, norm, sim, toks } from './text.js';
+import { SCORING } from './scoring.js';
+import { tidyPerson, coverage, norm, sim, toks } from './text.js';
 import type { Candidate, Diff, Match, MatchScore, ParsedRef, RefResult, Verdict, VenueInfo, VerdictCounts } from './types.js';
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- the upstream records are loosely shaped JSON */
@@ -24,16 +25,23 @@ export function venueInfo(w: Json): VenueInfo | null {
   };
 }
 
+/** People as Crossref lists them. */
+const people = (list: Json): { family: string; given: string }[] =>
+  (list || []).map((a: Json) => tidyPerson({ family: a.family || a.name || '', given: a.given || '' }));
+
 export function fromCrossref(w: Json): Candidate {
   const title: string = (w.title || [''])[0];
   const issued = w.issued || w['published-print'] || w['published-online'] || {};
-  return {
+  const containers: string[] = w['container-title'] || [];
+  // A chapter lists the series before the book it is in; the book is what a reference names.
+  const inBook = /chapter|book-section|book-part|reference-entry/.test(w.type || '') && containers.length > 1;
+  const c: Candidate = {
     source: 'Crossref',
     doi: (w.DOI || '').toLowerCase(),
     title,
-    authors: (w.author || []).map((a: Json) => ({ family: a.family || a.name || '', given: a.given || '' })),
+    authors: people(w.author),
     year: (issued['date-parts'] || [[null]])[0][0],
-    venue: (w['container-title'] || [''])[0],
+    venue: (inBook ? containers[containers.length - 1] : containers[0]) || '',
     volume: w.volume,
     issue: w.issue,
     pages: (w.page || '').replace('-', '–'),
@@ -43,6 +51,15 @@ export function fromCrossref(w: Json): Candidate {
       (w['updated-by'] || []).some((u: Json) => /retract/i.test(u.type)) || /^retracted\b/i.test(title)
     ),
   };
+  const short = (w['short-container-title'] || [])[0];
+  if (short) c.venueShort = short;
+  if (w.ISSN?.[0]) c.issn = w.ISSN[0];
+  if (w.publisher) c.publisher = w.publisher;
+  if (w['publisher-location']) c.place = w['publisher-location'];
+  if (w.editor?.length) c.editors = people(w.editor).filter((e) => e.family).slice(0, 10);
+  if (w.language) c.lang = w.language;
+  if (typeof w.abstract === 'string') c.abstract = w.abstract.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return c;
 }
 
 export function fromOpenAlex(w: Json): Candidate {
@@ -65,6 +82,9 @@ export function fromOpenAlex(w: Json): Candidate {
     type: w.type,
     cites: w.cited_by_count || 0,
     ven: venueInfo(w),
+    ...(w.primary_location?.source?.issn_l ? { issn: w.primary_location.source.issn_l } : {}),
+    ...(w.primary_location?.source?.host_organization_name ? { publisher: w.primary_location.source.host_organization_name } : {}),
+    ...(w.language ? { lang: w.language } : {}),
   };
 }
 
@@ -111,13 +131,15 @@ function abbreviates(cited: string, actual: string): number {
 
 /** How well a candidate record matches the parsed reference. `total` is 0 to 1. */
 export function score(p: ParsedRef, c: Candidate): MatchScore {
+  const { weights: w, unknown } = SCORING;
+  // With no title read from the reference, see how much of the record's title appears anywhere in it.
   const tSim = p.title ? sim(p.title, c.title) : coverage(c.title, p.raw);
-  const aOk = p.surnames.length ? p.surnames.filter(cites(p, c)).length / p.surnames.length : 0.5;
-  const yOk = p.year && c.year ? (Math.abs(p.year - c.year) === 0 ? 1 : Math.abs(p.year - c.year) <= 1 ? 0.6 : 0) : 0.5;
-  const vOk = p.venue && c.venue ? Math.max(sim(p.venue, c.venue), coverage(c.venue, p.raw)) : 0.5;
+  const aOk = p.surnames.length ? p.surnames.filter(cites(p, c)).length / p.surnames.length : unknown;
+  const yOk = p.year && c.year ? (p.year === c.year ? 1 : Math.abs(p.year - c.year) <= 1 ? SCORING.yearOffByOne : 0) : unknown;
+  const vOk = p.venue && c.venue ? Math.max(sim(p.venue, c.venue), coverage(c.venue, p.raw)) : unknown;
   const doiOk = p.doi && c.doi && p.doi.toLowerCase() === c.doi ? 1 : 0;
   return {
-    total: doiOk ? Math.max(0.9, tSim) : 0.6 * tSim + 0.2 * aOk + 0.1 * yOk + 0.1 * vOk,
+    total: doiOk ? Math.max(SCORING.doiFloor, tSim) : w.title * tSim + w.authors * aOk + w.year * yOk + w.venue * vOk,
     tSim,
     aOk,
     yOk,
@@ -151,11 +173,16 @@ export function diffs(p: ParsedRef, c: Candidate): Diff[] {
     // A later year on a preprint or a barely-cited record usually means a repost, not a mistake by the author.
     const suspect =
       c.year > p.year &&
-      (/^(posted-content|preprint|other|dataset)$/.test(c.type || '') || (c.year - p.year > 2 && (c.cites || 0) < 50));
+      (/^(posted-content|preprint|other|dataset)$/.test(c.type || '') ||
+        (c.year - p.year > SCORING.repost.yearsLater && (c.cites || 0) < SCORING.repost.citationsBelow));
     out.push({ field: 'Year', cited: String(p.year), actual: String(c.year), suspect, note: suspect ? REPOST_NOTE : '' });
   }
-  if (p.title && sim(p.title, c.title) < 0.9) out.push({ field: 'Title', cited: p.title, actual: c.title });
-  if (p.venue && c.venue && sim(p.venue, c.venue) < 0.6 && coverage(c.venue, p.raw) < 0.8 && abbreviates(p.venue, c.venue) < 0.6) {
+  if (p.title && sim(p.title, c.title) < SCORING.titleDiffBelow) out.push({ field: 'Title', cited: p.title, actual: c.title });
+  const v = SCORING.venueDiff;
+  // The venue is right if it shares most of its words with the record's, or is its abbreviation (as written
+  // by the author or as the publisher registered it).
+  const sameVenue = (name: string) => sim(p.venue, name) >= v.similarity || coverage(name, p.raw) >= v.coverage || abbreviates(p.venue!, name) >= v.abbreviation;
+  if (p.venue && c.venue && !sameVenue(c.venue) && !(c.venueShort && sameVenue(c.venueShort))) {
     out.push({ field: 'Venue', cited: p.venue, actual: c.venue });
   }
   if (p.volume && c.volume && p.volume !== String(c.volume)) {
@@ -164,39 +191,6 @@ export function diffs(p: ParsedRef, c: Candidate): Diff[] {
   if (p.pages && c.pages && fullPages(p.pages) !== fullPages(c.pages)) out.push({ field: 'Pages', cited: p.pages, actual: c.pages });
   if (p.doi && c.doi && p.doi.toLowerCase() !== c.doi) out.push({ field: 'DOI', cited: p.doi, actual: c.doi });
   return out;
-}
-
-/** An APA 7 reference for a record. The venue and volume are wrapped in <i> tags. */
-export function apa(c: Pick<Match, 'authors' | 'year' | 'title' | 'venue' | 'volume' | 'issue' | 'pages' | 'doi'>): string {
-  const au = c.authors.filter((a) => a.family);
-  const fmt = (a: { family: string; given: string }) =>
-    a.family +
-    (a.given
-      ? ', ' +
-        a.given
-          .split(/[\s-]+/)
-          .filter(Boolean)
-          .map((g) => g[0]!.toUpperCase() + '.')
-          .join(' ')
-      : '');
-  const A =
-    au.length === 0
-      ? ''
-      : au.length === 1
-        ? fmt(au[0]!)
-        : au.length <= 20
-          ? au.slice(0, -1).map(fmt).join(', ') + ', & ' + fmt(au[au.length - 1]!)
-          : au.slice(0, 19).map(fmt).join(', ') + ', … ' + fmt(au[au.length - 1]!);
-  let s = (A ? A + ' ' : '') + `(${c.year || 'n.d.'}). ${c.title.replace(/^RETRACTED:\s*/i, '')}${/[?!.]$/.test(c.title) ? '' : '.'}`;
-  if (c.venue) {
-    s += ` <i>${c.venue}</i>`;
-    if (c.volume) s += `, <i>${c.volume}</i>`;
-    if (c.issue) s += `(${c.issue})`;
-    if (c.pages) s += `, ${c.pages}`;
-    s += '.';
-  }
-  if (c.doi) s += ` https://doi.org/${c.doi}`;
-  return s;
 }
 
 /** The parts of a candidate worth storing with a result. */
@@ -214,6 +208,13 @@ export function toMatch(c: Candidate): Match {
     type: c.type,
   };
   if (c.ven !== undefined) m.ven = c.ven;
+  if (c.issn) m.issn = c.issn;
+  if (c.venueShort && c.venueShort !== c.venue) m.venueShort = c.venueShort;
+  if (c.publisher) m.publisher = c.publisher;
+  if (c.place) m.place = c.place;
+  if (c.editors?.length) m.editors = c.editors;
+  if (c.lang) m.lang = c.lang;
+  if (c.titleSentence && c.titleSentence !== c.title) m.titleSentence = c.titleSentence;
   return m;
 }
 
@@ -233,7 +234,7 @@ export function countVerdicts(results: readonly Pick<RefResult, 'verdict'>[]): V
 }
 
 /** How much each verdict counts towards the integrity score, in tenths so the sum stays exact. */
-const WEIGHT_TENTHS: Record<Verdict, number> = { verified: 10, correction: 6, uncertain: 7, retracted: 0, not_found: 0, error: 5 };
+const WEIGHT_TENTHS = Object.fromEntries(Object.entries(SCORING.integrity).map(([verdict, weight]) => [verdict, Math.round(weight * 10)])) as Record<Verdict, number>;
 
 /** Integrity score from 0 to 100, from a tally of verdicts. */
 export function integrityFromCounts(counts: Partial<VerdictCounts>): number {

@@ -5,6 +5,7 @@ import {
   type CheckSourceResponse,
   type EnrichResponse,
   type FullTextResponse,
+  type JournalAbbreviationsResponse,
   type VerifyResponse,
 } from '@siyasat/core';
 import { z } from 'zod';
@@ -33,6 +34,8 @@ const sourceSchema = z.object({
 const doiSchema = z.object({
   doi: z.string().trim().max(300).regex(/^10\.\d{4,9}\/\S+$/, 'Not a DOI'),
 });
+
+const journalsSchema = z.object({ issns: z.array(z.string().trim().max(20)).max(LIMITS.journalsPerRequest) });
 
 /** Looking things up in the scholarly databases. Each call here costs several upstream requests. */
 @Controller()
@@ -70,7 +73,15 @@ export class LookupController {
   @Get('enrich')
   @Throttle({ default: { limit: 240, ttl: 60_000 } })
   async enrich(@Query({ schema: doiSchema }) query: z.infer<typeof doiSchema>): Promise<EnrichResponse> {
-    return this.sources.enrich(query.doi.toLowerCase());
+    const { retracted, ven } = await this.sources.enrich(query.doi.toLowerCase());
+    return { ...(retracted === undefined ? {} : { retracted }), ven };
+  }
+
+  /** The catalogued abbreviations of journals, for the styles that cite journals by abbreviation. */
+  @Post('journals/abbreviations')
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  async abbreviations(@Body({ schema: journalsSchema }) body: z.infer<typeof journalsSchema>): Promise<JournalAbbreviationsResponse> {
+    return { abbreviations: await this.sources.journalAbbreviations(body.issns) };
   }
 
   /** A free full text for a DOI, when one exists. */

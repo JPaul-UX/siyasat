@@ -19,6 +19,7 @@ export const paths = {
   newCheck: (type?: CheckType) => (type ? `/new/${type}` : '/new'),
   results: (id?: string, refs = false) => (id ? `/results/${id}${refs ? '/refs' : ''}` : '/results'),
   reports: '/reports',
+  how: '/how-it-works',
   upload: '/upload',
   read: (doi: string) => `/read?doi=${encodeURIComponent(doi)}`,
 };

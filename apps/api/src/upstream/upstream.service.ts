@@ -38,6 +38,8 @@ export class UpstreamService {
   private readonly europePmc = new Lane(4, 110);
   private readonly semanticScholar = new Lane(1, 1100);
   private readonly unpaywall = new Lane(3, 50);
+  /** NCBI allows three requests a second to a client without a key. */
+  private readonly ncbi = new Lane(1, 380);
   private readonly other = new Lane(4);
 
   constructor(private readonly config: AppConfig) {
@@ -62,6 +64,8 @@ export class UpstreamService {
       if (this.config.contactEmail) u.searchParams.set('mailto', this.config.contactEmail);
       if (this.config.openAlexApiKey) u.searchParams.set('api_key', this.config.openAlexApiKey);
     }
+    // NCBI asks every client to name itself.
+    if (u.host === 'eutils.ncbi.nlm.nih.gov') u.searchParams.set('tool', 'siyasat');
     return u.toString();
   }
 
@@ -83,6 +87,8 @@ export class UpstreamService {
         return { service: url.host, lanes: [this.semanticScholar], optional: true };
       case 'api.unpaywall.org':
         return { service: url.host, lanes: [this.unpaywall], optional: true };
+      case 'eutils.ncbi.nlm.nih.gov':
+        return { service: url.host, lanes: [this.ncbi], optional: true };
       default:
         return { service: url.host, lanes: [this.other], optional: true };
     }

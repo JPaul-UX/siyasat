@@ -1,5 +1,5 @@
 import { emptyCounts, isUnfinished, type CheckSummary } from '@siyasat/core';
-import { Check, CircleX, FileCheck2, Gauge, Play, Plus, ScanSearch, ShieldCheck, TextSearch, Trash2, TriangleAlert, WandSparkles } from 'lucide-react';
+import { ArrowRight, Check, CircleX, FileCheck2, Gauge, Play, Plus, ScanSearch, ShieldCheck, TextSearch, Trash2, TriangleAlert, WandSparkles } from 'lucide-react';
 import { Link } from 'react-router';
 import { Badge, PageHead, Tip } from '../components/bits';
 import { Composer } from '../components/Composer';
@@ -137,7 +137,12 @@ function Welcome() {
         </div>
       </div>
       <section className="card">
-        <h2>How it works</h2>
+        <div className="rowh">
+          <h2 className="card-h">How it works</h2>
+          <Link className="btn ghost sm" to={paths.how}>
+            The method in full <ArrowRight className="ic" aria-hidden="true" />
+          </Link>
+        </div>
         <ol className="how">
           <li>
             <b>Add your sources</b>Paste your reference list, or upload your paper as a PDF or Word file.

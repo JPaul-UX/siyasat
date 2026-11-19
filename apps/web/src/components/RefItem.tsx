@@ -233,13 +233,13 @@ export function Bibliography({ results, style = 'apa', listRef }: { results: Ref
   const seen = new Set<string>();
   const entries = results
     .filter((r) => {
-      if (!r.apa || r.verdict === 'retracted') return false;
-      const doi = r.match?.doi;
+      if (!r.match || r.verdict === 'retracted' || r.verdict === 'not_found' || r.verdict === 'error') return false;
+      const doi = r.match.doi;
       if (doi && seen.has(doi)) return false;
-      if (r.match) seen.add(doi ?? '');
+      seen.add(doi ?? '');
       return true;
     })
-    .map((r) => referenceIn(r, style) ?? r.apa!);
+    .flatMap((r) => referenceIn(r, style) ?? []);
   if (!info.numbered) entries.sort((a, b) => stripTags(a).localeCompare(stripTags(b)));
   const leftOut = results.filter((r) => ['not_found', 'retracted', 'error'].includes(r.verdict));
   return (
