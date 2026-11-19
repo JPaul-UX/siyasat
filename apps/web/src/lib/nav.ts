@@ -23,7 +23,7 @@ export const paths = {
   read: (doi: string) => `/read?doi=${encodeURIComponent(doi)}`,
 };
 
-/* ---------- In-app history, for the "← Back to …" button ---------- */
+/* ---------- In-app history, for the Back button ---------- */
 
 const HISTORY_KEY = 'siyasat.hist';
 let trail: string[] = (() => {

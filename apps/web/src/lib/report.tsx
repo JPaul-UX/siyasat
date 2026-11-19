@@ -2,7 +2,8 @@
 import type { Check, DraftCheck, RefResult } from '@siyasat/core';
 import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Badge } from '../components/bits';
+import { Badge, Chevron } from '../components/bits';
+import { Logo } from '../components/Logo';
 import { Bibliography, duplicates, RefItem } from '../components/RefItem';
 import { DraftStats } from '../components/DraftStats';
 import css from '../styles.css?inline';
@@ -22,7 +23,7 @@ function page(title: string, heading: string, body: ReactNode): string {
         </head>
         <body>
           <div className="mhead" style={{ display: 'flex' }}>
-            <div className="mark">S</div>
+            <Logo size={30} />
             <b>{heading}</b>
           </div>
           <main className="report-main">{body}</main>
@@ -52,7 +53,7 @@ function refsReport(c: RefsReportView): string {
         Checked {new Date(c.date).toString()} · {c.results.length} references · Integrity score <b>{c.score}/100</b>
         <br />
         Sources queried: Crossref REST API (incl. Retraction Watch data) and OpenAlex. Verdicts marked “You overrode this” were changed by the
-        author. To save as PDF: File → Print → Save as PDF.
+        author. To save this report as a PDF, choose Print in your browser, then Save as PDF.
       </p>
       <section className="card">
         <h2>Each reference</h2>
@@ -100,7 +101,7 @@ function draftReport(c: DraftCheck): string {
       </p>
       <p className="help">
         Databases queried: Crossref REST API (including Retraction Watch data), OpenAlex, Europe PMC, Semantic Scholar. Each source links to
-        its record so anyone can re-check it. To save as PDF: File → Print → Save as PDF.
+        its record so anyone can re-check it. To save this report as a PDF, choose Print in your browser, then Save as PDF.
       </p>
       {!!c.orphans?.length && (
         <p>
@@ -132,7 +133,7 @@ function draftReport(c: DraftCheck): string {
               const x = sourceView(c, ct.key);
               return (
                 <div className="rc-src" key={ct.key}>
-                  <b>{ct.label}</b> →{' '}
+                  <b>{ct.label}</b>:{' '}
                   {x.match ? (
                     <>
                       {x.match.title}
@@ -151,7 +152,9 @@ function draftReport(c: DraftCheck): string {
                   <div className="meta">Evidence: {evidence(c, cl, ct)}</div>
                   {x.abstract && (
                     <details>
-                      <summary>Abstract (via {x.abstractInfo.from})</summary>
+                      <summary>
+                        <Chevron /> Abstract (via {x.abstractInfo.from})
+                      </summary>
                       <p>{x.abstract}</p>
                     </details>
                   )}

@@ -2,7 +2,7 @@ import type { FullText } from '@siyasat/core';
 import { ExternalLink, FileText, Lightbulb } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { External, NewTab, Spinner } from '../components/bits';
+import { Chevron, External, NewTab, Spinner } from '../components/bits';
 import { api } from '../lib/api';
 
 const cleanDoi = (doi: string) =>
@@ -130,7 +130,9 @@ function Article({ o, onRetry }: { o: FullText; onRetry: () => void }) {
         </p>
         {o.pdf && (
           <details className="rd-prev" open>
-            <summary>Preview here</summary>
+            <summary>
+              <Chevron /> Preview here
+            </summary>
             <p className="meta">
               Some websites don't allow previews inside other sites. If the box below is blank or shows an error, use the <b>Open free PDF</b>{' '}
               button above.

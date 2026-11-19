@@ -1,3 +1,5 @@
+<img src="apps/web/public/logo.svg" alt="Siyasat, citation checker" width="236">
+
 # Siyasat
 
 Siyasat checks whether the references in a paper are real, correct, and not retracted. It looks each one up in
@@ -25,7 +27,12 @@ browser, starts a new empty workspace.
 The colours are MSU-IIT's maroon and gold, in the shades the institute's own website uses: maroon `#941A1E`
 (dark `#7E0108`, deep `#640000`) and gold `#F3D558`. They are defined once, as variables at the top of
 `apps/web/src/styles.css`, together with the type (Inter for the interface, Source Serif 4 for headings and for
-reading) and the spacing. Icons come from Lucide. The same stylesheet is inlined into downloaded reports.
+reading) and the spacing. The same stylesheet is inlined into downloaded reports.
+
+Every icon is from Lucide; the interface uses no emoji and no symbol characters as icons. The logo is Lucide's
+search-check glyph in a maroon and gold seal ("siyasat" means to look into something closely):
+`apps/web/src/components/Logo.tsx` draws it, and `apps/web/public/logo.svg` and `favicon.svg` are the same
+drawing as files.
 
 ## Run it locally
 

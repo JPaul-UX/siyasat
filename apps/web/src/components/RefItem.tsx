@@ -1,6 +1,6 @@
 /* One checked reference, and the corrected bibliography built from all of them. Also used in downloaded reports. */
 import { stripTags, type Match, type RefResult, type Verdict } from '@siyasat/core';
-import { Copy, ExternalLink, FileText, Link2, SlidersHorizontal } from 'lucide-react';
+import { ArrowRight, Copy, ExternalLink, FileText, Link2, SlidersHorizontal } from 'lucide-react';
 import { useState, type Ref } from 'react';
 import { EXPLAIN, LABEL, MAIN_VERDICTS } from '../lib/labels';
 import { ApaText, Badge, CopyButton, External, NewTab, plainApa, plainTitle, ReadButton } from './bits';
@@ -131,7 +131,7 @@ export function RefItem({ r, number, duplicateOf, report = false, onOverride }: 
           <b>{'add' in doiFix ? 'Add this DOI' : 'Corrected DOI'}:</b>{' '}
           {!('add' in doiFix) && (
             <>
-              <s>{doiFix.cited}</s> →{' '}
+              <s>{doiFix.cited}</s> <ArrowRight className="ic" aria-label="becomes" />{' '}
             </>
           )}
           <External href={`https://doi.org/${doiFix.actual}`}>{doiFix.actual}</External>

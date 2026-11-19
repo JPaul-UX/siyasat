@@ -1,5 +1,5 @@
 import type { CheckSummary } from '@siyasat/core';
-import { ArrowLeft, FileText, LayoutDashboard, ListChecks, Plus, WifiOff } from 'lucide-react';
+import { ArrowLeft, ChevronRight, FileText, LayoutDashboard, ListChecks, Plus, WifiOff } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { Empty, Logo, Spinner } from './components/bits';
@@ -87,7 +87,7 @@ export function App() {
           </button>
         )}
         <Link className="brand" to={paths.dashboard}>
-          <Logo />
+          <Logo size={32} />
           <b>Siyasat</b>
         </Link>
       </header>
@@ -134,8 +134,11 @@ export function App() {
                 </button>
                 <nav className="crumbs" aria-label="Breadcrumb">
                   <ol>
-                    {crumbs(page, parts, summaries).map(([name, to]) => (
-                      <li key={name}>{to ? <Link to={to}>{name}</Link> : <span aria-current="page">{name}</span>}</li>
+                    {crumbs(page, parts, summaries).map(([name, to], i) => (
+                      <li key={name}>
+                        {i > 0 && <ChevronRight className="sep" aria-hidden="true" />}
+                        {to ? <Link to={to}>{name}</Link> : <span aria-current="page">{name}</span>}
+                      </li>
                     ))}
                   </ol>
                 </nav>

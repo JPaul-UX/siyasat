@@ -2,13 +2,13 @@
 import { MAIN_VERDICTS } from '../lib/labels';
 import { stripTags, type Segment, type Verdict, type VerdictCounts } from '@siyasat/core';
 import {
-  BookOpenCheck,
   BookOpenText,
   Check,
   CircleAlert,
   CircleCheck,
   CircleHelp,
   CircleX,
+  ChevronRight,
   Copy,
   PenLine,
   TriangleAlert,
@@ -20,14 +20,7 @@ import { copyText } from '../lib/download';
 import { LABEL } from '../lib/labels';
 import { paths } from '../lib/nav';
 
-/** The Siyasat mark: a book with a check on it, in MSU-IIT gold. */
-export function Logo() {
-  return (
-    <span className="mark" aria-hidden="true">
-      <BookOpenCheck strokeWidth={2.2} />
-    </span>
-  );
-}
+export { Logo } from './Logo';
 
 const VERDICT_ICON: Record<Verdict, LucideIcon> = {
   verified: CircleCheck,
@@ -56,10 +49,14 @@ export function Badge({ verdict, title, children }: { verdict: Verdict; title?: 
 export function Tip({ text }: { text: string }) {
   return (
     <button className="tip" type="button" aria-label={text}>
-      ?<span aria-hidden="true">{text}</span>
+      <CircleHelp aria-hidden="true" />
+      <span aria-hidden="true">{text}</span>
     </button>
   );
 }
+
+/** The arrow in front of something that opens and closes. It turns when its <details> is open. */
+export const Chevron = () => <ChevronRight className="ic chev" aria-hidden="true" />;
 
 /** The title block at the top of a page, with room for buttons on the right. */
 export function PageHead({ title, lead, eyebrow, children }: { title: ReactNode; lead?: ReactNode; eyebrow?: ReactNode; children?: ReactNode }) {

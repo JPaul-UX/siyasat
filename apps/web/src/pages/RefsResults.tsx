@@ -7,9 +7,9 @@ import {
   type ResultKind,
   type Verdict,
 } from '@siyasat/core';
-import { ArrowLeft, ArrowRight, BookMarked, Check, ClipboardCopy, FileSpreadsheet, Filter, Hourglass, Play, Search, SearchX } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookMarked, Check, ClipboardCopy, FileSpreadsheet, Filter, Hourglass, Play, Search, SearchX, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Badge, DistBar, Empty, ScoreRing, Tip, VerdictIcon } from '../components/bits';
+import { Badge, Chevron, DistBar, Empty, ScoreRing, Tip, VerdictIcon } from '../components/bits';
 import { JobProgress } from '../components/JobProgress';
 import { Bibliography, duplicates, RefItem } from '../components/RefItem';
 import { ReportButtons } from '../components/ReportButtons';
@@ -290,7 +290,9 @@ export function RefsResults({ view, header }: { view: RefsView; header: ReactNod
           </div>
         </div>
         <details className="explain">
-          <summary>What do these labels mean?</summary>
+          <summary>
+            <Chevron /> What do these labels mean?
+          </summary>
           <ul className="legend">
             {MAIN_VERDICTS.map((v) => (
               <li key={v}>
@@ -332,7 +334,7 @@ export function RefsResults({ view, header }: { view: RefsView; header: ReactNod
                 </button>
                 {filter !== 'all' && filter !== 'problems' && (
                   <button type="button" aria-pressed="true" onClick={() => show('all')}>
-                    {LABEL[filter]} ({counts[filter]}) ✕
+                    {LABEL[filter]} ({counts[filter]}) <X className="ic" aria-label="Remove this filter" />
                   </button>
                 )}
               </div>

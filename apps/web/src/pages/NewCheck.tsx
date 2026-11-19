@@ -2,7 +2,7 @@ import { analyze, cleanText, parseLibraryFile, splitDraft, splitEntries, type Ch
 import { ArrowRight, CircleCheck, FileCheck2, FileUp, FolderOpen, Pencil, Redo2, RotateCcw, Undo2, X } from 'lucide-react';
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { PageHead, Spinner } from '../components/bits';
+import { Chevron, PageHead, Spinner } from '../components/bits';
 import { useReferenceRun } from '../components/referenceRun';
 import { TypeCards } from '../components/TypeCards';
 import { UploadZone } from '../components/UploadZone';
@@ -579,7 +579,9 @@ function DraftForm({ onType }: { onType: (t: CheckType) => void }) {
             onKeyDown={onKeyDown}
           />
           <details className="sep-refs" open={refsOpen} onToggle={(e) => setRefsOpen(e.currentTarget.open)}>
-            <summary>My reference list is separate (optional)</summary>
+            <summary>
+              <Chevron /> My reference list is separate (optional)
+            </summary>
             <label className="sr" htmlFor="refsIn">
               Reference list
             </label>

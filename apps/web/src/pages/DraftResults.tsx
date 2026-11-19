@@ -2,6 +2,7 @@ import { closest, compare, countVerdicts, terms, type Claim, type CiteRef, type 
 import {
   ArrowDown,
   ArrowRight,
+  Check,
   ChevronLeft,
   ChevronRight,
   CircleCheck,
@@ -16,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Badge, External, Marked, PageHead, plainTitle, ReadButton, VerdictIcon } from '../components/bits';
+import { Badge, Chevron, External, Marked, PageHead, plainTitle, ReadButton, VerdictIcon } from '../components/bits';
 import { DraftStats } from '../components/DraftStats';
 import { ReportButtons } from '../components/ReportButtons';
 import { draftText, recheckClaim } from '../lib/draftCheck';
@@ -169,7 +170,9 @@ function SourceBlock({ c, claim, cite }: { c: DraftCheck; claim: Claim; cite: Ci
           <span className="val-fix">{x.recordYear}</span> <span className="meta">(in-text year should be {x.recordYear})</span>
         </>
       ) : (
-        '✓ ' + x.recordYear
+        <>
+          <Check className="ic val-fix" aria-label="Matches:" /> {x.recordYear}
+        </>
       ),
     ]);
   }
@@ -178,11 +181,13 @@ function SourceBlock({ c, claim, cite }: { c: DraftCheck; claim: Claim; cite: Ci
       'Numbers',
       nums.join(', '),
       !x.abstract ? (
-        '— no abstract to compare'
+        'No abstract to compare'
       ) : cmp.missing.length ? (
         <span className="val-bad">Not in abstract: {cmp.missing.join(', ')}</span>
       ) : (
-        '✓ Found in the abstract'
+        <>
+          <Check className="ic val-fix" aria-hidden="true" /> Found in the abstract
+        </>
       ),
     ]);
   }
@@ -294,7 +299,7 @@ function EditSentence({ id, index, sentence }: { id: string; index: number; sent
   return (
     <details className="d-edit">
       <summary>
-        <Pencil className="ic" aria-hidden="true" /> Edit this sentence
+        <Chevron /> <Pencil className="ic" aria-hidden="true" /> Edit this sentence
       </summary>
       <label htmlFor="csent" className="sr">
         Edit the sentence

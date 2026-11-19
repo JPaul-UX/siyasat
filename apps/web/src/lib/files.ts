@@ -12,7 +12,7 @@ export interface PdfText {
 }
 
 /**
- * PDF → text with pdf.js, loaded only when needed. Also reads DOI hyperlinks, so a DOI that the layout
+ * PDF to text with pdf.js, loaded only when needed. Also reads DOI hyperlinks, so a DOI that the layout
  * split across two lines can be put back together.
  */
 export async function pdfText(file: File): Promise<PdfText> {
@@ -93,14 +93,14 @@ export async function readUpload(file: File): Promise<UploadedText> {
     const r = await pdfText(file);
     if (r.text.replace(/\s/g, '').length < 40) {
       throw new FriendlyError(
-        "This PDF has no readable text. It's probably scanned (a picture of the pages). Open it, copy the text, and paste it into New check → Draft check instead.",
+        "This PDF has no readable text. It's probably scanned (a picture of the pages). Open it, copy the text, and paste it into a Draft check (under New check) instead.",
       );
     }
     return { text: r.text, kind: 'pdf', pages: r.pages, links: r.links };
   }
   if (name.endsWith('.docx')) return { text: await docxText(file), kind: 'docx' };
   if (name.endsWith('.doc')) {
-    throw new FriendlyError("Old Word files (.doc) can't be read here. In Word, choose File → Save As → .docx, then upload that.");
+    throw new FriendlyError("Old Word files (.doc) can't be read here. In Word, choose File, then Save As, pick .docx, and upload that.");
   }
   if (/\.(txt|md|ris|bib|bibtex|nbib|enw)$/.test(name) || /^text\//.test(file.type)) {
     return { text: await file.text(), kind: name.split('.').pop()! };

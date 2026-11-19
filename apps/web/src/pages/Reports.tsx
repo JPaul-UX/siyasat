@@ -42,7 +42,7 @@ export function Reports() {
               })}
             </ul>
             <p className="help" style={{ margin: '14px 0 0' }}>
-              Tip: open the downloaded report and use your browser's <b>Print → Save as PDF</b>.
+              Tip: to keep a report as a PDF, open it, choose <b>Print</b> in your browser, then <b>Save as PDF</b>.
             </p>
           </>
         ) : (

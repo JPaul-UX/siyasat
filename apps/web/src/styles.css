@@ -176,21 +176,11 @@ svg.ic {
   color: rgba(255, 255, 255, 0.72);
   font-size: 12px;
 }
-.mark {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: var(--gold);
-  color: var(--maroon-dark);
-  display: grid;
-  place-items: center;
+.logo {
+  display: block;
   flex: none;
-  font: 700 21px/1 var(--serif);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-}
-.mark svg {
-  width: 23px;
-  height: 23px;
+  border-radius: 28%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 .side-cta {
   display: flex;
@@ -314,10 +304,16 @@ main {
   padding: 0;
   list-style: none;
 }
-.crumbs li + li::before {
-  content: '/';
-  margin-right: 6px;
+.crumbs li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.crumbs .sep {
+  width: 14px;
+  height: 14px;
   color: var(--line-strong);
+  flex: none;
 }
 .crumbs a {
   color: var(--ink-soft);
@@ -570,6 +566,20 @@ textarea:focus {
   box-shadow: var(--shadow-xs), 0 0 0 1px var(--line);
 }
 
+/* Things that open and close: the browser's own triangle is replaced by a chevron icon that turns. */
+summary {
+  list-style: none;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary .chev {
+  transition: transform 0.15s;
+}
+details[open] > summary .chev {
+  transform: rotate(90deg);
+}
+
 /* ---------- Cards ---------- */
 .card {
   background: var(--surface);
@@ -709,7 +719,7 @@ textarea:focus {
   white-space: nowrap;
 }
 
-/* Tooltip on a "?" */
+/* A help icon that shows a short explanation on hover or focus */
 .tip {
   position: relative;
   display: inline-grid;
@@ -720,12 +730,18 @@ textarea:focus {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: #e9e6dc;
-  color: var(--ink-2);
-  font-size: 11px;
-  font-weight: 700;
+  background: none;
+  color: var(--ink-soft);
   cursor: help;
-  vertical-align: 1px;
+  vertical-align: -3px;
+}
+.tip svg {
+  width: 15px;
+  height: 15px;
+}
+.tip:hover,
+.tip:focus-visible {
+  color: var(--ink);
 }
 .tip span {
   display: none;
@@ -1127,8 +1143,7 @@ textarea:focus {
   color: var(--gold);
 }
 .stat.hl .tip {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 /* The three kinds of check */
@@ -1601,6 +1616,9 @@ textarea:focus {
   background: var(--surface-2);
 }
 .sep-refs summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   cursor: pointer;
   font-weight: 600;
   font-size: 14px;
@@ -1760,6 +1778,9 @@ button.vtile:hover:not(:disabled) {
   padding-top: 12px;
 }
 .explain summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   cursor: pointer;
   font-weight: 600;
   font-size: 13.5px;
@@ -2686,6 +2707,9 @@ mark.num {
   justify-items: start;
 }
 .rd-prev summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   cursor: pointer;
   font-weight: 600;
   margin: 12px 0;
@@ -2785,12 +2809,6 @@ dialog.dialog::backdrop {
   padding: 12px 20px;
   border-bottom: 3px solid var(--gold);
 }
-.mhead .mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  font-size: 18px;
-}
 .report-main {
   max-width: 900px;
   margin: 0 auto;
@@ -2803,6 +2821,14 @@ dialog.dialog::backdrop {
   padding: 14px 16px;
   margin-top: 12px;
   break-inside: avoid;
+}
+.rc-src summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  margin-top: 6px;
+  font-weight: 600;
 }
 .rc-src {
   margin-top: 10px;
@@ -2849,15 +2875,6 @@ dialog.dialog::backdrop {
   }
   .topbar .brand b {
     font-size: 19px;
-  }
-  .topbar .mark {
-    width: 32px;
-    height: 32px;
-    border-radius: 9px;
-  }
-  .topbar .mark svg {
-    width: 19px;
-    height: 19px;
   }
   .topbar .icon-btn {
     color: #fff;
