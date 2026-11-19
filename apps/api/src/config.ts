@@ -17,6 +17,11 @@ const envSchema = z.object({
   SEMANTIC_SCHOLAR_API_KEY: optional(z.string()),
   /** Where the built web app is. Defaults to apps/web/dist next to this package. */
   WEB_DIST: optional(z.string()),
+  /**
+   * The site's public address, e.g. https://siyasat.example. Used for link previews. Without it, the
+   * address each page was requested on is used, which is right unless the site answers on several domains.
+   */
+  PUBLIC_URL: optional(z.url()),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -30,6 +35,7 @@ export class AppConfig {
   readonly openAlexApiKey?: string;
   readonly semanticScholarApiKey?: string;
   readonly webDist?: string;
+  readonly publicUrl?: string;
 
   constructor(env: Env) {
     this.nodeEnv = env.NODE_ENV;
@@ -39,6 +45,7 @@ export class AppConfig {
     this.openAlexApiKey = env.OPENALEX_API_KEY;
     this.semanticScholarApiKey = env.SEMANTIC_SCHOLAR_API_KEY;
     this.webDist = env.WEB_DIST;
+    this.publicUrl = env.PUBLIC_URL?.replace(/\/+$/, '');
   }
 
   get isProduction(): boolean {

@@ -32,7 +32,7 @@ reading) and the spacing. The same stylesheet is inlined into downloaded reports
 Every icon is from Lucide; the interface uses no emoji and no symbol characters as icons. The logo is Lucide's
 search-check glyph in a maroon and gold seal ("siyasat" means to look into something closely):
 `apps/web/src/components/Logo.tsx` draws it, and `apps/web/public/logo.svg` and `favicon.svg` are the same
-drawing as files.
+drawing as files. `apps/web/public/og.jpg` (1200×630) is the picture shown when a link to the site is shared.
 
 ## Run it locally
 
@@ -68,6 +68,7 @@ The API reads these from the environment (`apps/api/.env` in development).
 | `CONTACT_EMAIL` | recommended | Sent to Crossref and OpenAlex as `mailto`. Crossref allows about three times as many requests per second with it. Unpaywall requires it, so without it the reader finds fewer free PDFs |
 | `OPENALEX_API_KEY` | recommended | Free key from [openalex.org](https://openalex.org). Since February 2026 OpenAlex refuses most title searches without one, and Siyasat then relies on Crossref alone |
 | `SEMANTIC_SCHOLAR_API_KEY` | no | Raises the rate limit for abstracts from Semantic Scholar |
+| `PUBLIC_URL` | no | The site's public address, used in link previews. Without it, the address each page was requested on is used |
 
 ## Tests
 
