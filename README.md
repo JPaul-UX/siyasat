@@ -20,6 +20,13 @@ There are no accounts. The first visit creates an anonymous workspace, and the b
 storage. Whoever holds the token can read that workspace's checks, so clearing site data, or using another
 browser, starts a new empty workspace.
 
+## Look and feel
+
+The colours are MSU-IIT's maroon and gold, in the shades the institute's own website uses: maroon `#941A1E`
+(dark `#7E0108`, deep `#640000`) and gold `#F3D558`. They are defined once, as variables at the top of
+`apps/web/src/styles.css`, together with the type (Inter for the interface, Source Serif 4 for headings and for
+reading) and the spacing. Icons come from Lucide. The same stylesheet is inlined into downloaded reports.
+
 ## Run it locally
 
 You need Node 22 or newer, pnpm, and Docker (for Postgres).

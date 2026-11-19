@@ -1,3 +1,4 @@
+import { Braces, FileDown } from 'lucide-react';
 import { useState } from 'react';
 import { download, reportFileName } from '../lib/download';
 import { loadCheck } from '../store/checks';
@@ -11,7 +12,7 @@ export function ReportButtons({
   id,
   name,
   refsView = false,
-  reportClass = 'ghost',
+  reportClass = 'ghost sm',
   jsonLabel = 'JSON',
 }: {
   id: string;
@@ -39,10 +40,11 @@ export function ReportButtons({
   return (
     <>
       <button type="button" className={reportClass} disabled={busy} onClick={() => void save('html')}>
-        Download report<span className="sr"> for {name}</span>
+        <FileDown className="ic" aria-hidden="true" /> Download report<span className="sr"> for {name}</span>
       </button>
       <button type="button" className="link" disabled={busy} onClick={() => void save('json')}>
-        {jsonLabel}
+        <Braces className="ic" aria-hidden="true" /> {jsonLabel}
+        <span className="sr"> for {name}</span>
       </button>
     </>
   );

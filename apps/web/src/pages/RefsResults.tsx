@@ -7,8 +7,9 @@ import {
   type ResultKind,
   type Verdict,
 } from '@siyasat/core';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, Empty, Tip } from '../components/bits';
+import { ArrowLeft, ArrowRight, BookMarked, Check, ClipboardCopy, FileSpreadsheet, Filter, Hourglass, Play, Search, SearchX } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Badge, DistBar, Empty, ScoreRing, Tip, VerdictIcon } from '../components/bits';
 import { JobProgress } from '../components/JobProgress';
 import { Bibliography, duplicates, RefItem } from '../components/RefItem';
 import { ReportButtons } from '../components/ReportButtons';
@@ -37,6 +38,9 @@ export interface RefsView {
   isLibrary: boolean;
 }
 
+type FilterBy = 'all' | 'problems' | Verdict;
+type Tab = 'refs' | 'bib' | 'export';
+
 const numberOf = (r: RefResult, position: number) => (r.i ?? position) + 1;
 
 /** Change a verdict, keeping Siyasat's own in `auto` so the author can go back to it. */
@@ -53,7 +57,15 @@ function setVerdict(view: RefsView, position: number, to: Verdict, note: string)
   });
 }
 
-function ExportButtons({ view }: { view: RefsView }) {
+/** One sentence on what the score means for this list. */
+function scoreSummary(results: RefResult[], verified: number): string {
+  if (!results.length) return 'Results appear here as each reference is checked.';
+  const problems = results.length - verified;
+  if (!problems) return 'Every reference was found with the details you wrote.';
+  return `${problems} of ${results.length} ${results.length === 1 ? 'reference needs' : 'references need'} a look.`;
+}
+
+function ExportTab({ view }: { view: RefsView }) {
   const all = exportableRecords(view).length;
   const screened = exportableRecords(view, true).length;
   const save = (kind: ExportKind) => {
@@ -62,25 +74,6 @@ function ExportButtons({ view }: { view: RefsView }) {
   };
   return (
     <>
-      <div className="exports" role="group" aria-label="Download your results">
-        <button type="button" className="ghost" onClick={() => save('csv')}>
-          ⬇ Spreadsheet (.csv)
-        </button>
-        <button type="button" className="ghost" disabled={!all} onClick={() => save('bib')}>
-          ⬇ BibTeX (.bib)
-        </button>
-        <button type="button" className="ghost" disabled={!all} onClick={() => save('ris')}>
-          ⬇ RIS (Zotero, Mendeley)
-        </button>
-        <button type="button" className="ghost" disabled={!all} onClick={() => save('enw')}>
-          ⬇ EndNote (.enw)
-        </button>
-        {view.isLibrary && (
-          <button type="button" className="primary" disabled={!screened} onClick={() => save('screened')}>
-            ⬇ Screened library (.ris) · {screened} kept
-          </button>
-        )}
-      </div>
       <p className="help">
         Reference-manager files include only real sources we matched, with the official details and DOI.
         {view.isLibrary && (
@@ -91,6 +84,43 @@ function ExportButtons({ view }: { view: RefsView }) {
           </>
         )}
       </p>
+      <div className="exports" role="group" aria-label="Download your results">
+        {view.isLibrary && (
+          <button type="button" className="primary" disabled={!screened} onClick={() => save('screened')}>
+            <BookMarked className="ic" aria-hidden="true" />
+            <span>
+              Screened library (.ris)<small>{screened} kept</small>
+            </span>
+          </button>
+        )}
+        <button type="button" className="ghost" onClick={() => save('csv')}>
+          <FileSpreadsheet className="ic" aria-hidden="true" />
+          <span>
+            Spreadsheet (.csv)<small>Every reference and verdict</small>
+          </span>
+        </button>
+        <button type="button" className="ghost" disabled={!all} onClick={() => save('bib')}>
+          <BookMarked className="ic" aria-hidden="true" />
+          <span>
+            BibTeX (.bib)<small>For LaTeX</small>
+          </span>
+        </button>
+        <button type="button" className="ghost" disabled={!all} onClick={() => save('ris')}>
+          <BookMarked className="ic" aria-hidden="true" />
+          <span>
+            RIS (.ris)<small>Zotero, Mendeley</small>
+          </span>
+        </button>
+        <button type="button" className="ghost" disabled={!all} onClick={() => save('enw')}>
+          <BookMarked className="ic" aria-hidden="true" />
+          <span>
+            EndNote (.enw)<small>EndNote</small>
+          </span>
+        </button>
+      </div>
+      <div className="actions">
+        <ReportButtons id={view.id} name={view.name} refsView={view.kind === 'refResults'} reportClass="ghost" jsonLabel="Data (JSON)" />
+      </div>
     </>
   );
 }
@@ -119,9 +149,11 @@ function useVenueBackfill(view: RefsView, paused: boolean): void {
   }, [view.id, view.kind, paused]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-export function RefsResults({ view, header }: { view: RefsView; header: React.ReactNode }) {
+export function RefsResults({ view, header }: { view: RefsView; header: ReactNode }) {
   const running = useJobs((s) => s.job?.id === view.id);
-  const [filter, setFilter] = useState<'all' | 'problems'>('all');
+  const [tab, setTab] = useState<Tab>('refs');
+  const [filter, setFilter] = useState<FilterBy>('all');
+  const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
   const [copied, setCopied] = useState(false);
   const list = useRef<HTMLDivElement>(null);
@@ -130,12 +162,22 @@ export function RefsResults({ view, header }: { view: RefsView; header: React.Re
   const dups = useMemo(() => duplicates(view.results), [view.results]);
   useVenueBackfill(view, running);
 
-  const rows = view.results.map((r, position) => ({ r, position })).filter(({ r }) => filter === 'all' || r.verdict !== 'verified');
+  const needle = query.trim().toLowerCase();
+  const rows = view.results
+    .map((r, position) => ({ r, position }))
+    .filter(({ r }) => filter === 'all' || (filter === 'problems' ? r.verdict !== 'verified' : r.verdict === filter))
+    .filter(({ r }) => !needle || [r.raw, r.match?.title, r.match?.doi].some((text) => text?.toLowerCase().includes(needle)));
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const current = Math.min(page, pages - 1);
   const shown = rows.slice(current * PAGE_SIZE, current * PAGE_SIZE + PAGE_SIZE);
   const unfinished = !!view.total && view.results.length < view.total && view.status !== 'done';
+  const problems = view.results.length - counts.verified;
 
+  const show = (by: FilterBy) => {
+    setFilter(by);
+    setPage(0);
+    setTab('refs');
+  };
   const turnTo = (n: number) => {
     setPage(n);
     // Wait for the new page of references, then move reading position and focus to its first one.
@@ -150,14 +192,14 @@ export function RefsResults({ view, header }: { view: RefsView; header: React.Re
   };
   const pager = rows.length > PAGE_SIZE && (
     <nav className="pager" aria-label="Pages">
-      <button type="button" className="ghost" disabled={current === 0} onClick={() => turnTo(current - 1)}>
-        ← Previous
+      <button type="button" className="ghost sm" disabled={current === 0} onClick={() => turnTo(current - 1)}>
+        <ArrowLeft className="ic" aria-hidden="true" /> Previous
       </button>
       <span className="meta">
         Showing {current * PAGE_SIZE + 1}–{current * PAGE_SIZE + shown.length} of {rows.length.toLocaleString()}
       </span>
-      <button type="button" className="ghost" disabled={current >= pages - 1} onClick={() => turnTo(current + 1)}>
-        Next →
+      <button type="button" className="ghost sm" disabled={current >= pages - 1} onClick={() => turnTo(current + 1)}>
+        Next <ArrowRight className="ic" aria-hidden="true" />
       </button>
     </nav>
   );
@@ -174,18 +216,18 @@ export function RefsResults({ view, header }: { view: RefsView; header: React.Re
     <>
       {header}
       {running || unfinished ? (
-        <section className="card" style={{ borderColor: 'var(--gold-dark)' }}>
-          <h2>{running ? 'Checking in batches…' : 'This check is paused'}</h2>
+        <section className="card running-card">
+          <h2>{running ? 'Checking your references…' : 'This check is paused'}</h2>
           <p className="help">
-            {view.results.length.toLocaleString()} of {view.total.toLocaleString()} references checked so far. Progress is saved as we go
-            {running ? '' : ', so you can continue any time'}.
+            {view.results.length.toLocaleString()} of {view.total.toLocaleString()} checked so far. Results appear below as they come in, and
+            progress is saved{running ? '' : ', so you can continue any time'}.
           </p>
           {!running && (
             <div className="actions">
               <button type="button" className="primary" onClick={() => resumeJob(view.id)}>
-                ▶ Resume ({eta(view.total - view.results.length)})
+                <Play className="ic" aria-hidden="true" /> Resume ({eta(view.total - view.results.length)})
               </button>
-              <button type="button" className="link danger" onClick={() => patchCheck(view.id, { status: 'done', stoppedEarly: true })}>
+              <button type="button" className="link" onClick={() => patchCheck(view.id, { status: 'done', stoppedEarly: true })}>
                 Finish with what's checked
               </button>
             </div>
@@ -194,7 +236,7 @@ export function RefsResults({ view, header }: { view: RefsView; header: React.Re
         </section>
       ) : (
         view.stoppedEarly && (
-          <div className="msg info" style={{ marginBottom: 14 }}>
+          <div className="msg info" style={{ margin: '0 0 16px' }}>
             Stopped early: {view.results.length.toLocaleString()} of {view.total.toLocaleString()} references were checked.{' '}
             {view.canResume && (
               <button type="button" className="link" onClick={() => resumeJob(view.id)}>
@@ -205,98 +247,187 @@ export function RefsResults({ view, header }: { view: RefsView; header: React.Re
         )
       )}
 
-      <section className="card" aria-labelledby="rh">
-        <h2 id="rh" tabIndex={-1}>
+      <section className="card" aria-labelledby="sumH">
+        <h2 id="sumH" className="sr">
           Summary
         </h2>
         <div className="summary">
-          <div className="tile score">
-            <small>
-              Integrity score{' '}
-              <Tip text="100 means every reference was found and matched exactly. Wrong details lower the score; made-up or retracted sources lower it most." />
-            </small>
-            <b>{view.score}/100</b>
-            <div className="sbar">
-              <i style={{ width: `${view.score}%` }} />
+          <div className="score">
+            <ScoreRing score={view.score} />
+            <div className="score-text">
+              <b>
+                Integrity score{' '}
+                <Tip text="100 means every reference was found and matched exactly. Wrong details lower the score; made-up or retracted sources lower it most." />
+              </b>
+              <p>{scoreSummary(view.results, counts.verified)}</p>
             </div>
           </div>
-          {MAIN_VERDICTS.map((v) => (
-            <div className="tile" key={v}>
-              <Badge verdict={v} />
-              <b>{counts[v]}</b>
-            </div>
-          ))}
+          <div>
+            <DistBar counts={counts} />
+            <p className="dist-note">
+              {view.results.length
+                ? 'Each colour is a verdict. Pick one below to see only those references.'
+                : 'The bar fills in as references are checked.'}
+            </p>
+          </div>
+          <div className="vtiles">
+              {MAIN_VERDICTS.map((v) => (
+                <button
+                  type="button"
+                  className="vtile"
+                  key={v}
+                  aria-pressed={filter === v && tab === 'refs'}
+                  title={`Show only “${LABEL[v]}”`}
+                  onClick={() => show(filter === v ? 'all' : v)}
+                >
+                  <b>{counts[v]}</b>
+                  <span className={`vl ${v}`}>
+                    <VerdictIcon verdict={v} />
+                    {LABEL[v]}
+                  </span>
+                </button>
+              ))}
+          </div>
         </div>
-        <ul className="legend" aria-label="What the labels mean">
-          {MAIN_VERDICTS.map((v) => (
-            <li key={v}>
-              <Badge verdict={v} />
-              <br />
-              {EXPLAIN[v]}
-            </li>
-          ))}
-        </ul>
-        <p className="decide">
-          <b>How Siyasat decides:</b> {LABEL.verified} = Verified · {LABEL.correction} = Minor error · {LABEL.not_found} = Not found in any
-          database (likely made up) · {LABEL.retracted} = Retracted. Repeated sources are flagged ⧉ Duplicate. Unlike citation-only checkers,
-          Siyasat also flags retracted papers, screens review libraries (RIS/BibTeX), and lets you check each claim against its source. You can
-          change any verdict if you know better.
-        </p>
+        <details className="explain">
+          <summary>What do these labels mean?</summary>
+          <ul className="legend">
+            {MAIN_VERDICTS.map((v) => (
+              <li key={v}>
+                <Badge verdict={v} />
+                <br />
+                {EXPLAIN[v]}
+              </li>
+            ))}
+          </ul>
+          <p className="decide">
+            Repeated sources are flagged as duplicates. Unlike citation-only checkers, Siyasat also flags retracted papers, screens review
+            libraries (RIS/BibTeX), and lets you check each claim against its source. You can change any verdict if you know better.
+          </p>
+        </details>
       </section>
 
-      <section className="card">
-        <h2>Each reference</h2>
-        <div className="filters" role="group" aria-label="Show">
-          <button type="button" aria-pressed={filter === 'all'} onClick={() => (setFilter('all'), setPage(0))}>
-            All ({view.results.length})
-          </button>
-          <button type="button" aria-pressed={filter === 'problems'} onClick={() => (setFilter('problems'), setPage(0))}>
-            Only problems ({view.results.length - counts.verified})
-          </button>
-        </div>
-        <div ref={list}>
-          {pager}
-          {shown.length ? (
-            shown.map(({ r, position }) => {
-              const first = dups.get(position);
-              return (
-                <RefItem
-                  key={r.i ?? position}
-                  r={r}
-                  number={numberOf(r, position)}
-                  duplicateOf={first === undefined ? undefined : numberOf(view.results[first]!, first)}
-                  onOverride={(to, note) => setVerdict(view, position, to, note)}
+      <div className="tabs" role="tablist" aria-label="Results">
+        <button type="button" role="tab" id="tab-refs" aria-selected={tab === 'refs'} aria-controls="panel" onClick={() => setTab('refs')}>
+          Each reference <span className="n">{view.results.length}</span>
+        </button>
+        <button type="button" role="tab" id="tab-bib" aria-selected={tab === 'bib'} aria-controls="panel" onClick={() => setTab('bib')}>
+          Corrected bibliography
+        </button>
+        <button type="button" role="tab" id="tab-export" aria-selected={tab === 'export'} aria-controls="panel" onClick={() => setTab('export')}>
+          Download
+        </button>
+      </div>
+
+      <div id="panel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
+        {tab === 'refs' && (
+          <>
+            <div className="toolbar">
+              <div className="filters" role="group" aria-label="Show">
+                <button type="button" aria-pressed={filter === 'all'} onClick={() => show('all')}>
+                  All ({view.results.length})
+                </button>
+                <button type="button" aria-pressed={filter === 'problems'} onClick={() => show('problems')}>
+                  <Filter className="ic" aria-hidden="true" /> Only problems ({problems})
+                </button>
+                {filter !== 'all' && filter !== 'problems' && (
+                  <button type="button" aria-pressed="true" onClick={() => show('all')}>
+                    {LABEL[filter]} ({counts[filter]}) ✕
+                  </button>
+                )}
+              </div>
+              <label className="searchbox">
+                <span className="sr">Search these references</span>
+                <Search aria-hidden="true" />
+                <input
+                  type="search"
+                  placeholder="Search these references"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setPage(0);
+                  }}
                 />
-              );
-            })
-          ) : (
-            <Empty icon="🎉">No problems found.</Empty>
-          )}
-          {pager}
-        </div>
-      </section>
+              </label>
+            </div>
+            <div ref={list}>
+              {pager}
+              {shown.map(({ r, position }) => {
+                const first = dups.get(position);
+                return (
+                  <RefItem
+                    key={r.i ?? position}
+                    r={r}
+                    number={numberOf(r, position)}
+                    duplicateOf={first === undefined ? undefined : numberOf(view.results[first]!, first)}
+                    onOverride={(to, note) => setVerdict(view, position, to, note)}
+                  />
+                );
+              })}
+              {!shown.length &&
+                (running && !view.results.length ? (
+                  <>
+                    <div className="skel skel-row" />
+                    <div className="skel skel-row" />
+                    <div className="skel skel-row" />
+                  </>
+                ) : !view.results.length ? (
+                  <Empty icon={Hourglass} title="Nothing checked yet">
+                    Resume this check to see its results here.
+                  </Empty>
+                ) : filter === 'problems' && !needle ? (
+                  <Empty icon={Check} title="No problems found">
+                    Every reference checked so far looks good.
+                  </Empty>
+                ) : (
+                  <Empty icon={SearchX} title="Nothing matches">
+                    No reference fits that filter.
+                    <div className="actions">
+                      <button
+                        type="button"
+                        className="ghost sm"
+                        onClick={() => {
+                          setQuery('');
+                          show('all');
+                        }}
+                      >
+                        Show all references
+                      </button>
+                    </div>
+                  </Empty>
+                ))}
+              {pager}
+            </div>
+          </>
+        )}
 
-      <section className="card">
-        <h2>Corrected bibliography (APA 7)</h2>
-        <p className="help">
-          Built from the real records, sorted A–Z. References we couldn't find or that are retracted are left out and listed below.
-        </p>
-        <Bibliography results={view.results} listRef={apa} />
-        <div className="actions">
-          <button type="button" className="primary" onClick={() => void copyBibliography()}>
-            Copy bibliography
-          </button>
-          <ReportButtons id={view.id} name={view.name} refsView={view.kind === 'refResults'} jsonLabel="Download data (JSON)" />
-          <span className="count" aria-live="polite">
-            {copied ? '✓ Copied! Paste it into your document.' : ''}
-          </span>
-        </div>
-      </section>
+        {tab === 'bib' && (
+          <section className="card">
+            <div className="rowh">
+              <h2 className="card-h">Corrected bibliography (APA 7)</h2>
+              <div className="page-actions">
+                <span className="meta" aria-live="polite">
+                  {copied ? 'Copied. Paste it into your document.' : ''}
+                </span>
+                <button type="button" className="primary sm" onClick={() => void copyBibliography()}>
+                  {copied ? <Check className="ic" aria-hidden="true" /> : <ClipboardCopy className="ic" aria-hidden="true" />} Copy bibliography
+                </button>
+              </div>
+            </div>
+            <p className="help">
+              Built from the real records, sorted A–Z. References we couldn't find or that are retracted are left out and listed below.
+            </p>
+            <Bibliography results={view.results} listRef={apa} />
+          </section>
+        )}
 
-      <section className="card">
-        <h2>Download for your reference manager</h2>
-        <ExportButtons view={view} />
-      </section>
+        {tab === 'export' && (
+          <section className="card">
+            <h2>Download your results</h2>
+            <ExportTab view={view} />
+          </section>
+        )}
+      </div>
     </>
   );
 }

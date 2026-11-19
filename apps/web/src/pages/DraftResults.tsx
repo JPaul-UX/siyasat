@@ -1,11 +1,26 @@
 import { closest, compare, countVerdicts, terms, type Claim, type CiteRef, type DraftCheck, type Judgment } from '@siyasat/core';
+import {
+  ArrowDown,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  CircleCheck,
+  CircleHelp,
+  CircleX,
+  ExternalLink,
+  Eye,
+  Pencil,
+  Undo2,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Badge, External, Marked, plainTitle, ReadButton } from '../components/bits';
+import { Badge, External, Marked, PageHead, plainTitle, ReadButton, VerdictIcon } from '../components/bits';
 import { DraftStats } from '../components/DraftStats';
 import { ReportButtons } from '../components/ReportButtons';
 import { draftText, recheckClaim } from '../lib/draftCheck';
-import { bareLabel, claimEvidence, claimPill, quote, sourceNote, sourceView } from '../lib/draftView';
+import { bareLabel, claimEvidence, claimPill, quote, sourceNote, sourceView, tallyClaims } from '../lib/draftView';
 import { fmtDate, JUDGMENT } from '../lib/labels';
 import { paths } from '../lib/nav';
 import { getCheck, patchCheck } from '../store/checks';
@@ -13,6 +28,8 @@ import { startEditing } from '../store/forms';
 import { runUndo, toast, useToast } from '../store/toast';
 
 const webUrl = (u?: string | null): string | null => (u && /^https?:\/\//i.test(u) ? u : null);
+
+const JUDGE_ICON: Record<Judgment, LucideIcon> = { match: CircleCheck, nomatch: CircleX, unsure: CircleHelp };
 
 /** Change one claim of a saved draft check. Answers false when the claim is no longer there. */
 function setClaim(id: string, index: number, change: Partial<Claim>): boolean {
@@ -65,13 +82,19 @@ function ComboSummary({ c, toClaims }: { c: DraftCheck; toClaims: () => void }) 
         {tiles.map(([v, label]) => (
           <Link className={`ctile v-${v}`} to={refsPath} key={v}>
             <b>{k[v] || 0}</b>
-            <span className={`badge ${v}`}>{label}</span>
+            <span className={`badge ${v}`}>
+              <VerdictIcon verdict={v} />
+              {label}
+            </span>
           </Link>
         ))}
         {k.uncertain > 0 && (
           <Link className="ctile" to={refsPath}>
             <b>{k.uncertain}</b>
-            <span className="badge uncertain">Double-check</span>
+            <span className="badge uncertain">
+              <VerdictIcon verdict="uncertain" />
+              Double-check
+            </span>
           </Link>
         )}
         <a className="ctile wait" href="#claims" onClick={jump}>
@@ -81,10 +104,10 @@ function ComboSummary({ c, toClaims }: { c: DraftCheck; toClaims: () => void }) 
       </div>
       <div className="actions">
         <Link className="btn primary" to={refsPath}>
-          See reference results →
+          See reference results <ArrowRight className="ic" aria-hidden="true" />
         </Link>
         <a className="btn ghost" href="#claims" onClick={jump}>
-          Go to claims ↓
+          Go to claims <ArrowDown className="ic" aria-hidden="true" />
         </a>
       </div>
     </section>
@@ -186,6 +209,7 @@ function SourceBlock({ c, claim, cite }: { c: DraftCheck; claim: Claim; cite: Ci
 
   return (
     <section className="dsrc">
+      <h3>Source · {bareLabel(cite.label)}</h3>
       <table className="diff">
         <thead>
           <tr>
@@ -214,16 +238,17 @@ function SourceBlock({ c, claim, cite }: { c: DraftCheck; claim: Claim; cite: Ci
         <div className="d-links">
           {links.map(([label, href]) => (
             <External href={href} key={label}>
-              {label} ↗<span className="sr"> (opens in a new tab)</span>
+              {label} <ExternalLink className="ic" aria-hidden="true" />
+              <span className="sr"> (opens in a new tab)</span>
             </External>
           ))}
         </div>
       )}
       {x.abstract && (
-        <div className="reader">
+        <div className="abstract">
           <div className="rd-h">
-            Built-in reader {ab.isOA && <span className="rp-oa">Open access</span>}
-            <span className="rp-src">Abstract via {ab.from}</span>
+            Abstract {ab.isOA && <span className="rp-oa">Open access</span>}
+            <span className="rp-src">via {ab.from}</span>
           </div>
           {m && (
             <div className="rd-t">
@@ -232,7 +257,6 @@ function SourceBlock({ c, claim, cite }: { c: DraftCheck; claim: Claim; cite: Ci
             </div>
           )}
           <div className="rd-sec">
-            <b>Abstract</b>
             <p tabIndex={0} aria-label="Source abstract">
               <Marked segments={cmp.abstract} />
             </p>
@@ -269,13 +293,15 @@ function EditSentence({ id, index, sentence }: { id: string; index: number; sent
   };
   return (
     <details className="d-edit">
-      <summary>✏️ Edit this sentence</summary>
+      <summary>
+        <Pencil className="ic" aria-hidden="true" /> Edit this sentence
+      </summary>
       <label htmlFor="csent" className="sr">
         Edit the sentence
       </label>
       <textarea id="csent" rows={4} value={text} onChange={(e) => setText(e.target.value)} />
       <div className="actions" style={{ marginTop: 6 }}>
-        <button type="button" className="primary" disabled={busy} onClick={() => void recheck()}>
+        <button type="button" className="primary sm" disabled={busy} onClick={() => void recheck()}>
           Re-check this claim
         </button>
         <button type="button" className="link" onClick={() => setText(sentence)}>
@@ -290,7 +316,7 @@ function EditSentence({ id, index, sentence }: { id: string; index: number; sent
   );
 }
 
-function ClaimDrawer({ c, index, onClose }: { c: DraftCheck; index: number; onClose: () => void }) {
+function ClaimDrawer({ c, index, onClose, onGo }: { c: DraftCheck; index: number; onClose: () => void; onGo: (index: number) => void }) {
   const claim = c.claims[index]!;
   const panel = useRef<HTMLElement>(null);
   const [shown, setShown] = useState(false);
@@ -303,6 +329,11 @@ function ClaimDrawer({ c, index, onClose }: { c: DraftCheck; index: number; onCl
     panel.current?.querySelector<HTMLElement>('.d-close')?.focus();
     return () => cancelAnimationFrame(frame);
   }, []);
+
+  // Stepping to another claim starts reading from the top again.
+  useEffect(() => {
+    panel.current?.scrollTo({ top: 0 });
+  }, [index]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -357,31 +388,52 @@ function ClaimDrawer({ c, index, onClose }: { c: DraftCheck; index: number; onCl
     <>
       <div className="scrim" onClick={onClose} />
       <aside className={`drawer${shown ? ' open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="dTitle" ref={panel}>
+        <div className="drawer-bar">
+          <b>
+            Claim {number} of {c.claims.length}
+          </b>
+          <button type="button" className="icon-btn" disabled={index === 0} onClick={() => onGo(index - 1)} aria-label="Previous claim" title="Previous claim">
+            <ChevronLeft className="ic" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            disabled={index >= c.claims.length - 1}
+            onClick={() => onGo(index + 1)}
+            aria-label="Next claim"
+            title="Next claim"
+          >
+            <ChevronRight className="ic" aria-hidden="true" />
+          </button>
+          <button className="icon-btn d-close" type="button" aria-label="Close details" title="Close" onClick={onClose}>
+            <X className="ic" aria-hidden="true" />
+          </button>
+        </div>
         <div className="drawer-inner">
-          <button type="button" className="back d-back" onClick={onClose}>
-            ← Back to all claims
-          </button>
-          <button className="d-close" type="button" aria-label="Close details" onClick={onClose}>
-            ×
-          </button>
           <Pill c={c} claim={claim} />
-          <p className="d-cite mono" id="dTitle">
+          <p className="d-cite" id="dTitle">
             <Marked segments={compare(claim.sentence, abstracts).sentence} />
           </p>
           <p className="d-verdict">{claimEvidence(c, claim)}</p>
           <div className="judge" role="group" aria-label="Your verdict for this claim">
             <span className="jq">Your verdict: does the source back up your sentence?</span>
-            {(Object.keys(JUDGMENT) as Judgment[]).map((k) => (
-              <button type="button" data-j={k} aria-pressed={claim.judgment === k} onClick={() => judge(k)} key={k}>
-                <b>{JUDGMENT[k].t}</b>
-                <small>{JUDGMENT[k].help}</small>
-              </button>
-            ))}
+            {(Object.keys(JUDGMENT) as Judgment[]).map((k) => {
+              const Icon = JUDGE_ICON[k];
+              return (
+                <button type="button" data-j={k} aria-pressed={claim.judgment === k} onClick={() => judge(k)} key={k}>
+                  <b>
+                    <Icon className="ic" aria-hidden="true" />
+                    {JUDGMENT[k].t}
+                  </b>
+                  <small>{JUDGMENT[k].help}</small>
+                </button>
+              );
+            })}
             <span className="meta">Siyasat never decides this for you. Click again to clear it.</span>
             <div className="d-undo" aria-live="polite">
               {inlineUndo && (
                 <button type="button" className="link" aria-label={`Undo: ${inlineUndo.label}`} onClick={() => runUndo(inlineUndo)}>
-                  ↶ Undo {inlineUndo.judgment!.to ? JUDGMENT[inlineUndo.judgment!.to].t : 'clearing the verdict'}
+                  <Undo2 className="ic" aria-hidden="true" /> Undo {inlineUndo.judgment!.to ? JUDGMENT[inlineUndo.judgment!.to].t : 'clearing the verdict'}
                 </button>
               )}
             </div>
@@ -431,74 +483,90 @@ export function DraftResults({ check: c, picker }: { check: DraftCheck; picker: 
     navigate(paths.newCheck('draft'));
   };
 
+  const tally = tallyClaims(c.claims);
+  const reviewed = tally.claims - tally.waiting;
+
   return (
     <>
-      {c.combo && c.refResults && <ComboSummary c={c} toClaims={() => stats.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />}
-      <div className="rowh res-head">
-        <div>
-          <h1 className="page-h">Draft check: claims vs. sources</h1>
-          <p className="lead">
-            {c.name} · {fmtDate(c.date)}
+      <PageHead
+        title={c.name}
+        lead={
+          <>
+            Draft check · {fmtDate(c.date)} · {c.claims.length} claims
             {(c.version ?? 1) > 1 && (
               <>
                 {' '}
                 · <span className="pill na">Version {c.version}</span>
               </>
             )}
-          </p>
-        </div>
-        <div className="actions" style={{ margin: 0 }}>
-          <button type="button" className="primary editbtn" onClick={edit}>
-            ✏️ Edit draft
-          </button>
-          <ReportButtons id={c.id} name={c.name} jsonLabel="Data (JSON)" />
-          {picker}
-        </div>
-      </div>
+          </>
+        }
+      >
+        {picker}
+        <ReportButtons id={c.id} name={c.name} jsonLabel="Data (JSON)" />
+        <button type="button" className="primary sm editbtn" onClick={edit}>
+          <Pencil className="ic" aria-hidden="true" /> Edit draft
+        </button>
+      </PageHead>
+      {c.combo && c.refResults && <ComboSummary c={c} toClaims={() => stats.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />}
       <p className="oneline">
-        Siyasat shows you what each source actually says. You decide if it backs up your sentence. The verdicts below are yours.
+        <Eye className="ic" aria-hidden="true" />
+        <span>Siyasat shows you what each source actually says. You decide if it backs up your sentence. The verdicts below are yours.</span>
       </p>
       <div className="stats" ref={stats}>
         <DraftStats claims={c.claims} />
       </div>
+      <div className="reviewbar">
+        <span>
+          <b>{reviewed}</b> of {tally.claims} claims reviewed
+        </span>
+        <div className="revbar" role="progressbar" aria-label="Claims reviewed" aria-valuemin={0} aria-valuemax={tally.claims} aria-valuenow={reviewed}>
+          <i style={{ width: `${tally.claims ? (reviewed / tally.claims) * 100 : 0}%` }} />
+        </div>
+      </div>
       {!!c.orphans?.length && (
-        <div className="msg info">
+        <div className="msg info" style={{ margin: '0 0 12px' }}>
           <b>Cited but not in your reference list:</b> {c.orphans.map((o) => o.label).join(', ')}. We matched these by author and year. Add
           them to your reference list to confirm.
         </div>
       )}
       {!!c.uncited?.length && (
-        <div className="msg info">
+        <div className="msg info" style={{ margin: '0 0 12px' }}>
           <b>In your reference list but never cited in the text:</b>
-          <ul style={{ margin: '4px 0 0' }}>
+          <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
             {c.uncited.map((u, i) => (
               <li key={i}>{u.slice(0, 140)}</li>
             ))}
           </ul>
         </div>
       )}
-      <div className="drows" ref={rows} style={{ marginTop: c.orphans?.length || c.uncited?.length ? 14 : 0 }}>
+      <div className="drows" ref={rows}>
         {c.claims.map((cl, i) => (
           <button type="button" className="drow" aria-haspopup="dialog" onClick={() => setOpen(i)} key={i}>
-            <Pill c={c} claim={cl} />
+            <span className="num" aria-hidden="true">
+              {i + 1}
+            </span>
             <span className="r-cite">
-              <span className="mono">{quote(cl.sentence)}</span>{' '}
-              <span className="r-by">· cites {cl.cites.map((x) => bareLabel(x.label)).join('; ')}</span>
+              <span className="r-quote">{quote(cl.sentence)}</span> <span className="r-by">· cites {cl.cites.map((x) => bareLabel(x.label)).join('; ')}</span>
               <span className="r-verdict">
                 {cl.judgment && <b>Your verdict. </b>}
                 {claimEvidence(c, cl)}
               </span>
             </span>
-            <span className="r-open">Details →</span>
+            <span className="r-side">
+              <Pill c={c} claim={cl} />
+              <span className="r-open">
+                Details <ChevronRight className="ic" aria-hidden="true" />
+              </span>
+            </span>
           </button>
         ))}
       </div>
       <p className="help" style={{ marginTop: 12 }}>
-        Open a claim with <b>Details →</b> to read the source's abstract next to your sentence and give your verdict.{' '}
-        <mark>Highlighted words</mark> appear in both; <mark className="num">numbers</mark> are highlighted when they match. Shared words are
-        a reading aid, not proof.
+        Open a claim to read the source's abstract next to your sentence and give your verdict. <mark>Highlighted words</mark> appear in both;{' '}
+        <mark className="num">numbers</mark> are highlighted when they match. Shared words are a reading aid, not proof.
       </p>
-      {open != null && c.claims[open] && <ClaimDrawer c={c} index={open} onClose={close} />}
+      {open != null && c.claims[open] && <ClaimDrawer c={c} index={open} onClose={close} onGo={setOpen} />}
     </>
   );
 }

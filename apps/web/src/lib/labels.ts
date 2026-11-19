@@ -1,12 +1,12 @@
 import type { Judgment, Verdict } from '@siyasat/core';
 
 export const LABEL: Record<Verdict, string> = {
-  verified: '✓ Looks good',
-  correction: '✎ Fix details',
-  uncertain: '? Double-check',
-  not_found: '✕ AI-hallucination',
-  retracted: '⚠ Retracted',
-  error: "! Couldn't check",
+  verified: 'Looks good',
+  correction: 'Fix details',
+  uncertain: 'Double-check',
+  not_found: 'AI-hallucination',
+  retracted: 'Retracted',
+  error: "Couldn't check",
 };
 
 export const EXPLAIN: Record<Verdict, string> = {

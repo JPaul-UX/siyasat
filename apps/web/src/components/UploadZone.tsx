@@ -1,3 +1,4 @@
+import { CloudUpload } from 'lucide-react';
 import { useRef, useState, type DragEvent } from 'react';
 import { startUpload } from '../store/upload';
 
@@ -11,7 +12,7 @@ export function UploadZone({ compact = false }: { compact?: boolean }) {
   const stop = (e: DragEvent) => e.preventDefault();
 
   return (
-    <section className={`card updrop-card${compact ? ' compact' : ''}`} aria-labelledby="upH">
+    <section className={`updrop-card${compact ? ' compact' : ''}`} aria-labelledby="upH">
       <div
         className={`updrop${over ? ' over' : ''}`}
         tabIndex={0}
@@ -44,13 +45,15 @@ export function UploadZone({ compact = false }: { compact?: boolean }) {
         }}
       >
         <div className="up-ico" aria-hidden="true">
-          ⬆️
+          <CloudUpload />
         </div>
-        <h2 id="upH">Upload &amp; check</h2>
-        <p id="upHelp">
-          Drop your paper or reference file here, or <b>tap to choose a file</b>. Siyasat reads it and checks everything automatically.
-        </p>
-        <p className="meta">PDF · Word (.docx) · .txt · .ris · .bib — we find every reference and check it in seconds</p>
+        <div>
+          <h2 id="upH">Upload &amp; check</h2>
+          <p id="upHelp">
+            Drop your paper or reference file here, or <b>choose a file</b>. Siyasat reads it and checks everything in it.
+          </p>
+          <p className="meta">PDF · Word (.docx) · .txt · .ris · .bib</p>
+        </div>
         <input
           ref={input}
           type="file"

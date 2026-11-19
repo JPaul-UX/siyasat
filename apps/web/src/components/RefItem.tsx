@@ -1,9 +1,9 @@
 /* One checked reference, and the corrected bibliography built from all of them. Also used in downloaded reports. */
 import { stripTags, type Match, type RefResult, type Verdict } from '@siyasat/core';
+import { Copy, ExternalLink, FileText, Link2, SlidersHorizontal } from 'lucide-react';
 import { useState, type Ref } from 'react';
-import { copyText } from '../lib/download';
 import { EXPLAIN, LABEL, MAIN_VERDICTS } from '../lib/labels';
-import { ApaText, Badge, External, NewTab, plainTitle, ReadButton } from './bits';
+import { ApaText, Badge, CopyButton, External, NewTab, plainApa, plainTitle, ReadButton } from './bits';
 
 /** Only link to web addresses: a record's "free PDF" link comes from a database, not from us. */
 const webUrl = (u?: string | null): string | null => (u && /^https?:\/\//i.test(u) ? u : null);
@@ -31,23 +31,6 @@ export function duplicates(results: RefResult[]): Map<number, number> {
   return out;
 }
 
-function CopyDoi({ doi }: { doi: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      className="link"
-      onClick={() => {
-        void copyText('https://doi.org/' + doi);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
-      }}
-    >
-      {copied ? '✓ Copied' : 'Copy DOI'}
-    </button>
-  );
-}
-
 function Venue({ m }: { m: Match }) {
   const v = m.ven;
   if (!v && !m.venue) return null;
@@ -57,7 +40,7 @@ function Venue({ m }: { m: Match }) {
   if (v?.cites != null) bits.push(`cited ${(+v.cites).toLocaleString()} times`);
   return (
     <div className="vline">
-      <b>Venue:</b> {v?.name || m.venue}
+      {v?.name || m.venue}
       {bits.length ? ' · ' + bits.join(' · ') : ''}
       {v?.doaj && <span className="vpill">In DOAJ</span>}
       {v?.oaVenue && <span className="vpill">Open-access venue</span>}
@@ -67,14 +50,13 @@ function Venue({ m }: { m: Match }) {
 }
 
 /** "Change this verdict": the author knows better than the databases sometimes. */
-function Override({ r, onSave, onReset }: { r: RefResult; onSave: (to: Verdict, note: string) => void; onReset: () => void }) {
+function OverrideForm({ r, onSave, onReset }: { r: RefResult; onSave: (to: Verdict, note: string) => void; onReset: () => void }) {
   const [to, setTo] = useState<Verdict>(r.verdict);
   const [note, setNote] = useState(r.ovNote || '');
   return (
-    <details className="ovr">
-      <summary>Change this verdict</summary>
-      <label className="meta">
-        New verdict{' '}
+    <div className="ovr-form">
+      <label>
+        New verdict
         <select value={to} onChange={(e) => setTo(e.target.value as Verdict)}>
           {MAIN_VERDICTS.map((v) => (
             <option value={v} key={v}>
@@ -83,22 +65,19 @@ function Override({ r, onSave, onReset }: { r: RefResult; onSave: (to: Verdict, 
           ))}
         </select>
       </label>
-      <label className="meta">
-        Why (optional){' '}
+      <label className="grow">
+        Why (optional)
         <input type="text" maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. I found it in the library catalogue" />
       </label>
-      <button type="button" className="primary" onClick={() => onSave(to, note.trim())}>
+      <button type="button" className="primary sm" onClick={() => onSave(to, note.trim())}>
         Save my verdict
       </button>
       {r.auto && (
-        <>
-          {' '}
-          <button type="button" className="link" onClick={onReset}>
-            Go back to Siyasat's verdict ({LABEL[r.auto]})
-          </button>
-        </>
+        <button type="button" className="link" onClick={onReset}>
+          Go back to Siyasat's verdict ({LABEL[r.auto]})
+        </button>
       )}
-    </details>
+    </div>
   );
 }
 
@@ -114,6 +93,7 @@ interface RefItemProps {
 }
 
 export function RefItem({ r, number, duplicateOf, report = false, onOverride }: RefItemProps) {
+  const [changing, setChanging] = useState(false);
   const m = r.match;
   const doiFix =
     (r.diffs || []).find((d) => d.field === 'DOI') ||
@@ -121,76 +101,70 @@ export function RefItem({ r, number, duplicateOf, report = false, onOverride }: 
   const oaUrl = webUrl(m?.ven?.oaUrl);
   return (
     <article className={`item v-${r.verdict}`} aria-label={`Reference ${number}: ${LABEL[r.verdict]}`}>
-      <Badge verdict={r.verdict} />
-      {duplicateOf != null && (
-        <span className="ovmark" style={{ background: '#efe3d0' }}>
-          ⧉ Duplicate of reference {duplicateOf}
-        </span>
-      )}
-      {r.auto && (
-        <span className="ovmark" title={`Siyasat said: ${LABEL[r.auto]}`}>
-          You overrode this
-        </span>
-      )}{' '}
-      <span className="meta">
-        Reference {number}
-        {r.confidence != null ? ` · match confidence ${Math.round(r.confidence * 100)}%` : ''}
-      </span>
-      <p className="what">{EXPLAIN[r.verdict]}</p>
-      {r.auto && (
-        <div className="meta">
-          Siyasat said “{LABEL[r.auto]}”. You changed it{r.ovNote ? `: ${r.ovNote}` : '.'}
-        </div>
-      )}
-      <div className="cite">
+      <div className="item-head">
+        <Badge verdict={r.verdict} />
+        {duplicateOf != null && (
+          <span className="chip-note">
+            <Copy className="ic" aria-hidden="true" /> Duplicate of reference {duplicateOf}
+          </span>
+        )}
+        {r.auto && (
+          <span className="chip-note yours" title={`Siyasat said: ${LABEL[r.auto]}`}>
+            You overrode this
+          </span>
+        )}
+        <span className="n">Reference {number}</span>
+        {r.confidence != null && <span className="conf">Match confidence {Math.round(r.confidence * 100)}%</span>}
+      </div>
+      <p className="cite">
         <span className="sr">You wrote: </span>
         {r.raw}
-      </div>
+      </p>
+      <p className="what">{EXPLAIN[r.verdict]}</p>
+      {r.auto && (
+        <p className="what">
+          Siyasat said “{LABEL[r.auto]}”. You changed it{r.ovNote ? `: ${r.ovNote}` : '.'}
+        </p>
+      )}
       {doiFix && (
-        <div className="msg info" style={{ marginTop: 8 }}>
+        <div className="msg info">
           <b>{'add' in doiFix ? 'Add this DOI' : 'Corrected DOI'}:</b>{' '}
           {!('add' in doiFix) && (
             <>
               <s>{doiFix.cited}</s> →{' '}
             </>
           )}
-          <External href={`https://doi.org/${doiFix.actual}`}>{doiFix.actual}</External> {!report && <CopyDoi doi={doiFix.actual} />}
+          <External href={`https://doi.org/${doiFix.actual}`}>{doiFix.actual}</External>
         </div>
       )}
       {m && (
-        <>
-          <div className="meta">
-            Matched record:{' '}
+        <div className="record">
+          <div className="rt">
+            <span className="meta">Matched record · {m.source}</span>
+            <br />
             <External href={`https://doi.org/${m.doi}`}>
               {plainTitle(m.title)}
               <NewTab />
-            </External>{' '}
-            · {m.source}
+            </External>
           </div>
           <Venue m={m} />
           <div className="enr">
             {m.doi && (
-              <>
-                <External className="btn ghost" href={`https://doi.org/${m.doi}`}>
-                  🔗 doi.org/{m.doi}
-                </External>
-                {!report && <CopyDoi doi={m.doi} />}
-              </>
+              <External className="btn ghost sm" href={`https://doi.org/${m.doi}`}>
+                <Link2 className="ic" aria-hidden="true" /> doi.org/{m.doi}
+              </External>
             )}
+            {m.doi && !report && <CopyButton text={`https://doi.org/${m.doi}`} label="Copy DOI" />}
             {!report && <ReadButton doi={m.doi} label="Read in Siyasat" />}
             {oaUrl && (
-              <External className="btn ghost" href={oaUrl}>
-                📄 Open free PDF
+              <External className="btn ghost sm" href={oaUrl}>
+                <FileText className="ic" aria-hidden="true" /> Open free PDF <ExternalLink className="ic" aria-hidden="true" />
               </External>
             )}
           </div>
-        </>
-      )}
-      {r.note && r.verdict !== 'uncertain' && (
-        <div className="meta" style={{ marginTop: 4 }}>
-          {r.note}
         </div>
       )}
+      {r.note && r.verdict !== 'uncertain' && <p className="what">{r.note}</p>}
       {!!r.diffs?.length && (
         <div className="tbl">
           <table>
@@ -206,7 +180,7 @@ export function RefItem({ r, number, duplicateOf, report = false, onOverride }: 
               {r.diffs.map((d) => (
                 <tr key={d.field}>
                   <td>{d.field}</td>
-                  <td>{d.cited}</td>
+                  <td className="was">{d.cited}</td>
                   <td className={d.suspect ? '' : 'fix'}>
                     {d.field === 'Title' ? plainTitle(d.actual) : d.actual}
                     {d.note && <div className="note">{d.note}</div>}
@@ -217,9 +191,30 @@ export function RefItem({ r, number, duplicateOf, report = false, onOverride }: 
           </table>
         </div>
       )}
-      {!report && onOverride && (
+      {!report && (
+        <div className="item-foot">
+          {r.apa && r.verdict !== 'retracted' && <CopyButton text={plainApa(r.apa)} label="Copy corrected reference" />}
+          {onOverride && (
+            <button type="button" className="link" aria-expanded={changing} onClick={() => setChanging((open) => !open)}>
+              <SlidersHorizontal className="ic" aria-hidden="true" /> Change this verdict
+            </button>
+          )}
+        </div>
+      )}
+      {!report && onOverride && changing && (
         // Keyed by the verdict so the form starts from the new state after a change or an undo.
-        <Override key={`${r.verdict}|${r.auto ?? ''}|${r.ovNote ?? ''}`} r={r} onSave={onOverride} onReset={() => r.auto && onOverride(r.auto, '')} />
+        <OverrideForm
+          key={`${r.verdict}|${r.auto ?? ''}|${r.ovNote ?? ''}`}
+          r={r}
+          onSave={(to, note) => {
+            setChanging(false);
+            onOverride(to, note);
+          }}
+          onReset={() => {
+            setChanging(false);
+            if (r.auto) onOverride(r.auto, '');
+          }}
+        />
       )}
     </article>
   );
@@ -253,7 +248,7 @@ export function Bibliography({ results, listRef }: { results: RefResult[]; listR
         )}
       </div>
       {leftOut.length > 0 && (
-        <div className="meta" style={{ marginTop: 10 }}>
+        <div className="leftout">
           <b>Left out, please review:</b>
           <ul>
             {leftOut.map((r, i) => (

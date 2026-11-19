@@ -1,3 +1,4 @@
+import { Pause, Square } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { eta, stopJob, useJobs } from '../store/jobs';
 
@@ -30,11 +31,11 @@ export function JobProgress({ id }: { id: string }) {
             : `Checking ${job.done.toLocaleString()} of ${job.total.toLocaleString()}… ${left > 30 ? `(${eta(left)} left)` : ''}`}
       </div>
       <div className="jobctl">
-        <button type="button" className="ghost" onClick={() => stopJob('pause')}>
-          ⏸ Pause
+        <button type="button" className="ghost sm" disabled={!!job.stop} onClick={() => stopJob('pause')}>
+          <Pause className="ic" aria-hidden="true" /> Pause
         </button>
-        <button type="button" className="link danger" onClick={() => stopJob('cancel')}>
-          Stop and show results so far
+        <button type="button" className="link danger" disabled={!!job.stop} onClick={() => stopJob('cancel')}>
+          <Square className="ic" aria-hidden="true" /> Stop and keep the results so far
         </button>
       </div>
       <ol className="pipe" aria-hidden="true">

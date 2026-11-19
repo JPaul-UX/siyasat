@@ -9,9 +9,6 @@ import css from '../styles.css?inline';
 import { draftProgress, evidence, sourceView, tallyClaims } from './draftView';
 import { JUDGMENT } from './labels';
 
-const EXTRA_CSS =
-  '.rclaim{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:12px;break-inside:avoid}.rc-src{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}';
-
 function page(title: string, heading: string, body: ReactNode): string {
   return (
     '<!doctype html>' +
@@ -19,15 +16,16 @@ function page(title: string, heading: string, body: ReactNode): string {
       <html lang="en">
         <head>
           <meta charSet="utf-8" />
+          <meta name="viewport" content="width=device-width,initial-scale=1" />
           <title>{title}</title>
-          <style dangerouslySetInnerHTML={{ __html: css + EXTRA_CSS }} />
+          <style dangerouslySetInnerHTML={{ __html: css }} />
         </head>
         <body>
           <div className="mhead" style={{ display: 'flex' }}>
             <div className="mark">S</div>
             <b>{heading}</b>
           </div>
-          <main style={{ margin: '0 auto' }}>{body}</main>
+          <main className="report-main">{body}</main>
         </body>
       </html>,
     )
@@ -50,7 +48,7 @@ function refsReport(c: RefsReportView): string {
     'Siyasat verification report',
     <>
       <h1 className="page-h">{c.name}</h1>
-      <p className="lead">
+      <p className="lead" style={{ marginBottom: 18 }}>
         Checked {new Date(c.date).toString()} · {c.results.length} references · Integrity score <b>{c.score}/100</b>
         <br />
         Sources queried: Crossref REST API (incl. Retraction Watch data) and OpenAlex. Verdicts marked “You overrode this” were changed by the
@@ -87,7 +85,7 @@ function draftReport(c: DraftCheck): string {
     'Siyasat',
     <>
       <h1 className="page-h">Claim-faithfulness report: {c.name}</h1>
-      <p className="lead">
+      <p className="lead" style={{ marginBottom: 18 }}>
         Verified {when.toLocaleString()} ({when.toISOString()}) · {c.claims.length} claims · {c.sources.length} sources ·{' '}
         <span className={`pill ${progress.cls}`}>{progress.t}</span>
       </p>
@@ -95,8 +93,10 @@ function draftReport(c: DraftCheck): string {
         <DraftStats claims={c.claims} />
       </div>
       <p className="oneline">
-        Every Supported / Contradicted / Unverifiable verdict in this report was chosen by the author after reading the source. Siyasat
-        retrieved the sources and abstracts; it did not judge the claims.
+        <span>
+          Every Supported / Contradicted / Unverifiable verdict in this report was chosen by the author after reading the source. Siyasat
+          retrieved the sources and abstracts; it did not judge the claims.
+        </span>
       </p>
       <p className="help">
         Databases queried: Crossref REST API (including Retraction Watch data), OpenAlex, Europe PMC, Semantic Scholar. Each source links to
@@ -126,7 +126,7 @@ function draftReport(c: DraftCheck): string {
                 <span className="pill wait">Not reviewed by the author</span>
               )}
             </div>
-            <p className="mono">{cl.sentence}</p>
+            <p className="cite">{cl.sentence}</p>
             {cl.note && <p className="meta">Author's note: {cl.note}</p>}
             {cl.cites.map((ct) => {
               const x = sourceView(c, ct.key);

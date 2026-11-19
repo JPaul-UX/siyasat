@@ -1,137 +1,78 @@
-import { analyze, cleanText, parseLibraryFile, splitDraft, splitEntries, type CheckType, type RefsCheck } from '@siyasat/core';
+import { analyze, cleanText, parseLibraryFile, splitDraft, splitEntries, type CheckType } from '@siyasat/core';
+import { ArrowRight, CircleCheck, FileCheck2, FileUp, FolderOpen, Pencil, Redo2, RotateCcw, Undo2, X } from 'lucide-react';
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { Spinner } from '../components/bits';
-import { JobProgress } from '../components/JobProgress';
+import { PageHead, Spinner } from '../components/bits';
+import { useReferenceRun } from '../components/referenceRun';
 import { TypeCards } from '../components/TypeCards';
 import { UploadZone } from '../components/UploadZone';
 import { MAX_DRAFT_SOURCES, runDraftCheck, type DraftProblem } from '../lib/draftCheck';
 import { FriendlyError, pdfText, readLibraryText } from '../lib/files';
 import { DRAFT_STAGES, SAMPLE_DRAFT, SAMPLE_DRAFT_WITH_REFS, SAMPLE_REFS } from '../lib/labels';
 import { paths } from '../lib/nav';
-import { saveCheck } from '../store/checks';
+import { confirmDialog, notice } from '../store/dialog';
 import { resetForms, setCorpusFile, setForm, setFormType, stopEditing, useForms } from '../store/forms';
-import { eta, runJob, SOFT_LIMIT, useJobs } from '../store/jobs';
+import { SOFT_LIMIT, useJobs } from '../store/jobs';
 import { toast } from '../store/toast';
 
 const TYPES: CheckType[] = ['refs', 'corpus', 'draft'];
 const plural = (n: number, word: string) => `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
 
-function Steps({ second, running }: { second: string; running: boolean }) {
-  return (
-    <ol className="steps" aria-label="Progress">
-      <li className="done">Choose type</li>
-      <li className={running ? 'done' : 'on'}>{second}</li>
-      <li className={running ? 'on' : ''}>Verify</li>
-    </ol>
-  );
-}
-
 /** "Start over": clear everything typed, after checking that nothing is running and the user means it. */
-function useStartOver(): () => void {
+function useStartOver(): () => Promise<void> {
   const navigate = useNavigate();
-  return () => {
+  return async () => {
     const { forms, type, corpusFile } = useForms.getState();
     const dirty = forms[type].input.trim() || forms[type].refsIn.trim() || corpusFile;
     if (useJobs.getState().job) {
-      alert('A check is still running. Pause or cancel it first.');
+      void notice('A check is still running', 'Pause or stop it first.');
       return;
     }
-    if (dirty && !confirm('Start over? This clears everything you added on this page.')) return;
+    if (dirty) {
+      const sure = await confirmDialog({
+        title: 'Start over?',
+        body: 'This clears everything you added on this page.',
+        confirmLabel: 'Clear it',
+        danger: true,
+      });
+      if (!sure) return;
+    }
     resetForms();
     navigate(paths.newCheck());
-    setTimeout(() => {
-      const heading = document.querySelector<HTMLElement>('#main h2');
-      if (heading) {
-        heading.tabIndex = -1;
-        heading.focus();
-      }
-    }, 0);
   };
 }
 
-/* ---------- Reference list, and review corpus ---------- */
+function TypeChooser({ type, onType }: { type: CheckType; onType: (t: CheckType) => void }) {
+  return (
+    <section className="card" aria-labelledby="typeH">
+      <h2 id="typeH">What are you checking?</h2>
+      <p className="help">Each kind of check looks at your sources in a different way.</p>
+      <TypeCards selected={type} onSelect={onType} />
+    </section>
+  );
+}
 
-const FILE_ICON = (
-  <svg viewBox="0 0 24 24" width="30" height="30">
-    <path d="M6 2h8l6 6v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" fill="#fff" stroke="#771712" strokeWidth="1.6" />
-    <path d="M14 2v6h6" fill="#FDF4D9" stroke="#771712" strokeWidth="1.6" strokeLinejoin="round" />
-    <path d="M8 13h8M8 16.5h8M8 9.5h3" stroke="#B8860B" strokeWidth="1.6" strokeLinecap="round" />
-  </svg>
-);
+/* ---------- Reference list, and review corpus ---------- */
 
 function RefsForm({ type, onType }: { type: 'refs' | 'corpus'; onType: (t: CheckType) => void }) {
   const refs = type === 'refs';
   const form = useForms((s) => s.forms[type]);
   const corpusFile = useForms((s) => s.corpusFile);
-  const jobId = useJobs((s) => s.job?.id);
-  const [started, setStarted] = useState<string | null>(null);
-  const [message, setMessage] = useState<ReactNode>(null);
+  const { run, message, setMessage, starting } = useReferenceRun(type);
   const [over, setOver] = useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
   const file = useRef<HTMLInputElement>(null);
   const startOver = useStartOver();
-  const running = !!started && jobId === started;
   // Counted from the text as it was a moment ago, so a long list does not slow typing.
   const typedText = useDeferredValue(form.input);
   const detected = useMemo(() => splitEntries(typedText).length, [typedText]);
 
-  const run = async (force?: 'all' | 'first') => {
-    if (useJobs.getState().job) return;
-    let entries = splitEntries(form.input);
-    setMessage(null);
-    if (!entries.length) {
-      setMessage(
-        <div className="msg info">
-          {refs ? (
-            <>
-              Paste at least one reference first, or click <b>Try an example</b>.
-            </>
-          ) : (
-            'Choose a file first, or paste records into the box.'
-          )}
-        </div>,
-      );
-      input.current?.focus();
-      return;
-    }
-    if (entries.length > SOFT_LIMIT && !force) {
-      setMessage(
-        <div className="msg info">
-          <b>{entries.length.toLocaleString()} references is a big check.</b> Checking all of them takes {eta(entries.length)}. We check in
-          batches and save as we go, so you can pause, close the tab and resume later.
-          <div className="choice">
-            <button type="button" className="primary" autoFocus onClick={() => void run('all')}>
-              Check all {entries.length.toLocaleString()} ({eta(entries.length)})
-            </button>
-            <button type="button" className="ghost" onClick={() => void run('first')}>
-              Check the first {SOFT_LIMIT} only
-            </button>
-          </div>
-        </div>,
-      );
-      return;
-    }
-    if (force === 'first') entries = entries.slice(0, SOFT_LIMIT);
-    const check: RefsCheck = {
-      id: crypto.randomUUID(),
-      name: form.name.trim() || (refs ? 'Reference check ' : 'Corpus check ') + new Date().toLocaleDateString(),
-      type,
-      date: new Date().toISOString(),
-      inputs: entries,
-      total: entries.length,
-      results: [],
-      score: 0,
-      status: 'running',
-      ...(!refs && corpusFile ? { file: corpusFile.file } : {}),
-    };
-    setStarted(check.id);
-    await saveCheck(check);
-    void runJob(check.id, entries);
-  };
-
   const loadFile = async (f: File) => {
-    setMessage(<div className="msg info">Reading {f.name}…</div>);
+    setMessage(
+      <div className="msg info">
+        <Spinner /> Reading {f.name}…
+      </div>,
+    );
     let records: string[] = [];
     let problem = '';
     try {
@@ -167,7 +108,7 @@ function RefsForm({ type, onType }: { type: 'refs' | 'corpus'; onType: (t: Check
     setMessage(
       <div className="msg ok">
         Found <b>{records.length.toLocaleString()}</b> record{records.length > 1 ? 's' : ''} in {f.name}.{' '}
-        {records.length > SOFT_LIMIT ? "This is a big file, so we'll check it in batches. " : ''}Click <b>Check my references</b>.
+        {records.length > SOFT_LIMIT ? "This is a big file, so we'll check it in batches. " : ''}Press <b>Check my references</b>.
       </div>,
     );
   };
@@ -186,43 +127,25 @@ function RefsForm({ type, onType }: { type: 'refs' | 'corpus'; onType: (t: Check
     e.preventDefault();
     setOver(on);
   };
+  const check = async () => {
+    if (!splitEntries(form.input).length) input.current?.focus();
+    await run();
+  };
 
   return (
     <>
-      <h1 className="page-h">New check</h1>
-      <p className="lead">Three quick steps. Results arrive in seconds.</p>
-      <UploadZone compact />
-      <p className="or">— or choose step by step —</p>
-      <Steps second="Add sources" running={running} />
+      <PageHead title="New check" lead="Pick what you want to verify, add it, and run. Results arrive in seconds." />
+      <TypeChooser type={type} onType={onType} />
       <section className="card">
-        <h2>Step 1 · What are you checking?</h2>
-        <TypeCards selected={type} onSelect={onType} />
-      </section>
-      <section className="card">
-        <h2>Step 2 · {refs ? 'Paste your references' : 'Upload your library export'}</h2>
-        <label className="big" htmlFor="name">
-          Name this check <span className="meta">(optional)</span>
-        </label>
-        <input
-          type="text"
-          id="name"
-          placeholder="e.g. Thesis chapter 2 references"
-          value={form.name}
-          onChange={(e) => setForm(type, { name: e.target.value })}
-        />
+        <h2>{refs ? 'Paste your references' : 'Upload your library export'}</h2>
         {refs ? (
-          <>
-            <p className="help" style={{ marginTop: 12 }}>
-              Any citation style works (APA, MLA, Chicago…). Put each reference on its own line. A DOI by itself (like 10.1038/nature14539)
-              works too.
-            </p>
-            <label className="big" htmlFor="input">
-              Your reference list
-            </label>
-          </>
+          <p className="help">
+            Any citation style works (APA, MLA, Chicago…). Put each reference on its own line. A DOI by itself (like 10.1038/nature14539) works
+            too.
+          </p>
         ) : (
           <>
-            <p className="help" style={{ marginTop: 12 }}>
+            <p className="help">
               Export your search results or library from Zotero, Mendeley, EndNote, Scopus or Google Scholar as <b>.ris</b>, <b>.bib</b>{' '}
               (BibTeX) or <b>.csv</b>. Each record is checked like a reference.
             </p>
@@ -238,75 +161,101 @@ function RefsForm({ type, onType }: { type: 'refs' | 'corpus'; onType: (t: Check
                 if (f) void loadFile(f);
               }}
             />
-            {corpusFile ? (
-              <div className="chip">
-                <span className="ficon" aria-hidden="true">
-                  {FILE_ICON}
-                </span>
-                <div className="chipt">
-                  <b>{corpusFile.file}</b>
-                  <small>
-                    <span className="ready">✓ Ready</span> <span>{corpusFile.sizeLabel}</span>
-                  </small>
+            <div className="field">
+              {corpusFile ? (
+                <div className="chip">
+                  <span className="ficon" aria-hidden="true">
+                    <FileCheck2 />
+                  </span>
+                  <div className="chipt">
+                    <b>{corpusFile.file}</b>
+                    <small>
+                      <span className="ready">
+                        <CircleCheck className="ic" aria-hidden="true" /> Ready
+                      </span>{' '}
+                      <span>{corpusFile.sizeLabel}</span>
+                    </small>
+                  </div>
+                  <button type="button" className="ghost sm" onClick={pick}>
+                    Change file
+                  </button>
+                  <button type="button" className="link" onClick={removeFile}>
+                    <X className="ic" aria-hidden="true" /> Remove file
+                  </button>
                 </div>
-                <button type="button" className="ghost" onClick={pick}>
-                  Change file
-                </button>
-                <button type="button" className="link quiet" onClick={removeFile}>
-                  ✕ Remove file
-                </button>
-              </div>
-            ) : (
-              <div
-                className={`drop${over ? ' over' : ''}`}
-                role="button"
-                tabIndex={0}
-                aria-describedby="dropHelp"
-                aria-label="Choose a file, or drag and drop it here"
-                onClick={pick}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    pick();
-                  }
-                }}
-                onDragEnter={(e) => drag(e, true)}
-                onDragOver={(e) => drag(e, true)}
-                onDragLeave={(e) => drag(e, false)}
-                onDrop={(e) => {
-                  drag(e, false);
-                  const f = e.dataTransfer.files[0];
-                  if (f) void loadFile(f);
-                }}
-              >
-                <span className="dicon" aria-hidden="true">
-                  📂
-                </span>
-                <span>
-                  <b>Drag your file here</b> or <span className="fakebtn">Choose a file</span>
-                </span>
-                <small id="dropHelp">.ris, .bib (BibTeX) or .csv · any size</small>
-              </div>
-            )}
-            <label className="big" htmlFor="input" style={{ marginTop: 12 }}>
-              Records found in your file <span className="meta">(you can edit them)</span>
-            </label>
+              ) : (
+                <div
+                  className={`drop${over ? ' over' : ''}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-describedby="dropHelp"
+                  aria-label="Choose a file, or drag and drop it here"
+                  onClick={pick}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      pick();
+                    }
+                  }}
+                  onDragEnter={(e) => drag(e, true)}
+                  onDragOver={(e) => drag(e, true)}
+                  onDragLeave={(e) => drag(e, false)}
+                  onDrop={(e) => {
+                    drag(e, false);
+                    const f = e.dataTransfer.files[0];
+                    if (f) void loadFile(f);
+                  }}
+                >
+                  <span className="dicon" aria-hidden="true">
+                    <FolderOpen />
+                  </span>
+                  <span>
+                    <b>Drag your file here</b> or <span className="fakebtn">choose a file</span>
+                  </span>
+                  <small id="dropHelp">.ris, .bib (BibTeX) or .csv · any size</small>
+                </div>
+              )}
+            </div>
           </>
         )}
-        <textarea
-          id="input"
-          ref={input}
-          value={form.input}
-          onChange={(e) => setForm(type, { input: e.target.value })}
-          placeholder={
-            refs
-              ? 'Example:\nLeCun, Y., Bengio, Y., & Hinton, G. (2015). Deep learning. Nature, 521(7553), 436–444.'
-              : 'Records from your file will appear here.'
-          }
-        />
+        <div className="field">
+          <label className="big" htmlFor="input">
+            {refs ? (
+              'Your reference list'
+            ) : (
+              <>
+                Records found in your file <span className="meta">(you can edit them)</span>
+              </>
+            )}
+          </label>
+          <textarea
+            id="input"
+            ref={input}
+            value={form.input}
+            onChange={(e) => setForm(type, { input: e.target.value })}
+            placeholder={
+              refs
+                ? 'Example:\nLeCun, Y., Bengio, Y., & Hinton, G. (2015). Deep learning. Nature, 521(7553), 436–444.'
+                : 'Records from your file will appear here.'
+            }
+          />
+        </div>
+        <div className="field">
+          <label className="big" htmlFor="name">
+            Name this check <span className="meta">(optional)</span>
+          </label>
+          <input
+            type="text"
+            id="name"
+            placeholder="e.g. Thesis chapter 2 references"
+            value={form.name}
+            onChange={(e) => setForm(type, { name: e.target.value })}
+          />
+        </div>
         <div className="actions">
-          <button type="button" className="primary" disabled={running} onClick={() => void run()}>
-            {running ? 'Checking…' : 'Check my references'}
+          <button type="button" className="primary lg" disabled={starting} onClick={() => void check()}>
+            {starting && <Spinner />}
+            Check my references <ArrowRight className="ic" aria-hidden="true" />
           </button>
           {refs && (
             <button
@@ -331,16 +280,17 @@ function RefsForm({ type, onType }: { type: 'refs' | 'corpus'; onType: (t: Check
           >
             {refs ? 'Clear' : 'Clear records'}
           </button>
-          <button type="button" className="link" onClick={startOver}>
-            ↺ Start over
+          <button type="button" className="link" onClick={() => void startOver()}>
+            <RotateCcw className="ic" aria-hidden="true" /> Start over
           </button>
           <span className="count" aria-live="polite">
-            {detected} {detected === 1 ? 'reference' : 'references'} detected
+            {detected.toLocaleString()} {detected === 1 ? 'reference' : 'references'} detected
           </span>
         </div>
         <div role="alert">{message}</div>
-        {started && <JobProgress id={started} />}
       </section>
+      <p className="or">Have your whole paper as a file instead?</p>
+      <UploadZone compact />
     </>
   );
 }
@@ -402,7 +352,7 @@ function useTextHistory(apply: (s: Snapshot) => void) {
 const PROBLEMS: Record<DraftProblem, ReactNode> = {
   empty: (
     <div className="msg info">
-      Paste a paragraph with citations first, or click <b>Try the example</b>.
+      Paste a paragraph with citations first, or use <b>Try the example</b>.
     </div>
   ),
   'no-citations': (
@@ -480,7 +430,10 @@ function DraftForm({ onType }: { onType: (t: CheckType) => void }) {
       const a = analyze(draft, '');
       setFileNote(
         <>
-          <span className="filechip-ok">✓ {f.name}</span> {read.pages ? `${read.pages} page${read.pages > 1 ? 's' : ''} · ` : ''}
+          <span className="filechip-ok">
+            <CircleCheck className="ic" aria-hidden="true" /> {f.name}
+          </span>{' '}
+          {read.pages ? `${read.pages} page${read.pages > 1 ? 's' : ''} · ` : ''}
           {a.claims.length} cited sentences ·{' '}
           {a.hasRefs ? (
             'reference list found'
@@ -525,7 +478,8 @@ function DraftForm({ onType }: { onType: (t: CheckType) => void }) {
       return;
     }
     const { check, updated } = outcome;
-    if (updated) stopEditing();
+    // The form has done its job; the next draft starts clean.
+    stopEditing();
     navigate(paths.results(check.id));
     if (updated) {
       // Shown once the results page is up, with a way back to the previous version.
@@ -535,24 +489,21 @@ function DraftForm({ onType }: { onType: (t: CheckType) => void }) {
 
   return (
     <>
-      <h1 className="page-h">New check</h1>
-      <p className="lead">Choose what you're verifying, paste it, and run.</p>
-      <Steps second="Add your sources" running={running} />
-      <section className="card">
-        <h2>Step 1 · What are you checking?</h2>
-        <TypeCards selected="draft" onSelect={onType} />
-      </section>
+      <PageHead title="New check" lead="Pick what you want to verify, add it, and run." />
+      <TypeChooser type="draft" onType={onType} />
       {editing && (
         <div className="editbar" role="region" aria-label="Editing a saved check">
           <div>
-            <b>✏️ Editing your draft: {editing.name}</b>
+            <b>
+              <Pencil className="ic" aria-hidden="true" /> Editing your draft: {editing.name}
+            </b>
             <span>
               Change anything below, then press <b>Check again</b>. Your verdicts are kept for sentences you don't change.
             </span>
           </div>
           <button
             type="button"
-            className="link"
+            className="ghost sm"
             onClick={() => {
               stopEditing();
               navigate(paths.results(editing.id));
@@ -563,47 +514,15 @@ function DraftForm({ onType }: { onType: (t: CheckType) => void }) {
         </div>
       )}
       <section className="card">
-        <h2>Step 2 · {editing ? 'Edit your draft' : 'Paste your draft'}</h2>
-        <p className="oneline">Siyasat shows you what each source actually says. You decide if it backs up your sentence.</p>
-        <label className="big" htmlFor="name">
-          Name this check <span className="meta">(optional)</span>
-        </label>
-        <input
-          type="text"
-          id="name"
-          placeholder="e.g. Results section draft"
-          value={form.name}
-          onChange={(e) => setForm('draft', { name: e.target.value })}
-        />
-        <p className="help" style={{ marginTop: 12 }}>
+        <h2>{editing ? 'Edit your draft' : 'Paste your draft'}</h2>
+        <p className="help">
           Paste prose with in-text citations, like <b>(Ji et al., 2023)</b>, <b>Dela Cruz (2022)</b> or <b>[1]</b>. A reference list under a{' '}
-          <b>References</b> heading makes matching more reliable, but it's optional.
+          <b>References</b> heading makes matching more reliable, but it's optional. Siyasat shows you what each source says; you decide if it
+          backs up your sentence.
         </p>
-        <div className="edtools" role="toolbar" aria-label="Text undo and redo">
-          <button type="button" className="ghost ub" disabled={!history.canUndo} onClick={history.undo}>
-            ↶ Undo typing
-          </button>
-          <button type="button" className="ghost ub" disabled={!history.canRedo} onClick={history.redo}>
-            ↷ Redo typing
-          </button>
-          {editing && (
-            <button
-              type="button"
-              className="ghost ub"
-              disabled={form.input === editing.input && form.refsIn === editing.refsIn}
-              onClick={() => {
-                fill({ input: editing.input, refsIn: editing.refsIn });
-                toast('Restored your original draft');
-              }}
-            >
-              ⟲ Undo all changes
-            </button>
-          )}
-          <span className="meta ukeys">Applies to the text boxes only</span>
-        </div>
         <div className="pdfup">
-          <button type="button" className="ghost" onClick={() => file.current?.click()}>
-            📄 Upload your draft (PDF or .txt)
+          <button type="button" className="ghost sm" onClick={() => file.current?.click()}>
+            <FileUp className="ic" aria-hidden="true" /> Upload your draft (PDF or .txt)
           </button>
           <input
             ref={file}
@@ -622,43 +541,81 @@ function DraftForm({ onType }: { onType: (t: CheckType) => void }) {
             {fileNote ?? 'or paste the text below. A PDF works best when its References section is included.'}
           </span>
         </div>
-        <label className="big" htmlFor="input">
-          Your draft
-        </label>
-        <textarea
-          id="input"
-          ref={input}
-          style={{ minHeight: 220 }}
-          spellCheck={false}
-          placeholder="Paste your paragraphs here…"
-          value={form.input}
-          onChange={onText('input')}
-          onKeyDown={onKeyDown}
-        />
-        <details style={{ marginTop: 10 }} open={refsOpen} onToggle={(e) => setRefsOpen(e.currentTarget.open)}>
-          <summary style={{ cursor: 'pointer', fontWeight: 650, color: 'var(--maroon)' }}>My reference list is separate (optional)</summary>
-          <label className="big" htmlFor="refsIn" style={{ marginTop: 8 }}>
-            Reference list
-          </label>
+        <div className="field">
+          <div className="rowh" style={{ marginBottom: 6 }}>
+            <label className="big" htmlFor="input" style={{ margin: 0 }}>
+              Your draft
+            </label>
+            <div className="edtools" role="toolbar" aria-label="Text undo and redo" style={{ margin: 0 }}>
+              <button type="button" className="link" disabled={!history.canUndo} onClick={history.undo}>
+                <Undo2 className="ic" aria-hidden="true" /> Undo
+              </button>
+              <button type="button" className="link" disabled={!history.canRedo} onClick={history.redo}>
+                <Redo2 className="ic" aria-hidden="true" /> Redo
+              </button>
+              {editing && (
+                <button
+                  type="button"
+                  className="link"
+                  disabled={form.input === editing.input && form.refsIn === editing.refsIn}
+                  onClick={() => {
+                    fill({ input: editing.input, refsIn: editing.refsIn });
+                    toast('Restored your original draft');
+                  }}
+                >
+                  <RotateCcw className="ic" aria-hidden="true" /> Undo all changes
+                </button>
+              )}
+            </div>
+          </div>
           <textarea
-            id="refsIn"
-            style={{ minHeight: 120 }}
-            placeholder="One reference per line"
-            value={form.refsIn}
-            onChange={onText('refsIn')}
+            id="input"
+            ref={input}
+            style={{ minHeight: 240, font: '15px/1.6 var(--font)' }}
+            spellCheck={false}
+            placeholder="Paste your paragraphs here…"
+            value={form.input}
+            onChange={onText('input')}
             onKeyDown={onKeyDown}
           />
-        </details>
-        <div className="actions wiz-run">
-          <button type="button" className="primary" disabled={running} onClick={() => void run()}>
-            {running ? 'Checking…' : failed ? 'Try again' : editing ? 'Check again' : 'Check claims'}
-          </button>
-          <span className="count hint" aria-live="polite">
-            {count}
-          </span>
+          <details className="sep-refs" open={refsOpen} onToggle={(e) => setRefsOpen(e.currentTarget.open)}>
+            <summary>My reference list is separate (optional)</summary>
+            <label className="sr" htmlFor="refsIn">
+              Reference list
+            </label>
+            <textarea
+              id="refsIn"
+              style={{ minHeight: 120 }}
+              placeholder="One reference per line"
+              value={form.refsIn}
+              onChange={onText('refsIn')}
+              onKeyDown={onKeyDown}
+            />
+          </details>
         </div>
-        <div className="actions" style={{ marginTop: 4 }}>
-          <button type="button" className="ghost" onClick={() => fill({ input: SAMPLE_DRAFT, refsIn: '', ...(form.name ? {} : { name: 'Results section draft' }) })}>
+        <div className="field">
+          <label className="big" htmlFor="name">
+            Name this check <span className="meta">(optional)</span>
+          </label>
+          <input
+            type="text"
+            id="name"
+            placeholder="e.g. Results section draft"
+            value={form.name}
+            onChange={(e) => setForm('draft', { name: e.target.value })}
+          />
+        </div>
+        <div className="actions">
+          <button type="button" className="primary lg" disabled={running} onClick={() => void run()}>
+            {running && <Spinner />}
+            {running ? 'Checking…' : failed ? 'Try again' : editing ? 'Check again' : 'Check claims'}
+            {!running && <ArrowRight className="ic" aria-hidden="true" />}
+          </button>
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => fill({ input: SAMPLE_DRAFT, refsIn: '', ...(form.name ? {} : { name: 'Results section draft' }) })}
+          >
             Try the example
           </button>
           <button
@@ -678,10 +635,13 @@ function DraftForm({ onType }: { onType: (t: CheckType) => void }) {
           >
             Clear
           </button>
-          <button type="button" className="link" onClick={startOver}>
-            ↺ Start over
+          <button type="button" className="link" onClick={() => void startOver()}>
+            <RotateCcw className="ic" aria-hidden="true" /> Start over
           </button>
         </div>
+        <p className="meta" style={{ marginTop: 10 }} aria-live="polite">
+          {count}
+        </p>
         <div role="alert">{message}</div>
         {running && (
           <div className="stepper" aria-hidden="true">

@@ -20,6 +20,7 @@ import { FriendlyError, readUpload } from '../lib/files';
 import { checkDraftSource, pool, verifyRef } from '../lib/lookups';
 import { currentPath, go, paths } from '../lib/nav';
 import { saveCheck } from './checks';
+import { notice } from './dialog';
 import { runJob, SOFT_LIMIT } from './jobs';
 import { toast } from './toast';
 
@@ -76,7 +77,7 @@ function finish(check: RefsCheck | DraftCheck): void {
 
 export async function startUpload(file: File): Promise<void> {
   if (useUpload.getState().job?.running) {
-    alert('A check is already running. Please wait for it to finish.');
+    void notice('A file is already being checked', 'Please wait for it to finish.');
     return;
   }
   useUpload.setState({ job: { file: file.name, step: 0, pct: 3, text: 'Opening your file…', running: true } });
@@ -157,6 +158,6 @@ export async function startUpload(file: File): Promise<void> {
     const error =
       e instanceof FriendlyError ? e.message : 'Something went wrong while reading this file. Try again, or paste the text into New check instead.';
     update({ error, running: false, text: 'Stopped.' });
-    if (currentPath() !== paths.upload) alert(error);
+    if (currentPath() !== paths.upload) void notice("That file couldn't be checked", error);
   }
 }

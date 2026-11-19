@@ -1,3 +1,4 @@
+import { Undo2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { dismissToast, runUndo, useToast } from '../store/toast';
 
@@ -27,6 +28,7 @@ export function Toast() {
   }, [toast, held]);
 
   const undo = toast?.undo;
+  const action = toast?.action;
   return (
     <div
       className={`toast${toast && visible ? ' show' : ''}`}
@@ -51,11 +53,22 @@ export function Toast() {
                 runUndo(undo);
               }}
             >
-              ↶ Undo
+              <Undo2 className="ic" aria-hidden="true" /> Undo
+            </button>
+          )}
+          {action && (
+            <button
+              type="button"
+              onClick={() => {
+                dismissToast();
+                action.run();
+              }}
+            >
+              {action.label}
             </button>
           )}
           <button type="button" className="tx" aria-label="Dismiss" onClick={dismissToast}>
-            ×
+            <X className="ic" aria-hidden="true" />
           </button>
         </>
       )}

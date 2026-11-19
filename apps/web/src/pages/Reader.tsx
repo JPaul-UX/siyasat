@@ -1,4 +1,5 @@
 import type { FullText } from '@siyasat/core';
+import { ExternalLink, FileText, Lightbulb } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { External, NewTab, Spinner } from '../components/bits';
@@ -21,8 +22,11 @@ const jumpClass = (title: string) => (/result|finding/i.test(title) ? 'key-r' : 
 
 const SpinTip = () => (
   <div className="rd-tip" role="note">
-    <b>💡 Read past the abstract.</b> Abstracts sometimes sound more certain than the actual findings ("spin"). Before you cite a claim,
-    jump to <b>Results</b> and <b>Discussion</b> and check the paper really says it, including any limits the authors mention.
+    <Lightbulb className="ic" aria-hidden="true" />
+    <span>
+      <b>Read past the abstract.</b> Abstracts sometimes sound more certain than the actual findings ("spin"). Before you cite a claim, jump
+      to <b>Results</b> and <b>Discussion</b> and check the paper really says it, including any limits the authors mention.
+    </span>
   </div>
 );
 
@@ -112,7 +116,7 @@ function Article({ o, onRetry }: { o: FullText; onRetry: () => void }) {
         <SpinTip />
         <p>
           <External className="rd-open" href={link}>
-            📄 Open free {o.pdf ? 'PDF' : 'version'}
+            <FileText className="ic" aria-hidden="true" /> Open free {o.pdf ? 'PDF' : 'version'}
             <NewTab />
           </External>{' '}
           {o.pdf && o.url && o.url !== o.pdf && (
@@ -149,14 +153,14 @@ function Article({ o, onRetry }: { o: FullText; onRetry: () => void }) {
         <p>You can still open the publisher's page. Your university library (or the author, by email) can often give you a copy.</p>
         <p>
           <External className="rd-open" href={`https://doi.org/${o.doi}`}>
-            Go to the paper's page
+            Go to the paper's page <ExternalLink className="ic" aria-hidden="true" />
             <NewTab />
           </External>
         </p>
         {o.errors.length > 0 && (
           <p className="meta">
             Note: we couldn't reach {o.errors.join(' and ')} just now.{' '}
-            <button type="button" className="ghost" onClick={onRetry}>
+            <button type="button" className="ghost sm" onClick={onRetry}>
               Try again
             </button>
           </p>
@@ -195,7 +199,7 @@ export function Reader() {
   }, [doi, attempt]);
 
   return (
-    <div className="reader">
+    <div>
       {article ? (
         <Article o={article} onRetry={() => setAttempt((n) => n + 1)} />
       ) : (

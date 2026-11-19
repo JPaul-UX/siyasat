@@ -1,9 +1,10 @@
 import type { Check } from '@siyasat/core';
+import { ArrowLeft, Plus, SearchX } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { Empty, Spinner } from '../components/bits';
+import { Empty, PageHead, Spinner } from '../components/bits';
 import { fmtDate } from '../lib/labels';
-import { paths } from '../lib/nav';
+import { paths, typeName } from '../lib/nav';
 import { loadCheck, useChecks } from '../store/checks';
 import { DraftResults } from './DraftResults';
 import { RefsResults, type RefsView } from './RefsResults';
@@ -26,13 +27,14 @@ function useCheck(id: string | undefined): { check: Check | null; state: 'loadin
   return { check: null, state: failed === id ? 'error' : 'loading' };
 }
 
-function CheckPicker({ current }: { current: string }) {
+/** Jump to another saved check. */
+export function CheckPicker({ current }: { current: string }) {
   const checks = useChecks((s) => s.summaries);
   const navigate = useNavigate();
   if (checks.length < 2) return null;
   return (
     <label className="meta">
-      Other checks:{' '}
+      <span className="sr">Open another check</span>
       <select value={current} onChange={(e) => navigate(paths.results(e.target.value))}>
         {checks.map((c) => (
           <option value={c.id} key={c.id}>
@@ -92,17 +94,17 @@ export function Results() {
   if (!check) {
     return (
       <>
-        <h1 className="page-h">Results</h1>
+        <PageHead title="Results" />
         <section className="card">
-          <Empty icon="🔍">
+          <Empty icon={SearchX} title={state === 'error' ? "That check couldn't be loaded" : params.id ? 'Check not found' : 'No results yet'}>
             {state === 'error'
-              ? "We couldn't load that check. Check your internet connection and try again."
+              ? 'Check your internet connection and try again.'
               : params.id
-                ? "We couldn't find that check. It may have been deleted."
-                : 'No results yet. Run a check to see results here.'}
-            <div className="actions" style={{ justifyContent: 'center' }}>
+                ? 'It may have been deleted.'
+                : 'Run a check to see its results here.'}
+            <div className="actions">
               <Link className="btn primary" to={paths.newCheck()}>
-                Start a check
+                <Plus className="ic" aria-hidden="true" /> Start a check
               </Link>
             </div>
           </Empty>
@@ -114,21 +116,25 @@ export function Results() {
   const view = toRefsView(check, params.view === 'refs');
   if (!view && check.type === 'draft') return <DraftResults check={check} picker={<CheckPicker current={check.id} />} />;
   if (!view) return null;
+  const ofDraft = check.type === 'draft';
+  const count = (view.total || view.results.length).toLocaleString();
   return (
     <RefsResults
       // A different check, or a different list of the same check, starts from the first page.
       key={view.id + view.kind}
       view={view}
       header={
-        <div className="rowh">
-          <div>
-            <h1 className="page-h">Results</h1>
-            <p className="lead">
-              {check.name} · {fmtDate(check.date)}
-            </p>
-          </div>
+        <PageHead
+          title={ofDraft ? 'Reference list' : check.name}
+          lead={`${ofDraft ? check.name : typeName(check.type)} · ${fmtDate(check.date)} · ${count} ${count === '1' ? 'reference' : 'references'}`}
+        >
+          {ofDraft && (
+            <Link className="btn ghost sm" to={paths.results(check.id)}>
+              <ArrowLeft className="ic" aria-hidden="true" /> Back to claims
+            </Link>
+          )}
           <CheckPicker current={check.id} />
-        </div>
+        </PageHead>
       }
     />
   );

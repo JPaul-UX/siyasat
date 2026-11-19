@@ -7,6 +7,8 @@ import { create } from 'zustand';
 import { verifyRef } from '../lib/lookups';
 import { currentPath, go, paths } from '../lib/nav';
 import { getCheck, loadCheck, patchCheck, upsertResults } from './checks';
+import { notice } from './dialog';
+import { toast } from './toast';
 
 /** Above this many references, the user is asked before everything is checked. */
 export const SOFT_LIMIT = 300;
@@ -41,7 +43,7 @@ export async function runJob(id: string, inputsArg?: string[]): Promise<void> {
   if (!check || check.type === 'draft') return;
   const inputs = inputsArg ?? check.inputs;
   if (!inputs) {
-    alert("This check's list wasn't saved, so it can't be resumed.");
+    void notice("This check can't be resumed", "Its list of references wasn't saved. Start a new check with the same list instead.");
     return;
   }
   const doneBefore = new Set(check.results.map((r) => r.i));
@@ -78,14 +80,15 @@ export async function runJob(id: string, inputsArg?: string[]): Promise<void> {
     else if (final.results.length < final.total) patchCheck(id, { status: 'done', stoppedEarly: true });
     else patchCheck(id, { status: 'done', inputs: null });
   }
-  // Whoever was watching the form or the results list is taken to the finished check.
-  const here = currentPath();
-  if (here.startsWith('/new') || here === '/results') go(paths.results(id));
+  // Someone who has moved on to another page hears about it, with a way back.
+  if (final && !paused && currentPath() !== paths.results(id)) {
+    toast(`Finished checking “${final.name}”`, undefined, { label: 'Open', run: () => go(paths.results(id)) });
+  }
 }
 
 export function resumeJob(id: string): void {
   if (activeJob()) {
-    alert('Another check is running. Wait for it or pause it first.');
+    void notice('Another check is running', 'Wait for it to finish, or pause it first.');
     return;
   }
   go(paths.results(id));

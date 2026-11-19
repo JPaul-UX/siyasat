@@ -12,8 +12,14 @@ export interface UndoEntry {
   judgment?: { checkId: string; claim: number; to: Judgment | null };
 }
 
+/** A button on a toast other than Undo, such as "Open". */
+export interface ToastAction {
+  label: string;
+  run: () => void;
+}
+
 interface ToastState {
-  toast: { key: number; message: string; undo?: UndoEntry } | null;
+  toast: { key: number; message: string; undo?: UndoEntry; action?: ToastAction } | null;
   /** The most recent undoable action. */
   last: UndoEntry | null;
 }
@@ -23,8 +29,8 @@ export const useToast = create<ToastState>(() => ({ toast: null, last: null }));
 let nextKey = 1;
 
 /** Show a short message at the bottom of the screen, with an Undo button when `undo` is given. */
-export function toast(message: string, undo?: UndoEntry): void {
-  useToast.setState((s) => ({ toast: { key: nextKey++, message, undo }, last: undo ?? s.last }));
+export function toast(message: string, undo?: UndoEntry, action?: ToastAction): void {
+  useToast.setState((s) => ({ toast: { key: nextKey++, message, undo, action }, last: undo ?? s.last }));
 }
 
 export const dismissToast = (): void => useToast.setState({ toast: null });
