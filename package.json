@@ -1,0 +1,23 @@
+{
+  "name": "siyasat",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Siyasat: check that the references in a paper are real, correct and not retracted.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @siyasat/core build && concurrently -k -n core,api,web -c gray,magenta,cyan \"pnpm --filter @siyasat/core dev\" \"pnpm --filter @siyasat/api dev\" \"pnpm --filter @siyasat/web dev\"",
+    "build": "pnpm --filter @siyasat/core build && pnpm --filter @siyasat/api build && pnpm --filter @siyasat/web build",
+    "start": "pnpm --filter @siyasat/api start:prod",
+    "test": "pnpm --filter @siyasat/core test && pnpm --filter @siyasat/api test",
+    "typecheck": "pnpm --filter @siyasat/core build && pnpm --filter @siyasat/api typecheck && pnpm --filter @siyasat/web typecheck",
+    "db:up": "docker compose up -d db",
+    "db:migrate": "pnpm --filter @siyasat/api db:migrate"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "packageManager": "pnpm@10.30.0"
+}

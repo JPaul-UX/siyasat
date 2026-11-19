@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// An anonymous workspace: one browser's saved checks. The token is the only credential, and only its hash is stored.
+model Workspace {
+  id         String   @id @default(uuid()) @db.Uuid
+  tokenHash  String   @unique @map("token_hash")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  checks     Check[]
+
+  @@map("workspaces")
+}
+
+/// One saved check. `doc` holds everything except the per-reference results, which live in CheckResult.
+model Check {
+  id          String        @id @db.Uuid
+  workspaceId String        @map("workspace_id") @db.Uuid
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// When the check ran, as the browser reported it. Lists are ordered by this.
+  checkedAt   DateTime      @map("checked_at") @db.Timestamptz(3)
+  doc         Json
+  /// What lists and the dashboard show, rebuilt on every write.
+  summary     Json
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  /// Set when the check is deleted, so the deletion can be undone.
+  deletedAt   DateTime?     @map("deleted_at") @db.Timestamptz(3)
+  results     CheckResult[]
+
+  @@index([workspaceId, deletedAt, checkedAt(sort: Desc)])
+  @@map("checks")
+}
+
+/// The outcome for one reference. `kind` is "results", or "refResults" for the reference list of an uploaded draft.
+model CheckResult {
+  checkId String @map("check_id") @db.Uuid
+  kind    String
+  idx     Int
+  verdict String
+  data    Json
+  check   Check  @relation(fields: [checkId], references: [id], onDelete: Cascade)
+
+  @@id([checkId, kind, idx])
+  @@index([checkId, kind, verdict])
+  @@map("check_results")
+}

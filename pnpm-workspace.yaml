@@ -1,0 +1,10 @@
+packages:
+  - packages/*
+  - apps/*
+
+# Packages allowed to run install scripts.
+onlyBuiltDependencies:
+  - '@prisma/client'
+  - '@prisma/engines'
+  - prisma
+  - esbuild
