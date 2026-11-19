@@ -188,11 +188,11 @@ mark{background:var(--gold-soft);color:var(--ink);border-bottom:2px solid var(--
 </nav>
 <main id="main" tabindex="-1"></main>
 </div>
-<script src="engine.js?v=b5"></script>
-<script src="draft.js?v=b5"></script>
-<script src="reader.js?v=b5"></script>
-<script src="upload.js?v=b5"></script>
-<script src="export.js?v=b5"></script>
+<script src="engine.js?v=b6"></script>
+<script src="draft.js?v=b6"></script>
+<script src="reader.js?v=b6"></script>
+<script src="upload.js?v=b6"></script>
+<script src="export.js?v=b6"></script>
 <script>
 const $=id=>document.getElementById(id), M=document.getElementById('main');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -379,11 +379,11 @@ function srcInfo(c,key){const si=c.sources.findIndex(s=>s.key===key);const s=c.s
   const m=r.match;const cy=s.year||+(key.split('|')[1]||0);const ry=m&&m.year;
   let flag=null;
   if(r.verdict==='retracted')flag={t:'Retracted source',cls:'ret',line:'This paper was retracted. It should not be used as evidence.'};
-  else if(r.verdict==='not_found'&&!r.orphan&&/no reference list entry/.test(r.raw||''))flag={t:"Couldn't confirm",cls:'na',line:"Couldn't confirm. An author-and-year search found no clear match. Add the full reference so Siyasat can check the exact paper"};
+  else if(r.verdict==='not_found'&&!r.orphan&&/no reference list entry/.test(r.raw||''))flag={t:'Possible hallucination',cls:'na',line:"Possible hallucination. An author-and-year search found no clear match, but this may still be a real paper. Add the full reference so Siyasat can check the exact paper"};
   else if(r.verdict==='not_found')flag={t:'AI-hallucination',cls:'bad',line:'Not found in global indexes. Siyasat abstains rather than guessing.'};
   else if(r.verdict==='error')flag={t:"Couldn't check",cls:'na',line:"We couldn't reach the databases for this source. Try again later."};
-  else if(r.weak)flag={t:"Couldn't confirm",cls:'na',line:r.note&&/unavailable/.test(r.note)?"Couldn't confirm. A database was unavailable. Try again later, or add it to your reference list":`Couldn't confirm. Papers by this author and year exist, but none clearly matches your sentence. Add it to your reference list`};
-  else if(r.orphan)flag={t:"Couldn't confirm",cls:'na',line:"Couldn't confirm. Add it to your reference list."};
+  else if(r.weak)flag={t:r.note&&/unavailable/.test(r.note)?"Couldn't check":'Possible hallucination',cls:'na',line:r.note&&/unavailable/.test(r.note)?"Couldn't check. A database was unavailable. Try again later, or add it to your reference list":`Possible hallucination. Papers by this author and year exist, but none clearly matches your sentence. Add it to your reference list`};
+  else if(r.orphan)flag={t:'Possible hallucination',cls:'na',line:"Possible hallucination. Add it to your reference list so Siyasat can check the exact paper."};
   return {s,r,m,cy,ry,flag,yearDiff:!!(m&&ry&&cy&&ry!==cy&&!/^#/.test(key)),abs:s.abstract&&s.abstract.text};}
 function evidence(c,cl,ct){const x=srcInfo(c,ct.key);const bits=[];
   if(x.flag)bits.push(x.flag.line);
@@ -423,8 +423,8 @@ function drawerHTML(c,i){const cl=c.claims[i];
     const note=x.r.verdict==='not_found'&&!x.r.orphan&&/no reference list entry/.test(x.r.raw||'')?esc(x.r.note)+' Siyasat abstains rather than guessing: without a reference list it only knows the author and year.'
       :x.r.verdict==='not_found'?esc(x.r.note||'Marked for manual checking: try your university repository or the national library.')
       :x.r.verdict==='retracted'?'Real source, but retracted. Don\'t cite it as valid evidence; cite the retraction notice if you discuss it.'
-      :x.r.weak&&/unavailable/.test(x.r.note||'')?esc(x.r.note):x.r.weak?"Couldn't confirm. Siyasat found papers by this author and year, but none whose title fits your sentence, so it shows nothing rather than guess. Add the full reference to your reference list (or check your university repository) and run the check again."
-      :x.r.orphan?"Couldn't confirm. Add it to your reference list so Siyasat can check the exact paper you meant."
+      :x.r.weak&&/unavailable/.test(x.r.note||'')?esc(x.r.note):x.r.weak?"Possible hallucination. Siyasat found papers by this author and year, but none whose title fits your sentence, so it shows nothing rather than guess. Add the full reference to your reference list (or check your university repository) and run the check again."
+      :x.r.orphan?"Possible hallucination. Add it to your reference list so Siyasat can check the exact paper you meant."
       :x.abs?'Read the abstract below, then give your verdict. Abstracts can oversell; if it matters, read the results and discussion in the full article.'
       :'No free abstract is available for this source. Open the article to check it yourself.';
     return `<section class="dsrc"><table class="diff"><thead><tr><th scope="col">Check</th><th scope="col">Your draft</th><th scope="col">The record</th></tr></thead><tbody>${rows.map(r=>`<tr><th scope="row">${r[0]}</th><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</tbody></table>
