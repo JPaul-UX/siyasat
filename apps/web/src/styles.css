@@ -1841,6 +1841,22 @@ button.vtile:hover:not(:disabled) {
   border-radius: 3px 3px 0 0;
   background: var(--maroon);
 }
+.style-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding: 2px 0 6px 12px;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.style-pick select {
+  min-height: 34px;
+  font-size: 13.5px;
+  color: var(--ink);
+}
 .tabs .n {
   font-size: 12px;
   font-weight: 650;

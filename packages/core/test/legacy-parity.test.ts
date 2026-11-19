@@ -4,6 +4,12 @@
  * fixtures/legacy-golden.json holds what the original browser code produced for a set of inputs, together
  * with the Crossref and OpenAlex responses it saw. These tests check that the TypeScript port gives the same
  * answers, so a change here that alters a verdict is a deliberate one.
+ *
+ * Where the engine now does better than the original on purpose, the case is named below with the reason,
+ * and citation-styles.test.ts says what is expected instead:
+ *  - references in MLA and IEEE style are read in full (venue, volume, issue, pages, every author);
+ *  - a compound surname matches with or without its particles ("van der Walt", "Walt");
+ *  - a list of bare DOIs, one per line, is one reference per DOI.
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -50,12 +56,26 @@ const toHtml = (segs: Segment[]) =>
   segs.map((s) => (s.m === 'n' ? `<mark class="num">${esc(s.t)}</mark>` : s.m === 'w' ? `<mark>${esc(s.t)}</mark>` : esc(s.t))).join('');
 
 describe('reference parsing', () => {
-  it.each(golden.refs.map((raw: string, i: number) => [raw.slice(0, 60), raw, golden.parse[i]]) as [string, string, any][])('parse: %s', (_n, raw, want) => {
-    expect(plain(parse(raw))).toEqual(want);
+  /** The original read these two only in part; see "reading other styles" in citation-styles.test.ts. */
+  const READ_BETTER_NOW = ['Ji, Ziwei, et al.', '[12] K. He'];
+  const apaLike: [string, string, any][] = golden.refs
+    .map((raw: string, i: number) => [raw.slice(0, 60), raw, golden.parse[i]])
+    .filter(([, raw]: [string, string, any]) => !READ_BETTER_NOW.some((start) => raw.startsWith(start)));
+
+  it.each(apaLike)('parse: %s', (_n, raw, want) => {
+    // `style` is new: the original did not say which style it had recognised.
+    const { style: _style, ...fields } = plain(parse(raw));
+    expect(fields).toEqual(want);
   });
 
-  it.each(Object.entries(golden.split))('splitEntries: %s', (_name, g: any) => {
+  it.each(Object.entries(golden.split))('splitEntries: %s', (name, g: any) => {
     expect(cleanText(g.input)).toBe(g.clean);
+    if (name === 'dois') {
+      // The original ran a list of bare DOIs together into one reference.
+      expect(g.entries).toHaveLength(1);
+      expect(splitEntries(g.input)).toEqual(['10.1038/nature14539', '10.1038/s41586-020-2649-2', 'https://doi.org/10.1016/s0140-6736(97)11096-0']);
+      return;
+    }
     expect(splitEntries(g.input)).toEqual(g.entries);
   });
 
@@ -109,6 +129,10 @@ describe('matching', () => {
       expect(apa(c)).toBe(g.apa);
       golden.refs.slice(0, 8).forEach((raw: string, i: number) => {
         const p = parse(raw);
+        // Compound surnames: the original counted "Walt" (for van der Walt) and "Gomez" (indexed as
+        // "N.Gomez") as wrong authors. Those pairs are checked in citation-styles.test.ts instead.
+        const compound = c.authors.some((a) => /[\s.]/.test(a.family.trim()) && p.surnames.some((s) => norm(a.family).endsWith(' ' + s)));
+        if (compound) return;
         expect(score(p, c)).toEqual(g.scored[i].score);
         expect(plain(diffs(p, c))).toEqual(g.scored[i].diffs);
       });
@@ -178,8 +202,35 @@ describe('verify', () => {
     expect(verdicts.size).toBeGreaterThanOrEqual(3);
   });
 
+  /** Results that are better than the original's on purpose: what changes, and why. */
+  const BETTER_NOW: [start: string, why: string, expected: (was: any) => any][] = [
+    [
+      'Harris, C. R., Millman, K. J., van der Walt',
+      'the original called a correct reference "Fix details" because "Walt" was not "van der Walt"',
+      (was) => ({ ...was, verdict: 'verified', diffs: [] }),
+    ],
+    [
+      'Vaswani, A., Shazeer, N.',
+      'the record lists one author as "N.Gomez"; citing "Gomez" is not an error',
+      (was) => ({ ...was, diffs: was.diffs.filter((d: any) => d.field !== 'Authors') }),
+    ],
+    ['Ji, Ziwei, et al.', 'the venue of an MLA reference is now read, and it matches', (was) => ({ ...was, confidence: 1 })],
+    ['[12] K. He', 'the authors of an IEEE reference are now read, and they match', (was) => ({ ...was, confidence: expect.closeTo(0.95, 5) })],
+    [
+      'World Health Organization.',
+      'an organisation as author now matches the same organisation on a record, so the closest (still wrong) record is one of its own',
+      (was) => ({ ...was, confidence: expect.any(Number), note: expect.stringContaining('No real publication matches this citation') }),
+    ],
+  ];
+
   it.each(cases.map((v: any) => [v.result.verdict, v.raw.slice(0, 70), v]) as [string, string, any][])('%s: %s', async (_verdict, _name, v) => {
-    expect(plain(await verify(v.raw, recorded))).toEqual(v.result);
+    const better = BETTER_NOW.find(([start]) => v.raw.startsWith(start));
+    const got = plain(await verify(v.raw, recorded));
+    if (!better) return expect(got).toEqual(v.result);
+    expect(got).toEqual(better[2](v.result));
+    // The verdict itself only moves where the reason says so.
+    if (better[0].startsWith('Harris')) expect([v.result.verdict, got.verdict]).toEqual(['correction', 'verified']);
+    else expect(got.verdict).toBe(v.result.verdict);
   });
 
   it('reports an error rather than "not found" when Crossref cannot be searched', async () => {

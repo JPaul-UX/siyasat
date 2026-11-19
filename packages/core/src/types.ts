@@ -23,6 +23,8 @@ export interface VenueInfo {
 /** A reference as the author wrote it, split into the fields we can recognise. */
 export interface ParsedRef {
   raw: string;
+  /** The citation style the reference was recognised as, when it was. */
+  style?: 'apa' | 'harvard' | 'mla' | 'chicago' | 'ieee' | 'vancouver' | 'acs' | 'author-date';
   doi?: string;
   year?: number;
   authorsText?: string;

@@ -2,6 +2,7 @@ import { Braces, FileDown } from 'lucide-react';
 import { useState } from 'react';
 import { download, reportFileName } from '../lib/download';
 import { loadCheck } from '../store/checks';
+import { usePrefs } from '../store/prefs';
 import { toast } from '../store/toast';
 
 /**
@@ -28,7 +29,7 @@ export function ReportButtons({
     try {
       const [check, report] = await Promise.all([loadCheck(id), import('../lib/report')]);
       if (!check) throw new Error('missing');
-      if (kind === 'html') download(reportFileName(check, 'html'), report.buildReport(check, refsView), 'text/html');
+      if (kind === 'html') download(reportFileName(check, 'html'), report.buildReport(check, refsView, usePrefs.getState().style), 'text/html');
       else download(reportFileName(check, 'json'), report.buildJson(check, refsView), 'application/json');
     } catch (e) {
       console.error(e);

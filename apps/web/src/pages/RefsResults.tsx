@@ -1,8 +1,11 @@
 import {
+  CITATION_STYLES,
   countVerdicts,
   exportableRecords,
   exportFile,
   type ExportKind,
+  styleInfo,
+  type CitationStyle,
   type RefResult,
   type ResultKind,
   type Verdict,
@@ -18,6 +21,7 @@ import { copyText, download } from '../lib/download';
 import { EXPLAIN, LABEL, MAIN_VERDICTS } from '../lib/labels';
 import { patchCheck, upsertResults } from '../store/checks';
 import { eta, resumeJob, useJobs } from '../store/jobs';
+import { setStyle, usePrefs } from '../store/prefs';
 import { toast } from '../store/toast';
 
 const PAGE_SIZE = 50;
@@ -151,6 +155,7 @@ function useVenueBackfill(view: RefsView, paused: boolean): void {
 
 export function RefsResults({ view, header }: { view: RefsView; header: ReactNode }) {
   const running = useJobs((s) => s.job?.id === view.id);
+  const style = usePrefs((s) => s.style);
   const [tab, setTab] = useState<Tab>('refs');
   const [filter, setFilter] = useState<FilterBy>('all');
   const [query, setQuery] = useState('');
@@ -319,6 +324,16 @@ export function RefsResults({ view, header }: { view: RefsView; header: ReactNod
         <button type="button" role="tab" id="tab-export" aria-selected={tab === 'export'} aria-controls="panel" onClick={() => setTab('export')}>
           Download
         </button>
+        <label className="style-pick">
+          Citation style
+          <select value={style} onChange={(e) => setStyle(e.target.value as CitationStyle)}>
+            {CITATION_STYLES.map((s) => (
+              <option value={s.id} key={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div id="panel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
@@ -362,6 +377,7 @@ export function RefsResults({ view, header }: { view: RefsView; header: ReactNod
                     r={r}
                     number={numberOf(r, position)}
                     duplicateOf={first === undefined ? undefined : numberOf(view.results[first]!, first)}
+                    style={style}
                     onOverride={(to, note) => setVerdict(view, position, to, note)}
                   />
                 );
@@ -406,7 +422,7 @@ export function RefsResults({ view, header }: { view: RefsView; header: ReactNod
         {tab === 'bib' && (
           <section className="card">
             <div className="rowh">
-              <h2 className="card-h">Corrected bibliography (APA 7)</h2>
+              <h2 className="card-h">Corrected bibliography ({styleInfo(style).name})</h2>
               <div className="page-actions">
                 <span className="meta" aria-live="polite">
                   {copied ? 'Copied. Paste it into your document.' : ''}
@@ -417,9 +433,11 @@ export function RefsResults({ view, header }: { view: RefsView; header: ReactNod
               </div>
             </div>
             <p className="help">
-              Built from the real records, sorted A–Z. References we couldn't find or that are retracted are left out and listed below.
+              Built from the real records, {styleInfo(style).numbered ? 'numbered in the order of your list' : 'sorted A–Z'}. References we
+              couldn't find or that are retracted are left out and listed below. Journal articles come out complete; a book or a chapter
+              may need its publisher added.
             </p>
-            <Bibliography results={view.results} listRef={apa} />
+            <Bibliography results={view.results} style={style} listRef={apa} />
           </section>
         )}
 

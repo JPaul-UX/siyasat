@@ -24,3 +24,5 @@ export { exportableRecords, exportFile, toBibtex, toCsv, toEndNote, toRis } from
 export type { Exportable, ExportFile, ExportKind } from './exports.js';
 export { isUnfinished, summarize, summarizeCheck } from './summary.js';
 export type { CheckMeta } from './summary.js';
+export { CITATION_STYLES, formatReference, styleInfo } from './styles.js';
+export type { Citable, CitationStyle, StyleInfo } from './styles.js';

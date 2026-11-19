@@ -67,6 +67,11 @@ const YEAR = /\((?:19|20)\d{2}[a-z]?(?:,[^)]*)?\)|\(n\.d\.\)|\b(?:19|20)\d{2}[a-
 const START =
   /^(?:[A-ZÀ-ÝÇŠŽ][\p{L}'’-]+(?:\s+(?:[A-ZÀ-Ý][\p{L}'’-]+|van|von|de|del|der|den|da|dos|du|la|le|di|y))*,\s*(?:[A-ZÀ-Ý]\.|[A-ZÀ-Ý][\p{L}'’-]+)|[A-ZÀ-Ý][\p{L}&'’ .-]{2,80}\.\s*\((?:19|20)\d{2})/u;
 const NUM = /^\s*(\[\d{1,3}\]|\d{1,3}[.)])\s+/;
+const HAS_DOI = /10\.\d{4,9}\//;
+/** A line that is nothing but a DOI, bare or as a link. */
+const DOI_ONLY = /^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)?10\.\d{4,9}\/\S+$/i;
+/** Long enough, and dated or identified: text that can be a whole reference on its own, in any style. */
+const standsAlone = (s: string) => s.length > 25 && (/\b(?:1[5-9]|20)\d{2}[a-z]?\b/.test(s) || HAS_DOI.test(s));
 
 /** Split a reference list into entries, even when every line is hard-wrapped (as when copying from a PDF). */
 export function splitEntries(input?: string | null): string[] {
@@ -77,11 +82,9 @@ export function splitEntries(input?: string | null): string[] {
     .split(/\n\s*\n/)
     .map((b) => b.trim())
     .filter(Boolean);
-  const complete = (b: string) => YEAR.test(b) || /10\.\d{4,9}\//.test(b);
-  if (
-    blocks.length > 1 &&
-    blocks.filter((b) => complete(b) && b.length > 25 && (START.test(b) || NUM.test(b))).length >= blocks.length * 0.8
-  ) {
+  const complete = (b: string) => YEAR.test(b) || HAS_DOI.test(b);
+  // References separated by blank lines: each block is one reference, however its lines are wrapped.
+  if (blocks.length > 1 && blocks.filter(standsAlone).length >= blocks.length * 0.8) {
     return blocks.map(fin).filter((p) => p.length > 8);
   }
   const lines = txt
@@ -89,10 +92,21 @@ export function splitEntries(input?: string | null): string[] {
     .map((l) => l.trim())
     .filter(Boolean);
   const numbered = lines.filter((l) => NUM.test(l)).length >= Math.max(2, lines.length * 0.15);
+  // One whole reference on each line, in any citation style: nearly every line stands alone.
+  const written = lines.filter((l) => !DOI_ONLY.test(l));
+  const perLine = written.length > 1 && written.filter(standsAlone).length >= written.length * 0.8;
   const out: string[] = [];
   let cur = '';
   for (const l of lines) {
-    const isStart = numbered ? NUM.test(l) : START.test(l) && (!cur || complete(cur));
+    const isStart = numbered
+      ? NUM.test(l)
+      : DOI_ONLY.test(l)
+        ? // A DOI on its own line belongs to the reference above it, unless that one already has a DOI.
+          !!cur && HAS_DOI.test(cur)
+        : perLine
+          ? true
+          : // Hard-wrapped text: only a line that begins like an author list starts a new reference.
+            START.test(l) && (!cur || complete(cur));
     if (isStart && cur) {
       out.push(cur);
       cur = l;

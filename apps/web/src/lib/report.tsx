@@ -1,5 +1,5 @@
 /* The downloadable reports: a standalone HTML page to print or share, and the same facts as JSON. */
-import type { Check, DraftCheck, RefResult } from '@siyasat/core';
+import { styleInfo, type Check, type CitationStyle, type DraftCheck, type RefResult } from '@siyasat/core';
 import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Badge, Chevron } from '../components/bits';
@@ -41,7 +41,7 @@ export interface RefsReportView {
   results: RefResult[];
 }
 
-function refsReport(c: RefsReportView): string {
+function refsReport(c: RefsReportView, style: CitationStyle): string {
   const dups = duplicates(c.results);
   const number = (r: RefResult, position: number) => (r.i ?? position) + 1;
   return page(
@@ -71,8 +71,8 @@ function refsReport(c: RefsReportView): string {
         })}
       </section>
       <section className="card">
-        <h2>Corrected bibliography (APA 7)</h2>
-        <Bibliography results={c.results} />
+        <h2>Corrected bibliography ({styleInfo(style).name})</h2>
+        <Bibliography results={c.results} style={style} />
       </section>
     </>,
   );
@@ -168,11 +168,14 @@ function draftReport(c: DraftCheck): string {
   );
 }
 
-/** The report for a check, or for the reference list of an uploaded draft when `refsView` is set. */
-export function buildReport(c: Check, refsView = false): string {
+/**
+ * The report for a check, or for the reference list of an uploaded draft when `refsView` is set. The
+ * corrected bibliography in it is written in the given citation style.
+ */
+export function buildReport(c: Check, refsView = false, style: CitationStyle = 'apa'): string {
   if (c.type === 'draft' && !refsView) return draftReport(c);
-  if (c.type === 'draft') return refsReport({ name: c.name, date: c.date, score: c.refScore ?? 0, results: c.refResults ?? [] });
-  return refsReport(c);
+  if (c.type === 'draft') return refsReport({ name: c.name, date: c.date, score: c.refScore ?? 0, results: c.refResults ?? [] }, style);
+  return refsReport(c, style);
 }
 
 const refsJson = (c: RefsReportView) => ({

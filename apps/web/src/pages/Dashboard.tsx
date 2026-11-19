@@ -91,14 +91,14 @@ function Welcome() {
         </h1>
         <p>
           AI tools sometimes invent references or get the details wrong. Siyasat looks each one up in scholarly databases, flags retracted
-          papers, and hands you a corrected APA 7 list.
+          papers, and hands you a corrected list in APA, MLA, Chicago, Harvard, IEEE or Vancouver style.
         </p>
         <ul className="hero-points">
           <li>
             <Check className="ic" aria-hidden="true" /> Free, no account needed
           </li>
           <li>
-            <Check className="ic" aria-hidden="true" /> Any citation style
+            <Check className="ic" aria-hidden="true" /> Reads and writes any common citation style
           </li>
           <li>
             <Check className="ic" aria-hidden="true" /> Checked against Crossref and OpenAlex

@@ -3,9 +3,22 @@
 # Siyasat
 
 Siyasat checks whether the references in a paper are real, correct, and not retracted. It looks each one up in
-Crossref and OpenAlex, shows what differs from the official record, and builds a corrected APA 7 bibliography.
+Crossref and OpenAlex, shows what differs from the official record, and builds a corrected bibliography.
 A draft check puts each cited sentence next to its source's abstract, so the author can judge whether the source
 supports it.
+
+## Citation styles
+
+References can be pasted in any common style, and mixed in one list: APA, Harvard, MLA, Chicago (author-date
+and notes), IEEE, Vancouver, AMA and ACS are each recognised by their shape, so a wrong year, author, volume
+or page range is caught whichever style it is written in (`packages/core/src/parse.ts`). A reference in no
+recognisable shape is still matched, on its DOI or on how much of a record's title appears in it.
+
+The corrected bibliography, the "copy corrected reference" button and the downloaded report can be written in
+APA 7, MLA 9, Chicago author-date, Harvard, IEEE or Vancouver (`packages/core/src/styles.ts`). IEEE and
+Vancouver lists are numbered in the order of the list that was checked; the others are sorted by author.
+Journal articles come out complete. For a book or a chapter the databases do not give the publisher or the
+editors, so those entries need finishing by hand.
 
 ## How it is built
 
@@ -74,7 +87,10 @@ The API reads these from the environment (`apps/api/.env` in development).
 
 `packages/core/test/legacy-parity.test.ts` checks the TypeScript engine against recorded output of the original
 browser-only version of Siyasat (`test/fixtures/legacy-golden.json`), including the Crossref and OpenAlex
-responses it saw. A change that alters a verdict fails there, so it has to be deliberate.
+responses it saw. A change that alters a verdict fails there, so it has to be deliberate; the few places where
+the engine now does better than the original on purpose are named in that file with the reason.
+
+`packages/core/test/citation-styles.test.ts` covers reading, checking and writing each citation style.
 
 ## Deploying
 

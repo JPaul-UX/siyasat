@@ -1,8 +1,9 @@
 /* One checked reference, and the corrected bibliography built from all of them. Also used in downloaded reports. */
-import { stripTags, type Match, type RefResult, type Verdict } from '@siyasat/core';
+import { stripTags, styleInfo, type CitationStyle, type Match, type RefResult, type Verdict } from '@siyasat/core';
 import { ArrowRight, Copy, ExternalLink, FileText, Link2, SlidersHorizontal } from 'lucide-react';
 import { useState, type Ref } from 'react';
 import { EXPLAIN, LABEL, MAIN_VERDICTS } from '../lib/labels';
+import { referenceIn } from '../lib/reference';
 import { ApaText, Badge, CopyButton, External, NewTab, plainApa, plainTitle, ReadButton } from './bits';
 
 /** Only link to web addresses: a record's "free PDF" link comes from a database, not from us. */
@@ -89,12 +90,15 @@ interface RefItemProps {
   duplicateOf?: number;
   /** In a downloaded report there is nothing to click except links. */
   report?: boolean;
+  /** The citation style "Copy corrected reference" writes. */
+  style?: CitationStyle;
   onOverride?: (to: Verdict, note: string) => void;
 }
 
-export function RefItem({ r, number, duplicateOf, report = false, onOverride }: RefItemProps) {
+export function RefItem({ r, number, duplicateOf, report = false, style = 'apa', onOverride }: RefItemProps) {
   const [changing, setChanging] = useState(false);
   const m = r.match;
+  const corrected = r.verdict === 'retracted' ? null : referenceIn(r, style);
   const doiFix =
     (r.diffs || []).find((d) => d.field === 'DOI') ||
     (r.verdict === 'correction' && m?.doi && !/10\.\d{4,9}\//.test(r.raw) ? { cited: '(none)', actual: m.doi, add: true } : null);
@@ -193,7 +197,7 @@ export function RefItem({ r, number, duplicateOf, report = false, onOverride }: 
       )}
       {!report && (
         <div className="item-foot">
-          {r.apa && r.verdict !== 'retracted' && <CopyButton text={plainApa(r.apa)} label="Copy corrected reference" />}
+          {corrected && <CopyButton text={plainApa(corrected)} label={`Copy corrected reference (${styleInfo(style).name})`} />}
           {onOverride && (
             <button type="button" className="link" aria-expanded={changing} onClick={() => setChanging((open) => !open)}>
               <SlidersHorizontal className="ic" aria-hidden="true" /> Change this verdict
@@ -220,8 +224,12 @@ export function RefItem({ r, number, duplicateOf, report = false, onOverride }: 
   );
 }
 
-/** The corrected APA 7 bibliography: confirmed references A–Z, and a list of what was left out. */
-export function Bibliography({ results, listRef }: { results: RefResult[]; listRef?: Ref<HTMLDivElement> }) {
+/**
+ * The corrected bibliography in a citation style, and a list of what was left out of it. Styles that number
+ * their references keep the order of the list that was checked; the others are sorted A–Z.
+ */
+export function Bibliography({ results, style = 'apa', listRef }: { results: RefResult[]; style?: CitationStyle; listRef?: Ref<HTMLDivElement> }) {
+  const info = styleInfo(style);
   const seen = new Set<string>();
   const entries = results
     .filter((r) => {
@@ -231,8 +239,8 @@ export function Bibliography({ results, listRef }: { results: RefResult[]; listR
       if (r.match) seen.add(doi ?? '');
       return true;
     })
-    .map((r) => r.apa!)
-    .sort((a, b) => stripTags(a).localeCompare(stripTags(b)));
+    .map((r) => referenceIn(r, style) ?? r.apa!);
+  if (!info.numbered) entries.sort((a, b) => stripTags(a).localeCompare(stripTags(b)));
   const leftOut = results.filter((r) => ['not_found', 'retracted', 'error'].includes(r.verdict));
   return (
     <>
@@ -240,6 +248,7 @@ export function Bibliography({ results, listRef }: { results: RefResult[]; listR
         {entries.length ? (
           entries.map((entry, i) => (
             <p key={i}>
+              {info.label && info.label(i + 1) + ' '}
               <ApaText html={entry} />
             </p>
           ))

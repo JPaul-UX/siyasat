@@ -1,5 +1,5 @@
 /* Turning Crossref and OpenAlex records into candidates, and comparing a candidate with what the author wrote. */
-import { coverage, norm, sim } from './text.js';
+import { coverage, norm, sim, toks } from './text.js';
 import type { Candidate, Diff, Match, MatchScore, ParsedRef, RefResult, Verdict, VenueInfo, VerdictCounts } from './types.js';
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- the upstream records are loosely shaped JSON */
@@ -68,11 +68,51 @@ export function fromOpenAlex(w: Json): Candidate {
   };
 }
 
+/** Words that lead into a surname without being a name of their own: "van der Walt", "dela Cruz". */
+const PARTICLES = new Set('de del dela della der den des di da das do dos du el la las le los san santa st ten ter van von bin ibn al'.split(' '));
+
+/**
+ * Whether a surname as cited is the family name on a record. Compound surnames are written and indexed in
+ * more than one way, so these count as the same name:
+ *  - with or without its particles: "Cruz" for "Dela Cruz", "Walt" for "van der Walt";
+ *  - a double surname by its first part: "García" for "García Márquez".
+ * A stray initial in the record ("N.Gomez") is treated like a particle. "Smith" is not "Walker-Smith".
+ */
+function sameSurname(cited: string, family: string): boolean {
+  const a = norm(cited).split(' ').filter(Boolean);
+  const b = norm(family).split(' ').filter(Boolean);
+  if (!a.length || !b.length) return false;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  const extra = long.length - short.length;
+  const startsWith = short.every((w, i) => long[i] === w);
+  const endsWith = short.every((w, i) => long[extra + i] === w);
+  return startsWith || (endsWith && long.slice(0, extra).every((w) => PARTICLES.has(w) || w.length === 1));
+}
+const cites = (p: ParsedRef, c: Candidate) => (s: string) => c.authors.some((a) => sameSurname(s, a.family));
+
+/** "436–44" means 436–444: write a page range out in full so that both spellings compare equal. */
+function fullPages(pages: string): string {
+  const m = pages.replace(/\s/g, '').match(/^(\d+)[–-](\d+)$/);
+  if (!m) return norm(pages);
+  const [, start, end] = m as unknown as [string, string, string];
+  return start + ' ' + (end.length < start.length ? start.slice(0, start.length - end.length) + end : end);
+}
+
+/**
+ * How much of a venue as cited survives as the start of a word in the record's venue. Journals are often
+ * cited by abbreviation ("N Engl J Med", "Proc. IEEE CVPR"), which shares few whole words with the full name.
+ */
+function abbreviates(cited: string, actual: string): number {
+  const short = toks(cited);
+  const long = toks(actual);
+  if (!short.length || !long.length) return 0;
+  return short.filter((w) => long.some((full) => full.startsWith(w))).length / short.length;
+}
+
 /** How well a candidate record matches the parsed reference. `total` is 0 to 1. */
 export function score(p: ParsedRef, c: Candidate): MatchScore {
   const tSim = p.title ? sim(p.title, c.title) : coverage(c.title, p.raw);
-  const fam = c.authors.map((a) => norm(a.family));
-  const aOk = p.surnames.length ? p.surnames.filter((s) => fam.includes(norm(s))).length / p.surnames.length : 0.5;
+  const aOk = p.surnames.length ? p.surnames.filter(cites(p, c)).length / p.surnames.length : 0.5;
   const yOk = p.year && c.year ? (Math.abs(p.year - c.year) === 0 ? 1 : Math.abs(p.year - c.year) <= 1 ? 0.6 : 0) : 0.5;
   const vOk = p.venue && c.venue ? Math.max(sim(p.venue, c.venue), coverage(c.venue, p.raw)) : 0.5;
   const doiOk = p.doi && c.doi && p.doi.toLowerCase() === c.doi ? 1 : 0;
@@ -92,11 +132,10 @@ const REPOST_NOTE =
 /** The details that differ between what the author wrote and the official record. */
 export function diffs(p: ParsedRef, c: Candidate): Diff[] {
   const out: Diff[] = [];
-  const fam = c.authors.map((a) => norm(a.family));
 
   if (p.surnames.length) {
-    const miss = p.surnames.filter((s) => !fam.includes(norm(s)));
-    if (miss.length || (c.authors[0] && norm(p.surnames[0]) !== norm(c.authors[0].family))) {
+    const miss = p.surnames.filter((s) => !cites(p, c)(s));
+    if (miss.length || (c.authors[0] && !sameSurname(p.surnames[0]!, c.authors[0].family))) {
       out.push({
         field: 'Authors',
         cited: p.authorsText || p.surnames.join(', '),
@@ -116,19 +155,19 @@ export function diffs(p: ParsedRef, c: Candidate): Diff[] {
     out.push({ field: 'Year', cited: String(p.year), actual: String(c.year), suspect, note: suspect ? REPOST_NOTE : '' });
   }
   if (p.title && sim(p.title, c.title) < 0.9) out.push({ field: 'Title', cited: p.title, actual: c.title });
-  if (p.venue && c.venue && sim(p.venue, c.venue) < 0.6 && coverage(c.venue, p.raw) < 0.8) {
+  if (p.venue && c.venue && sim(p.venue, c.venue) < 0.6 && coverage(c.venue, p.raw) < 0.8 && abbreviates(p.venue, c.venue) < 0.6) {
     out.push({ field: 'Venue', cited: p.venue, actual: c.venue });
   }
   if (p.volume && c.volume && p.volume !== String(c.volume)) {
     out.push({ field: 'Volume', cited: p.volume, actual: String(c.volume) });
   }
-  if (p.pages && c.pages && norm(p.pages) !== norm(c.pages)) out.push({ field: 'Pages', cited: p.pages, actual: c.pages });
+  if (p.pages && c.pages && fullPages(p.pages) !== fullPages(c.pages)) out.push({ field: 'Pages', cited: p.pages, actual: c.pages });
   if (p.doi && c.doi && p.doi.toLowerCase() !== c.doi) out.push({ field: 'DOI', cited: p.doi, actual: c.doi });
   return out;
 }
 
 /** An APA 7 reference for a record. The venue and volume are wrapped in <i> tags. */
-export function apa(c: Pick<Candidate, 'authors' | 'year' | 'title' | 'venue' | 'volume' | 'issue' | 'pages' | 'doi'>): string {
+export function apa(c: Pick<Match, 'authors' | 'year' | 'title' | 'venue' | 'volume' | 'issue' | 'pages' | 'doi'>): string {
   const au = c.authors.filter((a) => a.family);
   const fmt = (a: { family: string; given: string }) =>
     a.family +
