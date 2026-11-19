@@ -71,7 +71,7 @@ function finish(c){S.step=4;S.pct=100;S.text='Done!';S.running=false;paint();con
 function summary(c){if(!c.combo||!c.refResults)return '';const k=counts(c.refResults);const w=c.claims.filter(x=>!x.judgment).length;
   return `<section class="card combo" aria-labelledby="cmbH"><h2 id="cmbH">Summary of ${esc(c.file||c.name)}</h2>
   <p class="help">We checked <b>${c.refResults.length} references</b> and <b>${c.claims.length} cited sentences</b>.</p>
-  <div class="combo-grid">${[['verified','Looks good'],['correction','Fix details'],['not_found',"Can't find it"],['retracted','Retracted']].map(([v,l])=>`<a class="ctile v-${v}" href="#/results/${c.id}/refs"><b>${k[v]||0}</b><span class="badge ${v}">${l}</span></a>`).join('')}
+  <div class="combo-grid">${[['verified','Looks good'],['correction','Fix details'],['not_found','AI-hallucination'],['retracted','Retracted']].map(([v,l])=>`<a class="ctile v-${v}" href="#/results/${c.id}/refs"><b>${k[v]||0}</b><span class="badge ${v}">${l}</span></a>`).join('')}
    ${k.uncertain?`<a class="ctile" href="#/results/${c.id}/refs"><b>${k.uncertain}</b><span class="badge uncertain">Double-check</span></a>`:''}
    <a class="ctile wait" href="#claims"><b>${w}</b><span>Claims waiting for your call</span></a></div>
   <div class="actions"><a class="btn primary" href="#/results/${c.id}/refs">See reference results →</a><a class="btn ghost" href="#claims" data-goclaims>Go to claims ↓</a></div></section>`;}

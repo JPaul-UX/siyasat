@@ -188,17 +188,17 @@ mark{background:var(--gold-soft);color:var(--ink);border-bottom:2px solid var(--
 </nav>
 <main id="main" tabindex="-1"></main>
 </div>
-<script src="engine.js?v=b4"></script>
-<script src="draft.js?v=b4"></script>
-<script src="reader.js?v=b4"></script>
-<script src="upload.js?v=b4"></script>
-<script src="export.js?v=b4"></script>
+<script src="engine.js?v=b5"></script>
+<script src="draft.js?v=b5"></script>
+<script src="reader.js?v=b5"></script>
+<script src="upload.js?v=b5"></script>
+<script src="export.js?v=b5"></script>
 <script>
 const $=id=>document.getElementById(id), M=document.getElementById('main');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const KEY='siyasat.checks.v1';
 const load=()=>{try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]}}, save=a=>localStorage.setItem(KEY,JSON.stringify(a));
-const LABEL={verified:'✓ Looks good',correction:'✎ Fix details',uncertain:'? Double-check',not_found:"✕ Can't find it",retracted:'⚠ Retracted',error:"! Couldn't check"};
+const LABEL={verified:'✓ Looks good',correction:'✎ Fix details',uncertain:'? Double-check',not_found:'✕ AI-hallucination',retracted:'⚠ Retracted',error:"! Couldn't check"};
 const EXPLAIN={verified:'This source is real and the details you wrote match the official record.',correction:'This source is real, but some details are wrong. Use the corrected version below.',uncertain:"We found a similar record but couldn't confirm the original publication. Check it yourself before citing.",not_found:"We searched Crossref and OpenAlex and found no paper that matches. This is the classic sign of an AI hallucination (a made-up source). Don't cite it unless you can find the real source.",retracted:"This paper was officially withdrawn by its journal. Don't use it as evidence in your work.",error:"We couldn't reach the databases for this one. Check your internet connection and try again."};
 const SAMPLE=`Navarro, R. T., & Kim, S. (2020). Psychological distress and depressive symptoms during COVID-19 lockdowns: A longitudinal study of twelve countries. International Journal of Pandemic Mental Health, 8(2), 145–162.
 LeCun, Y., Bengio, Y., & Hinton, G. (2015). Deep learning. Nature, 521(7553), 436–444.
@@ -226,7 +226,7 @@ function dashboard(){
   <div class="stats" role="list">
    <div class="stat" role="listitem"><b>${cs.length}</b><span>Checks run ${tip('How many checks you have run.')}</span></div>
    <div class="stat" role="listitem"><b>${k.verified+k.correction}</b><span>Sources confirmed real ${tip('References found in the databases (including ones that only needed small fixes).')}</span></div>
-   <div class="stat" role="listitem"><b>${k.not_found}</b><span>Possibly fake ${tip("References we couldn't find anywhere. These may have been made up by AI.")}</span></div>
+   <div class="stat" role="listitem"><b>${k.not_found}</b><span>AI-hallucinations ${tip("References we couldn't find anywhere. These may have been made up by AI.")}</span></div>
    <div class="stat" role="listitem"><b>${k.retracted}</b><span>Retracted ${tip('Papers that were officially withdrawn by their journal.')}</span></div>
    <div class="stat hl" role="listitem"><b>${avg}/100</b><span>Average integrity score ${tip('100 means every reference was found with correct details. Lower means more problems.')}</span></div>
   </div>
@@ -380,7 +380,7 @@ function srcInfo(c,key){const si=c.sources.findIndex(s=>s.key===key);const s=c.s
   let flag=null;
   if(r.verdict==='retracted')flag={t:'Retracted source',cls:'ret',line:'This paper was retracted. It should not be used as evidence.'};
   else if(r.verdict==='not_found'&&!r.orphan&&/no reference list entry/.test(r.raw||''))flag={t:"Couldn't confirm",cls:'na',line:"Couldn't confirm. An author-and-year search found no clear match. Add the full reference so Siyasat can check the exact paper"};
-  else if(r.verdict==='not_found')flag={t:"Can't find it",cls:'bad',line:'Not found in global indexes. Siyasat abstains rather than guessing.'};
+  else if(r.verdict==='not_found')flag={t:'AI-hallucination',cls:'bad',line:'Not found in global indexes. Siyasat abstains rather than guessing.'};
   else if(r.verdict==='error')flag={t:"Couldn't check",cls:'na',line:"We couldn't reach the databases for this source. Try again later."};
   else if(r.weak)flag={t:"Couldn't confirm",cls:'na',line:r.note&&/unavailable/.test(r.note)?"Couldn't confirm. A database was unavailable. Try again later, or add it to your reference list":`Couldn't confirm. Papers by this author and year exist, but none clearly matches your sentence. Add it to your reference list`};
   else if(r.orphan)flag={t:"Couldn't confirm",cls:'na',line:"Couldn't confirm. Add it to your reference list."};
@@ -652,7 +652,7 @@ function results(id){
     ${['verified','correction','uncertain','not_found','retracted'].map(v=>`<div class="tile"><span class="badge ${v}">${LABEL[v]}</span><b>${k[v]}</b></div>`).join('')}
    </div>
    <ul class="legend" aria-label="What the labels mean">${['verified','correction','uncertain','not_found','retracted'].map(v=>`<li><span class="badge ${v}">${LABEL[v]}</span><br>${EXPLAIN[v]}</li>`).join('')}</ul>
-   <p class="decide"><b>How Siyasat decides:</b> ${LABEL.verified} = Verified · ${LABEL.correction} = Minor error · ${LABEL.not_found} = Possible AI hallucination · ${LABEL.retracted} = Retracted. Repeated sources are flagged ⧉ Duplicate. Unlike citation-only checkers, Siyasat also flags retracted papers, screens review libraries (RIS/BibTeX), and lets you check each claim against its source. You can change any verdict if you know better.</p>
+   <p class="decide"><b>How Siyasat decides:</b> ${LABEL.verified} = Verified · ${LABEL.correction} = Minor error · ${LABEL.not_found} = Not found in any database (likely made up) · ${LABEL.retracted} = Retracted. Repeated sources are flagged ⧉ Duplicate. Unlike citation-only checkers, Siyasat also flags retracted papers, screens review libraries (RIS/BibTeX), and lets you check each claim against its source. You can change any verdict if you know better.</p>
   </section>
   <section class="card"><h2>Each reference</h2><div class="filters" role="group" aria-label="Show"><button aria-pressed="${STATE.filter==='all'}" data-f="all">All (${c.results.length})</button><button aria-pressed="${STATE.filter==='problems'}" data-f="problems">Only problems (${c.results.length-k.verified})</button></div><div id="list">${itemList(c)}</div></section>
   <section class="card"><h2>Corrected bibliography (APA 7)</h2><p class="help">Built from the real records, sorted A–Z. References we couldn't find or that are retracted are left out and listed below.</p>${bib(c)}
@@ -700,7 +700,7 @@ function bib(c){const seen=new Set();const ok=c.results.filter(r=>r.apa&&r.verdi
 /* ---------- Reports ---------- */
 function reports(){const cs=load();
   return `<h1 class="page-h">Reports</h1><p class="lead">Timestamped verification reports you can show your adviser or panel. Each verdict links to its evidence.</p>
-  <section class="card">${cs.length?`<ul class="recent">${cs.map(c=>{const k=counts(c.results);return `<li><div class="t">${c.type==='draft'?`<b>Claim-faithfulness report · ${esc(c.name)}</b><small>${fmtDate(c.date)} · ${c.claims.length} claims · verdicts by you</small></div><span class="pill ${draftSummary(c).cls}">${esc(draftSummary(c).t)}</span>`:`<b>Verification report · ${esc(c.name)}</b><small>${fmtDate(c.date)} · ${c.results.length} references · ${k.not_found} possibly fake · ${k.retracted} retracted</small></div><span class="score-chip">${c.score}/100</span>`}
+  <section class="card">${cs.length?`<ul class="recent">${cs.map(c=>{const k=counts(c.results);return `<li><div class="t">${c.type==='draft'?`<b>Claim-faithfulness report · ${esc(c.name)}</b><small>${fmtDate(c.date)} · ${c.claims.length} claims · verdicts by you</small></div><span class="pill ${draftSummary(c).cls}">${esc(draftSummary(c).t)}</span>`:`<b>Verification report · ${esc(c.name)}</b><small>${fmtDate(c.date)} · ${c.results.length} references · ${k.not_found} AI-hallucinations · ${k.retracted} retracted</small></div><span class="score-chip">${c.score}/100</span>`}
    <button class="ghost" data-rep="${c.id}">Download report<span class="sr"> for ${esc(c.name)}</span></button><button class="link" data-json="${c.id}">JSON</button></li>`}).join('')}</ul>
    <p class="help" style="margin-top:12px">Tip: open the downloaded report and use your browser's <b>Print → Save as PDF</b>.</p>`
    :`<div class="empty"><span class="big" aria-hidden="true">📄</span>No reports yet. Every check you run creates a report here.<div class="actions" style="justify-content:center"><a class="btn primary" href="#/new">Start a check</a></div></div>`}</section>`;}

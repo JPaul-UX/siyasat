@@ -9,7 +9,7 @@ const au = m => (m.authors||[]).filter(a=>a.family);
 const risType = t => /book-chapter/.test(t||'')?'CHAP':/book/.test(t||'')?'BOOK':/proceedings/.test(t||'')?'CONF':/posted|preprint/.test(t||'')?'UNPB':'JOUR';
 const pg = p => String(p||'').split(/[–-]/);
 function csvCell(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
-function csv(c){ const L={verified:'Looks good (verified)',correction:'Fix details (minor error)',uncertain:'Double-check',not_found:"Can't find it (possible AI hallucination)",retracted:'Retracted',error:"Couldn't check"};
+function csv(c){ const L={verified:'Looks good (verified)',correction:'Fix details (minor error)',uncertain:'Double-check',not_found:'AI-hallucination (not found in any database)',retracted:'Retracted',error:"Couldn't check"};
   const head=['#','You wrote','Verdict','Overridden by you','Your note','Match confidence','DOI','DOI link','Title','Authors','Year','Venue','Volume','Issue','Pages','Differences','Open-access link','APA 7'];
   const rows=c.results.map((r,i)=>{const m=r.match||{};const v=m.ven||{};return [ (r.i!=null?r.i:i)+1, r.raw, L[r.verdict]||r.verdict, r.auto?('yes (was '+(L[r.auto]||r.auto)+')'):'', r.ovNote||'',
     r.confidence!=null?Math.round(r.confidence*100)+'%':'', m.doi||'', m.doi?'https://doi.org/'+m.doi:'', m.title||'', au(m).map(a=>a.family+(a.given?', '+a.given:'')).join('; '), m.year||'', m.venue||v.name||'', m.volume||'', m.issue||'', m.pages||'',
