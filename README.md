@@ -55,9 +55,12 @@ worked examples with the checker's own functions.
 Lookups go through the API rather than straight from the browser so that API keys stay on the server, answers are
 cached, and all users together stay inside each database's rate limit (`apps/api/src/upstream`).
 
-There are no accounts. The first visit creates an anonymous workspace, and the browser keeps its token in local
-storage. Whoever holds the token can read that workspace's checks, so clearing site data, or using another
-browser, starts a new empty workspace.
+Visitors land on a public page. They log in, or they request access. A new account is **pending** until an admin
+approves it. Pending and rejected accounts can log in, but they only see a waiting message: the checker and every
+API route it uses refuse them. Passwords are hashed. The login is an httpOnly cookie the page script cannot read.
+
+Each approved person has their own saved checks. Checks made before accounts existed were tied to a browser, not
+to a person, and are not carried over.
 
 ## Look and feel
 
@@ -77,11 +80,13 @@ You need Node 22 or newer, pnpm, and Docker (for Postgres).
 
 ```sh
 pnpm install
-cp apps/api/.env.example apps/api/.env   # then set CONTACT_EMAIL, and OPENALEX_API_KEY if you have one
+cp apps/api/.env.example apps/api/.env   # then set CONTACT_EMAIL, ADMIN_EMAIL, ADMIN_PASSWORD, and OPENALEX_API_KEY if you have one
 pnpm db:up                               # Postgres on localhost:5433
 pnpm db:migrate                          # create the tables
 pnpm dev                                 # API on :3000, web on :5173
 ```
+
+Log in locally with `ADMIN_EMAIL` and `ADMIN_PASSWORD` from that file. Leave them empty only if you are not testing approval. Production will not start without them.
 
 Open http://localhost:5173. The web dev server passes `/api` requests on to the API.
 
@@ -106,6 +111,8 @@ The API reads these from the environment (`apps/api/.env` in development).
 | `OPENALEX_API_KEY` | recommended | Free key from [openalex.org](https://openalex.org). Since February 2026 OpenAlex refuses most title searches without one, and Siyasat then relies on Crossref alone |
 | `SEMANTIC_SCHOLAR_API_KEY` | no | Raises the rate limit for abstracts from Semantic Scholar |
 | `PUBLIC_URL` | no | The site's public address, used in link previews. Without it, the address each page was requested on is used |
+| `ADMIN_EMAIL` | **yes in production** | The email you log in with. The app creates this admin account on startup |
+| `ADMIN_PASSWORD` | **yes in production** | The password for that account. At least 8 characters. Changing it and restarting updates the password |
 
 ## Tests
 
@@ -119,35 +126,74 @@ each kind of work. `casing.test.ts` and `journals.test.ts` cover capitalisation 
 the hard cases: names, abbreviations, titles in capitals, titles not in English, and what is lost when there
 is no abstract.
 
-## Deploying
+## Railway: turn on logins
 
-The repository deploys to Railway as one service plus a Postgres database. `Dockerfile` builds all three
-packages; the container applies database migrations and starts the API, which serves the web app. `railway.json`
-tells Railway to use the Dockerfile and to wait for `/api/health` before sending traffic.
+Do this **before** you merge and deploy. If these are missing, the new version will refuse to start.
+
+Accounts and saved checks live in the Postgres database this app already uses. You do **not** add a disk volume,
+and you do **not** create a second database. Postgres is the right place because the checker already stores its
+results there, and Railway keeps that database when the app updates. A file on the server's disk would be wiped
+on the next deploy.
+
+### 1. Open the variables
+
+In Railway, open the Siyasat service (the one that runs the website), then the **Variables** tab.
+
+### 2. Add your login
+
+| Variable | What to type |
+| --- | --- |
+| `ADMIN_EMAIL` | The email you will use to log in. Example: `you@example.com` |
+| `ADMIN_PASSWORD` | A password you choose. At least 8 characters. This is your login password. Do not put it in the code. |
+| `NODE_ENV` | `production` |
+| `DATABASE_URL` | Should already be `${{Postgres.DATABASE_URL}}`. If it is empty, set it to exactly that, including the `${{ }}`. |
+
+`CONTACT_EMAIL` and `OPENALEX_API_KEY` are unchanged. Keep them if they are already set. Crossref and OpenAlex work better with them.
+
+### 3. Deploy
+
+Merge the pull request, or redeploy the service after the variables are saved. Railway rebuilds the app. On startup it updates the database (new tables for accounts) and creates your admin login from `ADMIN_EMAIL` and `ADMIN_PASSWORD`. You do not sign up for that account on the website.
+
+If you later change `ADMIN_PASSWORD` in Railway and redeploy, your login password changes to the new one.
+
+### 4. Approve people
+
+1. Open the site and click **Log in**.
+2. Enter the email and password from step 2.
+3. In the left sidebar, click **Access**. On a phone, **Access** is in the top bar.
+4. Under **Waiting for approval**, click **Approve**.
+
+They can then log in and use the checker. **Reject** turns down a request. **Revoke** takes the checker away from someone you already approved. They can still log in, and they see "Waiting for approval" instead of the checker.
+
+The app is one Railway service, same as before. `Dockerfile` builds it, applies database migrations, and starts the API, which also serves the website. `railway.json` tells Railway to use the Dockerfile and to wait for `/api/health` before sending traffic.
 
 ```sh
 railway up        # build and deploy the current directory
 railway logs      # follow the service's logs
 ```
 
-The service needs `DATABASE_URL` (set it to `${{Postgres.DATABASE_URL}}`), `NODE_ENV=production`, and the
-optional settings above.
-
 ## API
 
-Every route is under `/api`. All but the first two need `Authorization: Bearer <workspace token>`.
-`packages/core/src/api.ts` has the request and response types.
+Every route is under `/api`. The checker routes require a logged-in, approved user. The browser sends the
+httpOnly session cookie; there is no bearer token. `packages/core/src/api.ts` has the request and response types.
 
-| Route | Purpose |
-| --- | --- |
-| `GET /health` | Is the service up and the database reachable |
-| `POST /workspaces` | Start an anonymous workspace; answers with its token |
-| `POST /verify` | Check one reference |
-| `POST /draft/source` | Check one source cited in a draft, and fetch its abstract |
-| `GET /enrich?doi=` | Venue and open-access details for a DOI |
-| `POST /journals/abbreviations` | The NLM Catalog's abbreviations for journals, by ISSN |
-| `GET /fulltext?doi=` | A free full text for a DOI, when one exists |
-| `GET /checks` | Summaries of the workspace's saved checks |
-| `GET`, `PUT`, `PATCH`, `DELETE /checks/:id` | Read, save, change, or delete one check |
-| `POST /checks/:id/results` | Add results to a check, or replace the ones at the same positions |
-| `DELETE /checks`, `POST /checks/restore` | Delete every check; bring deleted checks back (for Undo) |
+| Route | Who can call it | Purpose |
+| --- | --- | --- |
+| `GET /health` | anyone | Is the service up and the database reachable |
+| `GET /auth/me` | anyone | The logged-in account, or `{ user: null }` |
+| `POST /auth/signup` | anyone | Create a pending account and log them in |
+| `POST /auth/login` | anyone | Log in. Pending and rejected accounts get a session but not the checker |
+| `POST /auth/logout` | anyone | End the login |
+| `GET /admin/users` | admin | List pending, approved, and rejected accounts |
+| `POST /admin/users/:id/approve` | admin | Let this person use the checker |
+| `POST /admin/users/:id/reject` | admin | Turn down a request |
+| `POST /admin/users/:id/revoke` | admin | Take access away |
+| `POST /verify` | approved | Check one reference |
+| `POST /draft/source` | approved | Check one source cited in a draft, and fetch its abstract |
+| `GET /enrich?doi=` | approved | Venue and open-access details for a DOI |
+| `POST /journals/abbreviations` | approved | The NLM Catalog's abbreviations for journals, by ISSN |
+| `GET /fulltext?doi=` | approved | A free full text for a DOI, when one exists |
+| `GET /checks` | approved | Summaries of this person's saved checks |
+| `GET`, `PUT`, `PATCH`, `DELETE /checks/:id` | approved | Read, save, change, or delete one check |
+| `POST /checks/:id/results` | approved | Add results to a check, or replace the ones at the same positions |
+| `DELETE /checks`, `POST /checks/restore` | approved | Delete every check; bring deleted checks back (for Undo) |

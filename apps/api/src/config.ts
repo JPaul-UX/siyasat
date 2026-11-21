@@ -22,6 +22,12 @@ const envSchema = z.object({
    * address each page was requested on is used, which is right unless the site answers on several domains.
    */
   PUBLIC_URL: optional(z.url()),
+  /**
+   * The owner account, created on startup. Required in production so someone can approve new users.
+   * Changing ADMIN_PASSWORD and restarting updates the password.
+   */
+  ADMIN_EMAIL: optional(z.email()),
+  ADMIN_PASSWORD: optional(z.string().min(8, 'ADMIN_PASSWORD must be at least 8 characters').max(200)),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -36,6 +42,8 @@ export class AppConfig {
   readonly semanticScholarApiKey?: string;
   readonly webDist?: string;
   readonly publicUrl?: string;
+  readonly adminEmail?: string;
+  readonly adminPassword?: string;
 
   constructor(env: Env) {
     this.nodeEnv = env.NODE_ENV;
@@ -46,6 +54,8 @@ export class AppConfig {
     this.semanticScholarApiKey = env.SEMANTIC_SCHOLAR_API_KEY;
     this.webDist = env.WEB_DIST;
     this.publicUrl = env.PUBLIC_URL?.replace(/\/+$/, '');
+    this.adminEmail = env.ADMIN_EMAIL?.toLowerCase();
+    this.adminPassword = env.ADMIN_PASSWORD;
   }
 
   get isProduction(): boolean {
@@ -67,5 +77,18 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     const problems = parsed.error.issues.map((i) => `  ${i.path.join('.') || 'env'}: ${i.message}`).join('\n');
     throw new Error(`Invalid environment:\n${problems}`);
   }
-  return new AppConfig(parsed.data);
+  const env = parsed.data;
+  const hasAdminEmail = !!env.ADMIN_EMAIL;
+  const hasAdminPassword = !!env.ADMIN_PASSWORD;
+  if (hasAdminEmail !== hasAdminPassword) {
+    throw new Error('Invalid environment:\n  ADMIN_EMAIL: Set both ADMIN_EMAIL and ADMIN_PASSWORD, or leave both empty.');
+  }
+  if (env.NODE_ENV === 'production' && !hasAdminEmail) {
+    throw new Error(
+      'Invalid environment:\n  ADMIN_EMAIL: Set ADMIN_EMAIL and ADMIN_PASSWORD before starting Siyasat in production.\n' +
+        '  ADMIN_EMAIL is the email you log in with. ADMIN_PASSWORD is your password (at least 8 characters).\n' +
+        '  The app creates that admin account on startup. On Railway, add both under the service Variables, then redeploy.',
+    );
+  }
+  return new AppConfig(env);
 }

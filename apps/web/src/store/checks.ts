@@ -27,6 +27,11 @@ interface ChecksState {
 
 export const useChecks = create<ChecksState>(() => ({ status: 'loading', summaries: [], docs: {}, missing: {} }));
 
+/** Drop the working copy, for example when someone logs out, so the next person doesn't see it. */
+export function resetChecks(): void {
+  useChecks.setState({ status: 'loading', summaries: [], docs: {}, missing: {} });
+}
+
 const byNewest = (a: CheckSummary, b: CheckSummary) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
 
 export async function initChecks(): Promise<void> {

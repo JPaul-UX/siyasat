@@ -12,10 +12,7 @@ import type {
   RefResult,
   ResultKind,
   VerifyResponse,
-  WorkspaceCreated,
 } from '@siyasat/core';
-
-const TOKEN_KEY = 'siyasat.workspace.v1';
 
 export class ApiError extends Error {
   constructor(
@@ -28,47 +25,19 @@ export class ApiError extends Error {
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-/* Saved checks belong to an anonymous workspace. Its token lives in this browser and is the only key to them. */
-let memoryToken: string | null = null;
-let creating: Promise<string> | null = null;
+/* A 401 or 403 means the login is missing or not approved. The app reloads the session and leaves the checker. */
+let onAuthProblem: (() => void) | null = null;
+let lastAuthProblem = 0;
 
-function storedToken(): string | null {
-  if (memoryToken) return memoryToken;
-  try {
-    memoryToken = localStorage.getItem(TOKEN_KEY);
-  } catch {
-    /* storage blocked: the workspace lasts for this tab only */
-  }
-  return memoryToken;
+export function setAuthProblemHandler(fn: () => void): void {
+  onAuthProblem = fn;
 }
 
-function forgetToken(): void {
-  memoryToken = null;
-  try {
-    localStorage.removeItem(TOKEN_KEY);
-  } catch {
-    /* ignore */
-  }
-}
-
-async function workspaceToken(): Promise<string> {
-  const existing = storedToken();
-  if (existing) return existing;
-  creating ??= (async () => {
-    const res = await fetch('/api/workspaces', { method: 'POST' });
-    if (!res.ok) throw new ApiError(res.status, "Couldn't start a workspace");
-    const { token } = (await res.json()) as WorkspaceCreated;
-    memoryToken = token;
-    try {
-      localStorage.setItem(TOKEN_KEY, token);
-    } catch {
-      /* ignore */
-    }
-    return token;
-  })().finally(() => {
-    creating = null;
-  });
-  return creating;
+function notifyAuthProblem(): void {
+  const now = Date.now();
+  if (now - lastAuthProblem < 2000) return;
+  lastAuthProblem = now;
+  onAuthProblem?.();
 }
 
 async function errorMessage(res: Response): Promise<string> {
@@ -88,22 +57,17 @@ interface RequestOptions {
 }
 
 async function request<T>(method: string, path: string, { body, timeoutMs = 30_000 }: RequestOptions = {}): Promise<T> {
-  let renewed = false;
   for (let attempt = 0; ; attempt++) {
-    const token = await workspaceToken();
     const res = await fetch('/api' + path, {
       method,
-      headers: { Authorization: `Bearer ${token}`, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
+      credentials: 'include',
+      headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (res.ok) return (await res.json()) as T;
-    // The server no longer knows this workspace (its database was reset): start a fresh one, once.
-    if (res.status === 401 && !renewed) {
-      renewed = true;
-      forgetToken();
-      continue;
-    }
+    // Not logged in, or logged in but not approved. The page leaves the checker.
+    if (res.status === 401 || res.status === 403) notifyAuthProblem();
     // Going faster than the API allows: wait as long as it asks, then carry on.
     if (res.status === 429 && attempt < 4) {
       await sleep(Math.min(30, Number(res.headers.get('retry-after')) || 5) * 1000);
