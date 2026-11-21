@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { AuthModule } from './auth/auth.module.js';
 import { ChecksModule } from './checks/checks.module.js';
 import { WorkspaceThrottlerGuard } from './common/throttler.guard.js';
 import { ConfigModule } from './config.module.js';
@@ -15,6 +16,7 @@ import { WorkspaceModule } from './workspace/workspace.module.js';
     PrismaModule,
     // A generous default; the lookup routes, which cost upstream requests, set tighter limits of their own.
     ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 600 }] }),
+    AuthModule,
     WorkspaceModule,
     LookupModule,
     ChecksModule,

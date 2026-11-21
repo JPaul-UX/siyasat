@@ -1,12 +1,11 @@
 import { Global, Module } from '@nestjs/common';
-import { WorkspaceController } from './workspace.controller.js';
+import { AuthModule } from '../auth/auth.module.js';
 import { WorkspaceGuard } from './workspace.guard.js';
-import { WorkspaceService } from './workspace.service.js';
 
 @Global()
 @Module({
-  controllers: [WorkspaceController],
-  providers: [WorkspaceService, WorkspaceGuard],
-  exports: [WorkspaceService, WorkspaceGuard],
+  imports: [AuthModule],
+  providers: [WorkspaceGuard],
+  exports: [WorkspaceGuard],
 })
 export class WorkspaceModule {}

@@ -1,25 +1,23 @@
-import { type CanActivate, createParamDecorator, type ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { createParamDecorator, type CanActivate, type ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import type { Request } from 'express';
-import { WorkspaceService } from './workspace.service.js';
+import { AuthService } from '../auth/auth.service.js';
 
 export type WorkspaceRequest = Request & { workspaceId?: string };
 
-export const bearerToken = (req: Request): string | null => {
-  const m = /^Bearer\s+([A-Za-z0-9_-]{20,200})$/.exec(req.headers.authorization ?? '');
-  return m ? m[1]! : null;
-};
-
-/** Requires `Authorization: Bearer <workspace token>` and attaches the workspace to the request. */
+/**
+ * The checker and saved checks. Requires a logged-in person whose account has been approved.
+ * Pending and rejected accounts are refused here, not only hidden in the browser.
+ */
 @Injectable()
 export class WorkspaceGuard implements CanActivate {
-  constructor(private readonly workspaces: WorkspaceService) {}
+  constructor(private readonly auth: AuthService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<WorkspaceRequest>();
-    const token = bearerToken(req);
-    const workspaceId = token ? await this.workspaces.resolve(token) : null;
-    if (!workspaceId) throw new UnauthorizedException('Unknown workspace');
-    req.workspaceId = workspaceId;
+    const account = await this.auth.accountFromRequest(req);
+    if (!account) throw new UnauthorizedException('Sign in required');
+    if (account.status !== 'APPROVED' || !account.workspaceId) throw new ForbiddenException('Waiting for approval');
+    req.workspaceId = account.workspaceId;
     return true;
   }
 }
