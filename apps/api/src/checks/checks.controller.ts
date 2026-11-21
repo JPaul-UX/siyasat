@@ -1,6 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import type { Check, CheckIds, CheckResponse, ChecksListResponse, CheckWriteResponse, RefResult } from '@siyasat/core';
-import { WorkspaceGuard, WorkspaceId } from '../workspace/workspace.guard.js';
+import { SessionGuard, WorkspaceId } from '../auth/auth.guard.js';
 import {
   checkSchema,
   idParam,
@@ -13,9 +13,9 @@ import {
 } from './checks.schemas.js';
 import { ChecksService } from './checks.service.js';
 
-/** A workspace's saved checks. */
+/** The signed-in account's saved checks. */
 @Controller('checks')
-@UseGuards(WorkspaceGuard)
+@UseGuards(SessionGuard)
 export class ChecksController {
   constructor(private readonly checks: ChecksService) {}
 

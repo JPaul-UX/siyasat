@@ -22,6 +22,30 @@ const envSchema = z.object({
    * address each page was requested on is used, which is right unless the site answers on several domains.
    */
   PUBLIC_URL: optional(z.url()),
+  /**
+   * The super admin, who sees the admin dashboard. The account is created on start if it does not exist,
+   * and the password here is always the one that works: change it here and restart to change it.
+   */
+  SUPER_ADMIN_EMAIL: optional(z.email()),
+  SUPER_ADMIN_PASSWORD: optional(z.string().min(12, 'SUPER_ADMIN_PASSWORD must be at least 12 characters').max(200)),
+  /** The time zone the admin dashboard counts days in. */
+  STATS_TIMEZONE: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z
+      .string()
+      .default('Asia/Manila')
+      .refine((tz) => {
+        try {
+          new Intl.DateTimeFormat('en', { timeZone: tz });
+          return true;
+        } catch {
+          return false;
+        }
+      }, 'STATS_TIMEZONE is not a time zone'),
+  ),
+}).refine((env) => !env.SUPER_ADMIN_EMAIL === !env.SUPER_ADMIN_PASSWORD, {
+  message: 'Set SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD together',
+  path: ['SUPER_ADMIN_PASSWORD'],
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -36,6 +60,8 @@ export class AppConfig {
   readonly semanticScholarApiKey?: string;
   readonly webDist?: string;
   readonly publicUrl?: string;
+  readonly superAdmin?: { email: string; password: string };
+  readonly statsTimeZone: string;
 
   constructor(env: Env) {
     this.nodeEnv = env.NODE_ENV;
@@ -46,6 +72,10 @@ export class AppConfig {
     this.semanticScholarApiKey = env.SEMANTIC_SCHOLAR_API_KEY;
     this.webDist = env.WEB_DIST;
     this.publicUrl = env.PUBLIC_URL?.replace(/\/+$/, '');
+    if (env.SUPER_ADMIN_EMAIL && env.SUPER_ADMIN_PASSWORD) {
+      this.superAdmin = { email: env.SUPER_ADMIN_EMAIL.trim().toLowerCase(), password: env.SUPER_ADMIN_PASSWORD };
+    }
+    this.statsTimeZone = env.STATS_TIMEZONE;
   }
 
   get isProduction(): boolean {

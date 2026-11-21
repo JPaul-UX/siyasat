@@ -1,5 +1,14 @@
 /* The browser's side of the HTTP contract in @siyasat/core. */
 import type {
+  AdminEventFilter,
+  AdminEventList,
+  AdminOverview,
+  AdminSettings,
+  AdminUserDetail,
+  AdminUserList,
+  AdminUserSort,
+  AuthConfig,
+  AuthResponse,
   Check,
   CheckIds,
   CheckPatch,
@@ -9,18 +18,21 @@ import type {
   EnrichResponse,
   JournalAbbreviationsResponse,
   FullText,
+  MeResponse,
   RefResult,
   ResultKind,
+  SignInRequest,
+  SignUpRequest,
+  UserStatus,
   VerifyResponse,
-  WorkspaceCreated,
 } from '@siyasat/core';
-
-const TOKEN_KEY = 'siyasat.workspace.v1';
 
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** Problems with particular form fields, by field name, when the server named them. */
+    readonly fields: Record<string, string> = {},
   ) {
     super(message);
   }
@@ -28,90 +40,109 @@ export class ApiError extends Error {
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-/* Saved checks belong to an anonymous workspace. Its token lives in this browser and is the only key to them. */
-let memoryToken: string | null = null;
-let creating: Promise<string> | null = null;
+/*
+ * The session is an httpOnly cookie the server sets at sign-in, so scripts on the page never see it and
+ * every request to /api carries it. Before accounts, each browser had an anonymous workspace whose token
+ * lived in local storage; signing up or in from that browser hands the token over once, so its checks move
+ * into the account.
+ */
+const LEGACY_TOKEN_KEY = 'siyasat.workspace.v1';
 
-function storedToken(): string | null {
-  if (memoryToken) return memoryToken;
+export function legacyWorkspaceToken(): string | undefined {
   try {
-    memoryToken = localStorage.getItem(TOKEN_KEY);
+    return localStorage.getItem(LEGACY_TOKEN_KEY) || undefined;
   } catch {
-    /* storage blocked: the workspace lasts for this tab only */
+    return undefined;
   }
-  return memoryToken;
 }
 
-function forgetToken(): void {
-  memoryToken = null;
+export function forgetLegacyWorkspace(): void {
   try {
-    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
   } catch {
     /* ignore */
   }
 }
 
-async function workspaceToken(): Promise<string> {
-  const existing = storedToken();
-  if (existing) return existing;
-  creating ??= (async () => {
-    const res = await fetch('/api/workspaces', { method: 'POST' });
-    if (!res.ok) throw new ApiError(res.status, "Couldn't start a workspace");
-    const { token } = (await res.json()) as WorkspaceCreated;
-    memoryToken = token;
-    try {
-      localStorage.setItem(TOKEN_KEY, token);
-    } catch {
-      /* ignore */
-    }
-    return token;
-  })().finally(() => {
-    creating = null;
-  });
-  return creating;
-}
+/** Called when the server says the session is over: signed out elsewhere, expired, or suspended. */
+let onSessionEnded: (() => void) | null = null;
+export const setSessionEndedHandler = (fn: () => void): void => {
+  onSessionEnded = fn;
+};
 
-async function errorMessage(res: Response): Promise<string> {
+async function failure(res: Response): Promise<ApiError> {
+  let message = `Request failed (${res.status})`;
+  const fields: Record<string, string> = {};
   try {
-    const body = (await res.json()) as { message?: string | string[] };
-    if (Array.isArray(body.message)) return body.message.join('; ');
-    if (body.message) return body.message;
+    const body = (await res.json()) as { message?: string | string[]; field?: string };
+    const messages = Array.isArray(body.message) ? body.message : body.message ? [body.message] : [];
+    // The validation pipe writes "field: problem"; a message about one field can also name it in `field`.
+    const plain = messages.map((m) => {
+      const named = /^([a-zA-Z]+): (.+)$/.exec(m);
+      if (!named) return m;
+      fields[named[1]!] ??= named[2]!;
+      return named[2]!;
+    });
+    if (body.field && plain[0]) fields[body.field] ??= plain[0];
+    if (plain.length) message = plain.join(' ');
   } catch {
     /* not JSON */
   }
-  return `Request failed (${res.status})`;
+  if (res.status === 429 && message.startsWith('Request failed')) message = 'Too many requests. Wait a minute, then try again.';
+  return new ApiError(res.status, message, fields);
 }
+
+const jsonHeaders = (body: unknown): HeadersInit => (body !== undefined ? { 'Content-Type': 'application/json' } : {});
 
 interface RequestOptions {
   body?: unknown;
   timeoutMs?: number;
 }
 
+/** A request that needs a session. Waits and retries when rate-limited; reports a lost session. */
 async function request<T>(method: string, path: string, { body, timeoutMs = 30_000 }: RequestOptions = {}): Promise<T> {
-  let renewed = false;
   for (let attempt = 0; ; attempt++) {
-    const token = await workspaceToken();
     const res = await fetch('/api' + path, {
       method,
-      headers: { Authorization: `Bearer ${token}`, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
+      headers: jsonHeaders(body),
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      credentials: 'same-origin',
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (res.ok) return (await res.json()) as T;
-    // The server no longer knows this workspace (its database was reset): start a fresh one, once.
-    if (res.status === 401 && !renewed) {
-      renewed = true;
-      forgetToken();
-      continue;
+    if (res.status === 401) {
+      onSessionEnded?.();
+      throw await failure(res);
     }
     // Going faster than the API allows: wait as long as it asks, then carry on.
     if (res.status === 429 && attempt < 4) {
       await sleep(Math.min(30, Number(res.headers.get('retry-after')) || 5) * 1000);
       continue;
     }
-    throw new ApiError(res.status, await errorMessage(res));
+    throw await failure(res);
   }
 }
+
+/** A request about signing in or out: no retries, and a 401 is an answer, not a lost session. */
+async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const res = await fetch('/api' + path, {
+    method,
+    headers: jsonHeaders(body),
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    credentials: 'same-origin',
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) throw await failure(res);
+  return (await res.json()) as T;
+}
+
+export const authApi = {
+  config: () => send<AuthConfig>('GET', '/auth/config'),
+  me: () => send<MeResponse>('GET', '/auth/me'),
+  signIn: (req: SignInRequest) => send<AuthResponse>('POST', '/auth/signin', req),
+  signUp: (req: SignUpRequest) => send<AuthResponse>('POST', '/auth/signup', req),
+  signOut: () => send<{ ok: true }>('POST', '/auth/signout'),
+};
 
 const enc = encodeURIComponent;
 
@@ -131,4 +162,24 @@ export const api = {
   deleteCheck: (id: string) => request<CheckIds>('DELETE', `/checks/${id}`),
   deleteAllChecks: () => request<CheckIds>('DELETE', '/checks'),
   restoreChecks: (ids: string[]) => request<CheckIds>('POST', '/checks/restore', { body: { ids } }),
+};
+
+const query = (params: Record<string, string | number | undefined>): string => {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== '') q.set(k, String(v));
+  const text = q.toString();
+  return text ? '?' + text : '';
+};
+
+export const adminApi = {
+  overview: () => request<AdminOverview>('GET', '/admin/overview'),
+  users: (p: { q?: string; status?: UserStatus; sort?: AdminUserSort; page?: number }) => request<AdminUserList>('GET', '/admin/users' + query(p)),
+  user: (id: string) => request<AdminUserDetail>('GET', `/admin/users/${id}`),
+  suspend: (id: string) => request<AdminUserDetail>('POST', `/admin/users/${id}/suspend`),
+  reactivate: (id: string) => request<AdminUserDetail>('POST', `/admin/users/${id}/reactivate`),
+  unlock: (id: string) => request<AdminUserDetail>('POST', `/admin/users/${id}/unlock`),
+  signOutEverywhere: (id: string) => request<AdminUserDetail>('POST', `/admin/users/${id}/sign-out`),
+  events: (type: AdminEventFilter, page: number) => request<AdminEventList>('GET', '/admin/events' + query({ type, page })),
+  settings: () => request<AdminSettings>('GET', '/admin/settings'),
+  setSignupsOpen: (signupsOpen: boolean) => request<AdminSettings>('PUT', '/admin/settings', { body: { signupsOpen } }),
 };

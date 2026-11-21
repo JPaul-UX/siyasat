@@ -55,9 +55,43 @@ worked examples with the checker's own functions.
 Lookups go through the API rather than straight from the browser so that API keys stay on the server, answers are
 cached, and all users together stay inside each database's rate limit (`apps/api/src/upstream`).
 
-There are no accounts. The first visit creates an anonymous workspace, and the browser keeps its token in local
-storage. Whoever holds the token can read that workspace's checks, so clearing site data, or using another
-browser, starts a new empty workspace.
+## Accounts and abuse protection
+
+Every lookup costs requests to Crossref, OpenAlex and the other databases, which all users share, so Siyasat needs
+an account: nothing but the sign-in and sign-up pages works without one (`apps/api/src/auth`).
+
+- **Sessions.** Signing in sets an httpOnly, SameSite=Lax cookie holding a random token; the database keeps only
+  its hash. Sessions last 30 days. Passwords are hashed with scrypt.
+- **Rate limits.** Lookups are limited per account (per IP address before signing in). Sign-ups are limited to 30
+  an hour per address and sign-in attempts to 60 every 15 minutes. Ten wrong passwords in a row lock the account
+  for 15 minutes.
+- **Bots.** The sign-up form has a field people cannot see; a sign-up that fills it in is refused and logged.
+- **Usage.** Each account's lookups are counted per day, and so is every request a rate limit refused.
+
+Checks saved before accounts existed belong to anonymous workspaces whose token is in the browser's local
+storage. Signing up or in from that browser moves those checks into the account.
+
+### The admin dashboard
+
+The super admin opens **Admin** in the sidebar (`/admin`). It shows:
+
+- **Overview**: accounts, sign-ups, active accounts, lookups, rate-limited requests and failed sign-ins, today and
+  for the last 30 days, with the newest accounts and the heaviest users today.
+- **Accounts**: every account with where it signed up from (IP address and browser), when it was last active, its
+  saved checks, and its lookups and rate-limited requests over the last week. Search by name, email or IP address,
+  and sort by usage to find whoever is hammering the service.
+- **An account**: its sessions, 30 days of usage by kind, and its activity. From here the admin can **suspend** it
+  (signed out everywhere at once, and no sign-in or checks until reactivated), **sign it out everywhere**, or
+  **unlock** sign-in after too many wrong passwords.
+- **Activity**: a log of sign-ups, sign-ins, failed and blocked attempts, and admin actions, kept for a year.
+
+A switch at the top **pauses new sign-ups**, for when sign-ups themselves are being abused; existing accounts
+keep working.
+
+There is one super admin, set by `SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD`. The API creates that account when
+it starts, and the password in the environment is always the one that works: if someone registered that address
+first, the start-up takes the account back, replaces its password, and ends its sessions. Changing the email makes
+the old super admin an ordinary account.
 
 ## Look and feel
 
@@ -77,13 +111,15 @@ You need Node 22 or newer, pnpm, and Docker (for Postgres).
 
 ```sh
 pnpm install
-cp apps/api/.env.example apps/api/.env   # then set CONTACT_EMAIL, and OPENALEX_API_KEY if you have one
+cp apps/api/.env.example apps/api/.env   # then set SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD, CONTACT_EMAIL,
+                                         # and OPENALEX_API_KEY if you have one
 pnpm db:up                               # Postgres on localhost:5433
 pnpm db:migrate                          # create the tables
 pnpm dev                                 # API on :3000, web on :5173
 ```
 
-Open http://localhost:5173. The web dev server passes `/api` requests on to the API.
+Open http://localhost:5173 and create an account, or sign in as the super admin. The web dev server passes
+`/api` requests on to the API.
 
 | Command | What it does |
 | --- | --- |
@@ -106,6 +142,9 @@ The API reads these from the environment (`apps/api/.env` in development).
 | `OPENALEX_API_KEY` | recommended | Free key from [openalex.org](https://openalex.org). Since February 2026 OpenAlex refuses most title searches without one, and Siyasat then relies on Crossref alone |
 | `SEMANTIC_SCHOLAR_API_KEY` | no | Raises the rate limit for abstracts from Semantic Scholar |
 | `PUBLIC_URL` | no | The site's public address, used in link previews. Without it, the address each page was requested on is used |
+| `SUPER_ADMIN_EMAIL` | recommended | The super admin's email address. Without it nobody can open the admin dashboard |
+| `SUPER_ADMIN_PASSWORD` | with the email | The super admin's password, at least 12 characters. Change it here and restart to change it |
+| `STATS_TIMEZONE` | no | The time zone the admin dashboard counts days in. Defaults to `Asia/Manila` |
 
 ## Tests
 
@@ -130,18 +169,23 @@ railway up        # build and deploy the current directory
 railway logs      # follow the service's logs
 ```
 
-The service needs `DATABASE_URL` (set it to `${{Postgres.DATABASE_URL}}`), `NODE_ENV=production`, and the
-optional settings above.
+The service needs `DATABASE_URL` (set it to `${{Postgres.DATABASE_URL}}`), `NODE_ENV=production`,
+`SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_PASSWORD`, and the optional settings above. In production the session cookie
+is marked Secure, so the site must be served over HTTPS (Railway does this).
 
 ## API
 
-Every route is under `/api`. All but the first two need `Authorization: Bearer <workspace token>`.
+Every route is under `/api`. All but the health check and the first three auth routes need a signed-in session
+(the cookie the sign-in routes set), and the `/admin` routes need the super admin.
 `packages/core/src/api.ts` has the request and response types.
 
 | Route | Purpose |
 | --- | --- |
 | `GET /health` | Is the service up and the database reachable |
-| `POST /workspaces` | Start an anonymous workspace; answers with its token |
+| `GET /auth/config` | Whether new sign-ups are open |
+| `POST /auth/signup` | Create an account and sign in |
+| `POST /auth/signin`, `POST /auth/signout` | Sign in; sign out |
+| `GET /auth/me` | The signed-in account |
 | `POST /verify` | Check one reference |
 | `POST /draft/source` | Check one source cited in a draft, and fetch its abstract |
 | `GET /enrich?doi=` | Venue and open-access details for a DOI |
@@ -151,3 +195,8 @@ Every route is under `/api`. All but the first two need `Authorization: Bearer <
 | `GET`, `PUT`, `PATCH`, `DELETE /checks/:id` | Read, save, change, or delete one check |
 | `POST /checks/:id/results` | Add results to a check, or replace the ones at the same positions |
 | `DELETE /checks`, `POST /checks/restore` | Delete every check; bring deleted checks back (for Undo) |
+| `GET /admin/overview` | The admin dashboard's numbers and 30-day series |
+| `GET /admin/users`, `GET /admin/users/:id` | Accounts, with usage; one account in full |
+| `POST /admin/users/:id/suspend`, `/reactivate`, `/unlock`, `/sign-out` | Act on an account |
+| `GET /admin/events` | The activity log |
+| `GET`, `PUT /admin/settings` | Whether new sign-ups are open |

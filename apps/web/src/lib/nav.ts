@@ -22,7 +22,18 @@ export const paths = {
   how: '/how-it-works',
   upload: '/upload',
   read: (doi: string) => `/read?doi=${encodeURIComponent(doi)}`,
+  admin: '/admin',
+  adminUsers: '/admin/users',
+  adminUser: (id: string) => `/admin/users/${id}`,
+  adminActivity: '/admin/activity',
+  signIn: '/signin',
+  signUp: '/signup',
 };
+
+/** Where to go after signing in: a path on this site from `?next=`, never somewhere else. */
+export function safeNext(next: string | null): string {
+  return next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\') && !/^\/sign(in|up)\b/.test(next) ? next : '/';
+}
 
 /* ---------- In-app history, for the Back button ---------- */
 
@@ -54,7 +65,8 @@ export const typeName = (t: CheckType): string => TYPE_NAME[t];
 const section = (path: string) => path.split('?')[0]!.split('/')[1] || 'dashboard';
 
 function pageName(path: string, from: string): string {
-  const [, page, arg] = path.split('?')[0]!.split('/');
+  const [, page, arg, id] = path.split('?')[0]!.split('/');
+  if (page === 'admin') return arg === 'users' ? (id ? 'Account' : 'Accounts') : arg === 'activity' ? 'Activity' : 'Admin';
   if (page === 'new') {
     if (arg) return from.startsWith('/new') ? 'step 2' : 'New check';
     return from.startsWith('/new/') ? 'step 1' : 'New check';
@@ -63,7 +75,8 @@ function pageName(path: string, from: string): string {
 }
 
 function parentOf(path: string): string {
-  const [, page, arg] = path.split('?')[0]!.split('/');
+  const [, page, arg, id] = path.split('?')[0]!.split('/');
+  if (page === 'admin') return arg === 'users' && id ? '/admin/users' : arg ? '/admin' : '/';
   return page === 'new' && arg ? '/new' : page === 'read' ? '/results' : '/';
 }
 

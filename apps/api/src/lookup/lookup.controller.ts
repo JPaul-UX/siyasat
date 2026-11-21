@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards, UseInterceptors } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import {
   LIMITS,
@@ -9,8 +9,9 @@ import {
   type VerifyResponse,
 } from '@siyasat/core';
 import { z } from 'zod';
+import { SessionGuard } from '../auth/auth.guard.js';
+import { CountUsage, UsageInterceptor } from '../auth/usage.interceptor.js';
 import { UpstreamService } from '../upstream/upstream.service.js';
-import { WorkspaceGuard } from '../workspace/workspace.guard.js';
 import { FullTextService } from './fulltext.service.js';
 import { SourcesService } from './sources.service.js';
 import { VerifyService } from './verify.service.js';
@@ -37,9 +38,13 @@ const doiSchema = z.object({
 
 const journalsSchema = z.object({ issns: z.array(z.string().trim().max(20)).max(LIMITS.journalsPerRequest) });
 
-/** Looking things up in the scholarly databases. Each call here costs several upstream requests. */
+/**
+ * Looking things up in the scholarly databases. Each call here costs several upstream requests, so each needs
+ * an account, is rate-limited per account, and is counted in the account's daily usage.
+ */
 @Controller()
-@UseGuards(WorkspaceGuard)
+@UseGuards(SessionGuard)
+@UseInterceptors(UsageInterceptor)
 export class LookupController {
   constructor(
     private readonly verifier: VerifyService,
@@ -55,6 +60,7 @@ export class LookupController {
 
   /** Check one reference: is it real, are its details right, has it been retracted? */
   @Post('verify')
+  @CountUsage('verify')
   @Throttle({ default: { limit: 240, ttl: 60_000 } })
   async verify(@Body({ schema: verifySchema }) body: z.infer<typeof verifySchema>): Promise<VerifyResponse> {
     const result = await this.verifier.verify(body.raw);
@@ -63,6 +69,7 @@ export class LookupController {
 
   /** Check one source cited in a draft, and fetch its abstract. */
   @Post('draft/source')
+  @CountUsage('source')
   @Throttle({ default: { limit: 120, ttl: 60_000 } })
   async checkSource(@Body({ schema: sourceSchema }) body: z.infer<typeof sourceSchema>): Promise<CheckSourceResponse> {
     const { result, abstract } = await this.verifier.checkSource(body.source, body.claim, body.hasRefs);
@@ -71,6 +78,7 @@ export class LookupController {
 
   /** Venue and open-access details for a DOI. */
   @Get('enrich')
+  @CountUsage('enrich')
   @Throttle({ default: { limit: 240, ttl: 60_000 } })
   async enrich(@Query({ schema: doiSchema }) query: z.infer<typeof doiSchema>): Promise<EnrichResponse> {
     const { retracted, ven } = await this.sources.enrich(query.doi.toLowerCase());
@@ -79,6 +87,7 @@ export class LookupController {
 
   /** The catalogued abbreviations of journals, for the styles that cite journals by abbreviation. */
   @Post('journals/abbreviations')
+  @CountUsage('journals')
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   async abbreviations(@Body({ schema: journalsSchema }) body: z.infer<typeof journalsSchema>): Promise<JournalAbbreviationsResponse> {
     return { abbreviations: await this.sources.journalAbbreviations(body.issns) };
@@ -86,6 +95,7 @@ export class LookupController {
 
   /** A free full text for a DOI, when one exists. */
   @Get('fulltext')
+  @CountUsage('fulltext')
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   fulltext(@Query({ schema: doiSchema }) query: z.infer<typeof doiSchema>): Promise<FullTextResponse> {
     return this.fullText.lookup(query.doi);

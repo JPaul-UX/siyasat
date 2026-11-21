@@ -1,11 +1,14 @@
 import type { CheckSummary } from '@siyasat/core';
-import { ArrowLeft, ChevronRight, FileText, LayoutDashboard, ListChecks, Plus, WifiOff, Workflow } from 'lucide-react';
-import { useEffect, useRef } from 'react';
-import { Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router';
+import { ArrowLeft, ChevronRight, FileText, LayoutDashboard, ListChecks, Plus, ShieldCheck, ShieldX, WifiOff, Workflow } from 'lucide-react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
+import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { SideAccount, TopAccount } from './components/AccountMenu';
 import { Empty, Logo, Spinner } from './components/bits';
 import { Dialog } from './components/Dialog';
 import { Toast } from './components/Toast';
-import { backTarget, paths, setNavigate, trackVisit, typeName } from './lib/nav';
+import { setSessionEndedHandler } from './lib/api';
+import { backTarget, paths, safeNext, setNavigate, trackVisit, typeName } from './lib/nav';
+import { AuthPage } from './pages/AuthPage';
 import { Dashboard } from './pages/Dashboard';
 import { NewCheck } from './pages/NewCheck';
 import { Reader } from './pages/Reader';
@@ -13,10 +16,19 @@ import { HowItWorks } from './pages/HowItWorks';
 import { Reports } from './pages/Reports';
 import { Results } from './pages/Results';
 import { UploadPage } from './pages/UploadPage';
+import { initAuth, isSuperAdmin, sessionEnded, useAuth } from './store/auth';
 import { initChecks, useChecks } from './store/checks';
 import { stopEditing, useForms } from './store/forms';
 
-const TITLES: Record<string, string> = { new: 'New check', results: 'Results', reports: 'Reports', 'how-it-works': 'How it works', read: 'Full-text reader', upload: 'Upload & check' };
+const TITLES: Record<string, string> = {
+  new: 'New check',
+  results: 'Results',
+  reports: 'Reports',
+  'how-it-works': 'How it works',
+  read: 'Full-text reader',
+  upload: 'Upload & check',
+  admin: 'Admin',
+};
 
 type Crumb = [name: string, to: string | null];
 
@@ -38,19 +50,95 @@ function crumbs(page: string, parts: string[], summaries: CheckSummary[]): Crumb
   else if (page === 'how-it-works') trail.push(['How it works', null]);
   else if (page === 'upload') trail.push(['Upload & check', null]);
   else if (page === 'read') trail.push(['Results', paths.results()], ['Full-text reader', null]);
+  else if (page === 'admin') {
+    const [section, id] = parts;
+    trail.push(['Admin', section ? paths.admin : null]);
+    if (section === 'users') {
+      trail.push(['Accounts', id ? paths.adminUsers : null]);
+      if (id) trail.push(['Account', null]);
+    } else if (section === 'activity') trail.push(['Activity', null]);
+  }
   return trail;
 }
 
+/** Only the super admin opens these pages, so everyone else never downloads them. */
+const Admin = lazy(() => import('./pages/admin/Admin').then((m) => ({ default: m.Admin })));
+
+/** Signing in comes first: nothing but the sign-in and sign-up pages works without an account. */
 export function App() {
+  const status = useAuth((s) => s.status);
+
+  useEffect(() => {
+    setSessionEndedHandler(sessionEnded);
+    void initAuth();
+  }, []);
+
+  if (status === 'loading') {
+    return (
+      <div className="boot full" role="status">
+        <Logo tone="maroon" size={52} />
+        <span>
+          <Spinner /> Opening Siyasat…
+        </span>
+      </div>
+    );
+  }
+  if (status === 'error') {
+    return (
+      <main className="boot full" id="main">
+        <Empty icon={WifiOff} title="Siyasat can't be reached">
+          <h1 className="sr">Siyasat can't be reached</h1>
+          Check your internet connection and try again.
+          <div className="actions">
+            <button type="button" className="primary" onClick={() => void initAuth()}>
+              Try again
+            </button>
+          </div>
+        </Empty>
+      </main>
+    );
+  }
+  if (status === 'signed-out') return <SignedOut />;
+  return <Shell />;
+}
+
+function SignedOut() {
+  const location = useLocation();
+  if (location.pathname === paths.signUp) return <AuthPage mode="signup" />;
+  if (location.pathname === paths.signIn) return <AuthPage mode="signin" />;
+  // Remember where they were going, and go there once they have signed in.
+  const here = location.pathname + location.search;
+  return <Navigate to={paths.signIn + (here === '/' ? '' : `?next=${encodeURIComponent(here)}`)} replace />;
+}
+
+function NotAllowed() {
+  return (
+    <section className="card">
+      <Empty icon={ShieldX} title="Only the super admin can open this page">
+        <h1 className="sr">Not allowed</h1>
+        <div className="actions">
+          <Link className="btn primary" to={paths.dashboard}>
+            Go to the dashboard
+          </Link>
+        </div>
+      </Empty>
+    </section>
+  );
+}
+
+function Shell() {
   const navigate = useNavigate();
   const location = useLocation();
   const status = useChecks((s) => s.status);
   const summaries = useChecks((s) => s.summaries);
+  const user = useAuth((s) => s.user);
+  const admin = isSuperAdmin(user);
+  const [search] = useSearchParams();
   const [page = 'dashboard', ...parts] = location.pathname.split('/').filter(Boolean);
   const here = location.pathname + location.search;
 
   // Recorded while rendering so the Back button below already knows where "back" is.
-  trackVisit(here);
+  if (page !== 'signin' && page !== 'signup') trackVisit(here);
   const back = backTarget(here);
   const goBack = () => (back.viaHistory ? navigate(-1) : navigate(back.to));
 
@@ -75,6 +163,9 @@ export function App() {
     firstRender.current = false;
   }, [location.pathname, page]);
 
+  // Just signed in: go where they were headed.
+  if (page === 'signin' || page === 'signup') return <Navigate to={safeNext(search.get('next'))} replace />;
+
   return (
     <>
       <a className="skip" href="#main">
@@ -92,6 +183,7 @@ export function App() {
           <Logo size={32} />
           <b>Siyasat</b>
         </Link>
+        <TopAccount />
       </header>
 
       <div className="app">
@@ -124,10 +216,20 @@ export function App() {
               How it works
             </NavLink>
           </nav>
+          {admin && (
+            <nav className="nav nav-admin" aria-label="Admin">
+              <span className="nav-label">Super admin</span>
+              <NavLink to={paths.admin}>
+                <ShieldCheck aria-hidden="true" />
+                Admin
+              </NavLink>
+            </nav>
+          )}
           <div className="side-foot">
             <b>Catch AI hallucinations</b>
             Every reference is checked against Crossref and OpenAlex, including retraction notices.
           </div>
+          <SideAccount />
         </aside>
 
         <main id="main" tabIndex={-1}>
@@ -175,6 +277,24 @@ export function App() {
                 <Route path="/how-it-works" element={<HowItWorks />} />
                 <Route path="/read" element={<Reader />} />
                 <Route path="/upload" element={<UploadPage />} />
+                <Route
+                  path="/admin/*"
+                  element={
+                    admin ? (
+                      <Suspense
+                        fallback={
+                          <div className="boot" role="status">
+                            <Spinner /> Loading the admin dashboard…
+                          </div>
+                        }
+                      >
+                        <Admin />
+                      </Suspense>
+                    ) : (
+                      <NotAllowed />
+                    )
+                  }
+                />
                 <Route path="*" element={<Dashboard />} />
               </Routes>
             )}

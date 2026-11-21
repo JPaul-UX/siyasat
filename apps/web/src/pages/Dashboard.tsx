@@ -95,7 +95,7 @@ function Welcome() {
         </p>
         <ul className="hero-points">
           <li>
-            <Check className="ic" aria-hidden="true" /> Free, no account needed
+            <Check className="ic" aria-hidden="true" /> Free to use
           </li>
           <li>
             <Check className="ic" aria-hidden="true" /> Reads and writes any common citation style

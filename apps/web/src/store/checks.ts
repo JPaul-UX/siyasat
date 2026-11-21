@@ -170,3 +170,8 @@ export async function restoreChecks(ids: string[]): Promise<void> {
     toastOncePer('restore-failed', 5000, "Couldn't restore that. Check your connection and try again.");
   }
 }
+
+/** Forget every check in the working copy, when the account they belong to is no longer signed in. */
+export function clearChecks(): void {
+  useChecks.setState({ status: 'loading', summaries: [], docs: {}, missing: {} });
+}
