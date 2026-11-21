@@ -15,7 +15,7 @@ export const go = (to: string, options?: { replace?: boolean }): void => {
 export const currentPath = (): string => window.location.pathname;
 
 export const paths = {
-  dashboard: '/',
+  dashboard: '/dashboard',
   newCheck: (type?: CheckType) => (type ? `/new/${type}` : '/new'),
   results: (id?: string, refs = false) => (id ? `/results/${id}${refs ? '/refs' : ''}` : '/results'),
   reports: '/reports',
@@ -64,7 +64,7 @@ function pageName(path: string, from: string): string {
 
 function parentOf(path: string): string {
   const [, page, arg] = path.split('?')[0]!.split('/');
-  return page === 'new' && arg ? '/new' : page === 'read' ? '/results' : '/';
+  return page === 'new' && arg ? '/new' : page === 'read' ? '/results' : '/dashboard';
 }
 
 export interface BackTarget {
@@ -77,7 +77,7 @@ export interface BackTarget {
 export function backTarget(current: string): BackTarget {
   const prev = trail.length > 1 ? trail[trail.length - 2]! : null;
   // The upload progress page is not somewhere to go back to.
-  if (prev && section(prev) === 'upload' && section(current) !== 'upload') return { to: '/', viaHistory: false, label: 'Dashboard' };
+  if (prev && section(prev) === 'upload' && section(current) !== 'upload') return { to: '/dashboard', viaHistory: false, label: 'Dashboard' };
   if (prev) return { to: prev, viaHistory: true, label: pageName(prev, current) };
   const parent = parentOf(current);
   return { to: parent, viaHistory: false, label: pageName(parent, current) };

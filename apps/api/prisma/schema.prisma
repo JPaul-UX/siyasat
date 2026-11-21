@@ -7,15 +7,52 @@ datasource db {
   provider = "postgresql"
 }
 
-/// An anonymous workspace: one browser's saved checks. The token is the only credential, and only its hash is stored.
+/// Saved checks for one account. The token hash is kept so older rows stay valid; the browser never sees it.
+/// A session cookie is the credential now.
 model Workspace {
   id         String   @id @default(uuid()) @db.Uuid
   tokenHash  String   @unique @map("token_hash")
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
   checks     Check[]
+  user       User?
 
   @@map("workspaces")
+}
+
+/// A person who can sign in. `status` is pending until an admin approves them.
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  /// "user" or "admin"
+  role         String    @default("user")
+  /// "pending", "approved", or "rejected"
+  status       String    @default("pending")
+  /// Why they asked for access, in their own words. May be empty.
+  note         String    @default("")
+  workspaceId  String?   @unique @map("workspace_id") @db.Uuid
+  workspace    Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sessions     Session[]
+
+  @@index([status, createdAt])
+  @@map("users")
+}
+
+/// A login. The cookie holds a random token; this row stores only its hash.
+model Session {
+  id        String   @id
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
 }
 
 /// One saved check. `doc` holds everything except the per-reference results, which live in CheckResult.

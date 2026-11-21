@@ -1,12 +1,33 @@
 /*
- * The HTTP contract between the web app and the API. Every route is under /api and, except for creating a
- * workspace and the health check, needs `Authorization: Bearer <workspace token>`.
+ * The HTTP contract between the web app and the API. Every route is under /api.
+ * Health and the account routes are public. Everything the checker uses needs a session cookie for an
+ * approved account.
  */
 import type { AbstractInfo, Check, CheckSummary, FullText, RefResult, SourceInput, VenueInfo } from './types.js';
 
-/** POST /api/workspaces → a new anonymous workspace. The token is shown once and is the only credential. */
-export interface WorkspaceCreated {
-  token: string;
+export type AccountRole = 'user' | 'admin';
+export type AccountStatus = 'pending' | 'approved' | 'rejected';
+
+/** A person who can sign in. Passwords are never included. */
+export interface Account {
+  id: string;
+  name: string;
+  email: string;
+  role: AccountRole;
+  status: AccountStatus;
+  /** Why they asked for access. Empty when they left it blank. */
+  note: string;
+  createdAt: string;
+}
+
+/** GET /api/auth/me, and the body of login and signup. `user` is null when nobody is signed in. */
+export interface AccountResponse {
+  user: Account | null;
+}
+
+/** GET /api/admin/users */
+export interface AccountListResponse {
+  users: Account[];
 }
 
 /** Lookup services that are rate-limiting us right now, e.g. ["api.openalex.org"]. */

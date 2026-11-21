@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { AppModule } from './app.module.js';
+import { rejectCrossSiteMutations } from './common/origin.js';
 import { AppConfig } from './config.js';
 
 async function bootstrap(): Promise<void> {
@@ -42,6 +43,7 @@ async function bootstrap(): Promise<void> {
     }),
   );
   app.setGlobalPrefix('api');
+  app.use(rejectCrossSiteMutations);
   app.useGlobalPipes(new StandardSchemaValidationPipe());
   app.enableShutdownHooks();
 

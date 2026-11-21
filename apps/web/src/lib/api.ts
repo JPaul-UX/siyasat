@@ -12,10 +12,7 @@ import type {
   RefResult,
   ResultKind,
   VerifyResponse,
-  WorkspaceCreated,
 } from '@siyasat/core';
-
-const TOKEN_KEY = 'siyasat.workspace.v1';
 
 export class ApiError extends Error {
   constructor(
@@ -28,58 +25,21 @@ export class ApiError extends Error {
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-/* Saved checks belong to an anonymous workspace. Its token lives in this browser and is the only key to them. */
-let memoryToken: string | null = null;
-let creating: Promise<string> | null = null;
-
-function storedToken(): string | null {
-  if (memoryToken) return memoryToken;
-  try {
-    memoryToken = localStorage.getItem(TOKEN_KEY);
-  } catch {
-    /* storage blocked: the workspace lasts for this tab only */
-  }
-  return memoryToken;
+/* Checks saved before accounts existed were keyed to this browser. They are not part of a login. */
+try {
+  localStorage.removeItem('siyasat.workspace.v1');
+} catch {
+  /* ignore */
 }
 
-function forgetToken(): void {
-  memoryToken = null;
+async function errorBody(res: Response): Promise<{ message: string; code?: string }> {
   try {
-    localStorage.removeItem(TOKEN_KEY);
+    const body = (await res.json()) as { message?: string | string[]; code?: string };
+    const message = Array.isArray(body.message) ? body.message.join('; ') : body.message;
+    return { message: message || `Request failed (${res.status})`, code: body.code };
   } catch {
-    /* ignore */
+    return { message: `Request failed (${res.status})` };
   }
-}
-
-async function workspaceToken(): Promise<string> {
-  const existing = storedToken();
-  if (existing) return existing;
-  creating ??= (async () => {
-    const res = await fetch('/api/workspaces', { method: 'POST' });
-    if (!res.ok) throw new ApiError(res.status, "Couldn't start a workspace");
-    const { token } = (await res.json()) as WorkspaceCreated;
-    memoryToken = token;
-    try {
-      localStorage.setItem(TOKEN_KEY, token);
-    } catch {
-      /* ignore */
-    }
-    return token;
-  })().finally(() => {
-    creating = null;
-  });
-  return creating;
-}
-
-async function errorMessage(res: Response): Promise<string> {
-  try {
-    const body = (await res.json()) as { message?: string | string[] };
-    if (Array.isArray(body.message)) return body.message.join('; ');
-    if (body.message) return body.message;
-  } catch {
-    /* not JSON */
-  }
-  return `Request failed (${res.status})`;
 }
 
 interface RequestOptions {
@@ -88,28 +48,30 @@ interface RequestOptions {
 }
 
 async function request<T>(method: string, path: string, { body, timeoutMs = 30_000 }: RequestOptions = {}): Promise<T> {
-  let renewed = false;
   for (let attempt = 0; ; attempt++) {
-    const token = await workspaceToken();
     const res = await fetch('/api' + path, {
       method,
-      headers: { Authorization: `Bearer ${token}`, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
+      credentials: 'same-origin',
+      headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (res.ok) return (await res.json()) as T;
-    // The server no longer knows this workspace (its database was reset): start a fresh one, once.
-    if (res.status === 401 && !renewed) {
-      renewed = true;
-      forgetToken();
-      continue;
+    const err = await errorBody(res);
+    // The session is missing or no longer valid.
+    if (res.status === 401 && !window.location.pathname.startsWith('/login')) {
+      const next = window.location.pathname + window.location.search;
+      window.location.assign(`/login?next=${encodeURIComponent(next)}`);
+    }
+    if (res.status === 403 && err.code === 'not_approved' && window.location.pathname !== '/pending') {
+      window.location.assign('/pending');
     }
     // Going faster than the API allows: wait as long as it asks, then carry on.
     if (res.status === 429 && attempt < 4) {
       await sleep(Math.min(30, Number(res.headers.get('retry-after')) || 5) * 1000);
       continue;
     }
-    throw new ApiError(res.status, await errorMessage(res));
+    throw new ApiError(res.status, err.message);
   }
 }
 

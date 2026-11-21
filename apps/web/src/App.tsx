@@ -1,22 +1,38 @@
 import type { CheckSummary } from '@siyasat/core';
-import { ArrowLeft, ChevronRight, FileText, LayoutDashboard, ListChecks, Plus, WifiOff, Workflow } from 'lucide-react';
+import { ArrowLeft, ChevronRight, FileText, LayoutDashboard, ListChecks, LogOut, Plus, Shield, WifiOff, Workflow } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import { Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router';
+import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { Empty, Logo, Spinner } from './components/bits';
+import { Boot } from './components/Gate';
 import { Dialog } from './components/Dialog';
 import { Toast } from './components/Toast';
+import { logout } from './lib/auth';
 import { backTarget, paths, setNavigate, trackVisit, typeName } from './lib/nav';
+import { AdminPage } from './pages/Admin';
 import { Dashboard } from './pages/Dashboard';
+import { Landing } from './pages/Landing';
+import { Login } from './pages/Login';
 import { NewCheck } from './pages/NewCheck';
+import { Pending } from './pages/Pending';
 import { Reader } from './pages/Reader';
 import { HowItWorks } from './pages/HowItWorks';
 import { Reports } from './pages/Reports';
 import { Results } from './pages/Results';
+import { Signup } from './pages/Signup';
 import { UploadPage } from './pages/UploadPage';
+import { useSession } from './session';
 import { initChecks, useChecks } from './store/checks';
 import { stopEditing, useForms } from './store/forms';
 
-const TITLES: Record<string, string> = { new: 'New check', results: 'Results', reports: 'Reports', 'how-it-works': 'How it works', read: 'Full-text reader', upload: 'Upload & check' };
+const TITLES: Record<string, string> = {
+  new: 'New check',
+  results: 'Results',
+  reports: 'Reports',
+  'how-it-works': 'How it works',
+  read: 'Full-text reader',
+  upload: 'Upload & check',
+  admin: 'Access requests',
+};
 
 type Crumb = [name: string, to: string | null];
 
@@ -38,12 +54,26 @@ function crumbs(page: string, parts: string[], summaries: CheckSummary[]): Crumb
   else if (page === 'how-it-works') trail.push(['How it works', null]);
   else if (page === 'upload') trail.push(['Upload & check', null]);
   else if (page === 'read') trail.push(['Results', paths.results()], ['Full-text reader', null]);
+  else if (page === 'admin') trail.push(['Access requests', null]);
   return trail;
 }
 
-export function App() {
+function RequireApproved() {
+  const { ready, user } = useSession();
+  const location = useLocation();
+  if (!ready) return <Boot label="Loading…" />;
+  if (!user) {
+    const next = location.pathname + location.search;
+    return <Navigate to={`/login?next=${encodeURIComponent(next)}`} replace />;
+  }
+  if (user.status !== 'approved') return <Navigate to="/pending" replace />;
+  return <Outlet />;
+}
+
+function Shell() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useSession();
   const status = useChecks((s) => s.status);
   const summaries = useChecks((s) => s.summaries);
   const [page = 'dashboard', ...parts] = location.pathname.split('/').filter(Boolean);
@@ -92,6 +122,14 @@ export function App() {
           <Logo size={32} />
           <b>Siyasat</b>
         </Link>
+        {user?.role === 'admin' && (
+          <Link className="top-link" to="/admin">
+            Admin
+          </Link>
+        )}
+        <button type="button" className="logout" onClick={() => void logout()}>
+          Log out
+        </button>
       </header>
 
       <div className="app">
@@ -123,7 +161,22 @@ export function App() {
               <Workflow aria-hidden="true" />
               How it works
             </NavLink>
+            {user?.role === 'admin' && (
+              <NavLink to="/admin">
+                <Shield aria-hidden="true" />
+                Admin
+              </NavLink>
+            )}
           </nav>
+          {user && (
+            <div className="side-account">
+              <b>{user.name}</b>
+              <small>{user.email}</small>
+              <button type="button" onClick={() => void logout()}>
+                <LogOut className="ic" aria-hidden="true" /> Log out
+              </button>
+            </div>
+          )}
           <div className="side-foot">
             <b>Catch AI hallucinations</b>
             Every reference is checked against Crossref and OpenAlex, including retraction notices.
@@ -168,15 +221,7 @@ export function App() {
                 </Empty>
               </section>
             ) : (
-              <Routes>
-                <Route path="/new/:type?" element={<NewCheck />} />
-                <Route path="/results/:id?/:view?" element={<Results />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/how-it-works" element={<HowItWorks />} />
-                <Route path="/read" element={<Reader />} />
-                <Route path="/upload" element={<UploadPage />} />
-                <Route path="*" element={<Dashboard />} />
-              </Routes>
+              <Outlet />
             )}
           </div>
         </main>
@@ -208,5 +253,29 @@ export function App() {
       <Toast />
       <Dialog />
     </>
+  );
+}
+
+export function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route path="/pending" element={<Pending />} />
+      <Route element={<RequireApproved />}>
+        <Route element={<Shell />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/new/:type?" element={<NewCheck />} />
+          <Route path="/results/:id?/:view?" element={<Results />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/read" element={<Reader />} />
+          <Route path="/upload" element={<UploadPage />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Route>
+      </Route>
+    </Routes>
   );
 }

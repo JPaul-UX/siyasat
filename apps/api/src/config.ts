@@ -22,6 +22,12 @@ const envSchema = z.object({
    * address each page was requested on is used, which is right unless the site answers on several domains.
    */
   PUBLIC_URL: optional(z.url()),
+  /**
+   * The owner's login. In production the server refuses to start without both, so a deploy cannot go
+   * live with nobody able to approve new accounts. Changing ADMIN_PASSWORD and redeploying resets it.
+   */
+  ADMIN_EMAIL: optional(z.email('ADMIN_EMAIL must look like name@example.com')),
+  ADMIN_PASSWORD: optional(z.string()),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -36,6 +42,8 @@ export class AppConfig {
   readonly semanticScholarApiKey?: string;
   readonly webDist?: string;
   readonly publicUrl?: string;
+  readonly adminEmail?: string;
+  readonly adminPassword?: string;
 
   constructor(env: Env) {
     this.nodeEnv = env.NODE_ENV;
@@ -46,6 +54,8 @@ export class AppConfig {
     this.semanticScholarApiKey = env.SEMANTIC_SCHOLAR_API_KEY;
     this.webDist = env.WEB_DIST;
     this.publicUrl = env.PUBLIC_URL?.replace(/\/+$/, '');
+    this.adminEmail = env.ADMIN_EMAIL?.toLowerCase();
+    this.adminPassword = env.ADMIN_PASSWORD;
   }
 
   get isProduction(): boolean {
