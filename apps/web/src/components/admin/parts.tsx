@@ -7,6 +7,7 @@ import {
   CircleX,
   DoorClosed,
   DoorOpen,
+  Hourglass,
   KeyRound,
   LockKeyhole,
   LockOpen,
@@ -38,12 +39,16 @@ export function timeAgo(iso: string | null, now = Date.now()): string {
   return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: days > 300 ? 'numeric' : undefined });
 }
 
-/** A time that says "3 h ago" and shows the exact date and time on hover. */
-export function Ago({ iso }: { iso: string | null }) {
-  if (!iso) return <span className="quiet">Never</span>;
+/**
+ * A time that says "3 h ago" and shows the exact date and time on hover. `inline` is for the middle of a
+ * sentence: "signed up just now", not "signed up Just now".
+ */
+export function Ago({ iso, inline }: { iso: string | null; inline?: boolean }) {
+  if (!iso) return <span className="quiet">{inline ? 'never' : 'Never'}</span>;
+  const text = timeAgo(iso);
   return (
     <time dateTime={iso} title={fmtDate(iso)}>
-      {timeAgo(iso)}
+      {inline && (text === 'Just now' || text === 'Yesterday') ? text.toLowerCase() : text}
     </time>
   );
 }
@@ -68,7 +73,15 @@ export function Avatar({ name, admin, size = 36 }: { name: string; admin?: boole
 export function UserPills({ user }: { user: Pick<AdminUserRow, 'status' | 'role' | 'lockedUntil'> }) {
   return (
     <span className="upills">
-      {user.status === 'suspended' ? (
+      {user.status === 'pending' ? (
+        <span className="pill wait">
+          <Hourglass aria-hidden="true" /> Waiting for approval
+        </span>
+      ) : user.status === 'rejected' ? (
+        <span className="pill na">
+          <CircleX aria-hidden="true" /> Declined
+        </span>
+      ) : user.status === 'suspended' ? (
         <span className="pill bad">
           <Ban aria-hidden="true" /> Suspended
         </span>
@@ -122,6 +135,8 @@ const ICON: Record<ActivityType, [LucideIcon, Tone]> = {
   locked: [LockKeyhole, 'bad'],
   suspended: [UserX, 'warn'],
   reactivated: [UserCheck, 'warn'],
+  approved: [UserCheck, 'ok'],
+  declined: [UserX, 'bad'],
   unlocked: [LockOpen, 'warn'],
   signed_out_everywhere: [LogOut, 'warn'],
   signups_paused: [DoorClosed, 'warn'],
@@ -148,7 +163,21 @@ function sentence(e: AdminEvent, linkUser: boolean): ReactNode {
     case 'sign_up':
       return (
         <>
-          {who} created an account{num(d['claimedChecks']) ? `, bringing ${plural(num(d['claimedChecks']), 'saved check')}` : ''}
+          {who} {d['pending'] ? 'signed up and asked for access' : 'created an account'}
+          {num(d['claimedChecks']) ? `, bringing ${plural(num(d['claimedChecks']), 'saved check')}` : ''}
+        </>
+      );
+    case 'approved':
+      return (
+        <>
+          {actor} approved {who}
+          {d['all'] ? ' (approving everyone waiting)' : d['wasDeclined'] ? ' after first declining them' : ''}
+        </>
+      );
+    case 'declined':
+      return (
+        <>
+          {actor} declined the sign-up of {who}
         </>
       );
     case 'sign_up_blocked':
@@ -176,6 +205,7 @@ function sentence(e: AdminEvent, linkUser: boolean): ReactNode {
         );
       if (d['reason'] === 'locked') return <>{who} tried to sign in while locked</>;
       if (d['reason'] === 'suspended') return <>{who} tried to sign in while suspended</>;
+      if (d['reason'] === 'declined') return <>{who} tried to sign in after their sign-up was declined</>;
       return (
         <>
           {who} typed a wrong password{num(d['attempt']) > 1 ? ` (${num(d['attempt'])} in a row)` : ''}

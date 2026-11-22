@@ -6,9 +6,10 @@ import { SideAccount, TopAccount } from './components/AccountMenu';
 import { Empty, Logo, Spinner } from './components/bits';
 import { Dialog } from './components/Dialog';
 import { Toast } from './components/Toast';
-import { setSessionEndedHandler } from './lib/api';
+import { setSessionProblemHandler } from './lib/api';
 import { backTarget, paths, safeNext, setNavigate, trackVisit, typeName } from './lib/nav';
 import { AuthPage } from './pages/AuthPage';
+import { PendingApproval } from './pages/PendingApproval';
 import { Dashboard } from './pages/Dashboard';
 import { NewCheck } from './pages/NewCheck';
 import { Reader } from './pages/Reader';
@@ -16,7 +17,8 @@ import { HowItWorks } from './pages/HowItWorks';
 import { Reports } from './pages/Reports';
 import { Results } from './pages/Results';
 import { UploadPage } from './pages/UploadPage';
-import { initAuth, isSuperAdmin, sessionEnded, useAuth } from './store/auth';
+import { refreshPending, useAdminSettings } from './store/admin';
+import { initAuth, isSuperAdmin, isWaiting, sessionProblem, useAuth } from './store/auth';
 import { initChecks, useChecks } from './store/checks';
 import { stopEditing, useForms } from './store/forms';
 
@@ -67,9 +69,10 @@ const Admin = lazy(() => import('./pages/admin/Admin').then((m) => ({ default: m
 /** Signing in comes first: nothing but the sign-in and sign-up pages works without an account. */
 export function App() {
   const status = useAuth((s) => s.status);
+  const waiting = useAuth((s) => isWaiting(s.user));
 
   useEffect(() => {
-    setSessionEndedHandler(sessionEnded);
+    setSessionProblemHandler(sessionProblem);
     void initAuth();
   }, []);
 
@@ -99,6 +102,8 @@ export function App() {
     );
   }
   if (status === 'signed-out') return <SignedOut />;
+  // Signed in, but nothing opens until the super admin approves the account.
+  if (waiting) return <PendingApproval />;
   return <Shell />;
 }
 
@@ -133,6 +138,7 @@ function Shell() {
   const summaries = useChecks((s) => s.summaries);
   const user = useAuth((s) => s.user);
   const admin = isSuperAdmin(user);
+  const pending = useAdminSettings((s) => s.pending);
   const [search] = useSearchParams();
   const [page = 'dashboard', ...parts] = location.pathname.split('/').filter(Boolean);
   const here = location.pathname + location.search;
@@ -144,6 +150,16 @@ function Shell() {
 
   useEffect(() => setNavigate(navigate), [navigate]);
   useEffect(() => void initChecks(), []);
+
+  // The super admin sees how many sign-ups are waiting, wherever they are in the app.
+  useEffect(() => {
+    if (!admin) return;
+    void refreshPending();
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') void refreshPending();
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, [admin]);
 
   const firstRender = useRef(true);
   useEffect(() => {
@@ -222,6 +238,12 @@ function Shell() {
               <NavLink to={paths.admin}>
                 <ShieldCheck aria-hidden="true" />
                 Admin
+                {pending > 0 && (
+                  <span className="nav-badge" title={`${pending} waiting for approval`}>
+                    {pending}
+                    <span className="sr"> waiting for approval</span>
+                  </span>
+                )}
               </NavLink>
             </nav>
           )}

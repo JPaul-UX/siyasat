@@ -7,6 +7,7 @@ import { Ago, Avatar, Pager, UserPills } from '../../components/admin/parts';
 import { useLoad } from '../../components/admin/useLoad';
 import { adminApi } from '../../lib/api';
 import { paths } from '../../lib/nav';
+import { useAdminSettings } from '../../store/admin';
 
 const SORTS: Record<AdminUserSort, string> = {
   newest: 'Newest first',
@@ -18,8 +19,10 @@ const SORTS: Record<AdminUserSort, string> = {
 
 const STATUSES: [UserStatus | '', string][] = [
   ['', 'All'],
+  ['pending', 'Waiting'],
   ['active', 'Active'],
   ['suspended', 'Suspended'],
+  ['rejected', 'Declined'],
 ];
 
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -33,6 +36,7 @@ export function AdminUsers() {
   const sort: AdminUserSort = rawSort in SORTS ? (rawSort as AdminUserSort) : 'newest';
   const page = Math.max(1, Number(params.get('page')) || 1);
   const [typed, setTyped] = useState(q);
+  const waiting = useAdminSettings((s) => s.pending);
 
   const update = (changes: Record<string, string | number | null>) => {
     const next = new URLSearchParams(params);
@@ -69,6 +73,7 @@ export function AdminUsers() {
           {STATUSES.map(([value, label]) => (
             <button key={label} type="button" aria-pressed={status === value} onClick={() => update({ status: value, page: 1 })}>
               {label}
+              {value === 'pending' && waiting > 0 && <span className="count-badge">{waiting}</span>}
             </button>
           ))}
         </div>

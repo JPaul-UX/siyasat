@@ -1,8 +1,10 @@
 /* The browser's side of the HTTP contract in @siyasat/core. */
 import type {
+  AdminApproveAllResponse,
   AdminEventFilter,
   AdminEventList,
   AdminOverview,
+  AdminPendingCount,
   AdminSettings,
   AdminUserDetail,
   AdminUserList,
@@ -33,6 +35,8 @@ export class ApiError extends Error {
     message: string,
     /** Problems with particular form fields, by field name, when the server named them. */
     readonly fields: Record<string, string> = {},
+    /** A machine-readable cause, e.g. "pending_approval". */
+    readonly reason?: string,
   ) {
     super(message);
   }
@@ -64,17 +68,23 @@ export function forgetLegacyWorkspace(): void {
   }
 }
 
-/** Called when the server says the session is over: signed out elsewhere, expired, or suspended. */
-let onSessionEnded: (() => void) | null = null;
-export const setSessionEndedHandler = (fn: () => void): void => {
-  onSessionEnded = fn;
+/**
+ * Called when the server turns the session away: `ended` when it is over (signed out elsewhere, expired,
+ * suspended), `pending` when the account is still waiting for the super admin's approval.
+ */
+export type SessionProblem = 'ended' | 'pending';
+let onSessionProblem: ((problem: SessionProblem) => void) | null = null;
+export const setSessionProblemHandler = (fn: (problem: SessionProblem) => void): void => {
+  onSessionProblem = fn;
 };
 
 async function failure(res: Response): Promise<ApiError> {
   let message = `Request failed (${res.status})`;
   const fields: Record<string, string> = {};
+  let reason: string | undefined;
   try {
-    const body = (await res.json()) as { message?: string | string[]; field?: string };
+    const body = (await res.json()) as { message?: string | string[]; field?: string; reason?: string };
+    reason = body.reason;
     const messages = Array.isArray(body.message) ? body.message : body.message ? [body.message] : [];
     // The validation pipe writes "field: problem"; a message about one field can also name it in `field`.
     const plain = messages.map((m) => {
@@ -89,7 +99,7 @@ async function failure(res: Response): Promise<ApiError> {
     /* not JSON */
   }
   if (res.status === 429 && message.startsWith('Request failed')) message = 'Too many requests. Wait a minute, then try again.';
-  return new ApiError(res.status, message, fields);
+  return new ApiError(res.status, message, fields, reason);
 }
 
 const jsonHeaders = (body: unknown): HeadersInit => (body !== undefined ? { 'Content-Type': 'application/json' } : {});
@@ -111,8 +121,13 @@ async function request<T>(method: string, path: string, { body, timeoutMs = 30_0
     });
     if (res.ok) return (await res.json()) as T;
     if (res.status === 401) {
-      onSessionEnded?.();
+      onSessionProblem?.('ended');
       throw await failure(res);
+    }
+    if (res.status === 403) {
+      const error = await failure(res);
+      if (error.reason === 'pending_approval') onSessionProblem?.('pending');
+      throw error;
     }
     // Going faster than the API allows: wait as long as it asks, then carry on.
     if (res.status === 429 && attempt < 4) {
@@ -175,6 +190,10 @@ export const adminApi = {
   overview: () => request<AdminOverview>('GET', '/admin/overview'),
   users: (p: { q?: string; status?: UserStatus; sort?: AdminUserSort; page?: number }) => request<AdminUserList>('GET', '/admin/users' + query(p)),
   user: (id: string) => request<AdminUserDetail>('GET', `/admin/users/${id}`),
+  pendingCount: () => request<AdminPendingCount>('GET', '/admin/pending'),
+  approve: (id: string) => request<AdminUserDetail>('POST', `/admin/users/${id}/approve`),
+  decline: (id: string) => request<AdminUserDetail>('POST', `/admin/users/${id}/decline`),
+  approveAll: () => request<AdminApproveAllResponse>('POST', '/admin/users/approve-all'),
   suspend: (id: string) => request<AdminUserDetail>('POST', `/admin/users/${id}/suspend`),
   reactivate: (id: string) => request<AdminUserDetail>('POST', `/admin/users/${id}/reactivate`),
   unlock: (id: string) => request<AdminUserDetail>('POST', `/admin/users/${id}/unlock`),

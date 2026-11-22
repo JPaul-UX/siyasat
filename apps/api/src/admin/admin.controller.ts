@@ -1,5 +1,13 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
-import type { AdminEventList, AdminOverview, AdminSettings, AdminUserDetail, AdminUserList } from '@siyasat/core';
+import type {
+  AdminApproveAllResponse,
+  AdminEventList,
+  AdminOverview,
+  AdminPendingCount,
+  AdminSettings,
+  AdminUserDetail,
+  AdminUserList,
+} from '@siyasat/core';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { CurrentAuth, SuperAdminGuard } from '../auth/auth.guard.js';
@@ -11,7 +19,7 @@ const page = z.coerce.number().int().min(1).max(10_000).catch(1);
 
 const usersQuery = z.object({
   q: z.string().max(200).optional(),
-  status: z.enum(['active', 'suspended']).optional().catch(undefined),
+  status: z.enum(['pending', 'active', 'suspended', 'rejected']).optional().catch(undefined),
   sort: z.enum(['newest', 'oldest', 'active', 'lookups', 'throttled']).catch('newest'),
   page,
 });
@@ -35,6 +43,18 @@ export class AdminController {
     return this.admin.overview();
   }
 
+  /** How many sign-ups are waiting for approval. Cheap, for the badge beside "Admin". */
+  @Get('pending')
+  async pending(): Promise<AdminPendingCount> {
+    return { pending: await this.admin.pendingCount() };
+  }
+
+  @Post('users/approve-all')
+  @HttpCode(200)
+  approveAll(@CurrentAuth() ctx: AuthContext, @Req() req: Request): Promise<AdminApproveAllResponse> {
+    return this.admin.approveAll(ctx.user.id, requestMeta(req));
+  }
+
   @Get('users')
   users(@Query({ schema: usersQuery }) query: z.infer<typeof usersQuery>): Promise<AdminUserList> {
     return this.admin.listUsers(query);
@@ -43,6 +63,18 @@ export class AdminController {
   @Get('users/:id')
   user(@Param('id', { schema: idParam }) id: string): Promise<AdminUserDetail> {
     return this.admin.getUser(id);
+  }
+
+  @Post('users/:id/approve')
+  @HttpCode(200)
+  approve(@Param('id', { schema: idParam }) id: string, @CurrentAuth() ctx: AuthContext, @Req() req: Request): Promise<AdminUserDetail> {
+    return this.admin.approve(id, ctx.user.id, requestMeta(req));
+  }
+
+  @Post('users/:id/decline')
+  @HttpCode(200)
+  decline(@Param('id', { schema: idParam }) id: string, @CurrentAuth() ctx: AuthContext, @Req() req: Request): Promise<AdminUserDetail> {
+    return this.admin.decline(id, ctx.user.id, requestMeta(req));
   }
 
   @Post('users/:id/suspend')

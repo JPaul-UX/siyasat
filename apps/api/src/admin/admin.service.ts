@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import {
   LOOKUP_KINDS,
   type ActivityType,
+  type AdminApproveAllResponse,
   type AdminDay,
   type AdminEvent,
   type AdminEventFilter,
@@ -33,10 +34,10 @@ const USAGE_KINDS = new Set<string>([...LOOKUP_KINDS, 'throttled']);
 
 const EVENT_TYPES: Record<AdminEventFilter, ActivityType[] | null> = {
   all: null,
-  signups: ['sign_up', 'sign_up_blocked'],
+  signups: ['sign_up', 'sign_up_blocked', 'approved', 'declined'],
   signins: ['sign_in', 'sign_out'],
   failed: ['sign_in_failed', 'locked', 'sign_up_blocked'],
-  admin: ['suspended', 'reactivated', 'unlocked', 'signed_out_everywhere', 'signups_paused', 'signups_opened'],
+  admin: ['approved', 'declined', 'suspended', 'reactivated', 'unlocked', 'signed_out_everywhere', 'signups_paused', 'signups_opened'],
 };
 
 /** A user row as the SQL below returns it. */
@@ -54,6 +55,7 @@ interface RawUser {
   locked_until: Date | null;
   failed_sign_ins: number;
   suspended_at: Date | null;
+  reviewed_at: Date | null;
   workspace_id: string;
   checks: number;
   lookups7d: number;
@@ -74,6 +76,7 @@ const toRow = (u: RawUser): AdminUserRow => ({
   signupIp: u.signup_ip,
   signupDevice: describeDevice(u.signup_user_agent),
   lockedUntil: u.locked_until && u.locked_until.getTime() > Date.now() ? u.locked_until.toISOString() : null,
+  reviewedAt: iso(u.reviewed_at),
   checks: u.checks,
   lookups7d: u.lookups7d,
   throttled7d: u.throttled7d,
@@ -111,7 +114,7 @@ export class AdminService {
     const since = minusDays(this.usage.dayOf(), 6);
     return this.prisma.$queryRaw<RawUser[]>`
       SELECT u.id, u.email, u.name, u.role::text AS role, u.status::text AS status, u.created_at, u.last_seen_at,
-        u.last_sign_in_at, u.signup_ip, u.signup_user_agent, u.locked_until, u.failed_sign_ins, u.suspended_at, u.workspace_id,
+        u.last_sign_in_at, u.signup_ip, u.signup_user_agent, u.locked_until, u.failed_sign_ins, u.suspended_at, u.reviewed_at, u.workspace_id,
         COALESCE(c.n, 0)::int AS checks,
         COALESCE(g.lookups, 0)::int AS lookups7d,
         COALESCE(g.throttled, 0)::int AS throttled7d
@@ -198,6 +201,9 @@ export class AdminService {
   async suspend(id: string, actorId: string, meta: RequestMeta): Promise<AdminUserDetail> {
     const user = await this.target(id);
     if (user.role === 'super_admin') throw new BadRequestException('The super admin can’t be suspended.');
+    if (user.status === 'pending' || user.status === 'rejected') {
+      throw new BadRequestException('This account was never approved. Decline the sign-up instead.');
+    }
     if (user.status !== 'suspended') {
       await this.prisma.user.update({ where: { id }, data: { status: 'suspended', suspendedAt: new Date() } });
       const sessions = await this.auth.endAllSessions(id);
@@ -208,12 +214,60 @@ export class AdminService {
 
   async reactivate(id: string, actorId: string, meta: RequestMeta): Promise<AdminUserDetail> {
     const user = await this.target(id);
-    if (user.status !== 'active') {
+    if (user.status === 'pending' || user.status === 'rejected') {
+      throw new BadRequestException('This account was never approved. Approve the sign-up instead.');
+    }
+    if (user.status === 'suspended') {
       await this.prisma.user.update({ where: { id }, data: { status: 'active', suspendedAt: null, failedSignIns: 0, lockedUntil: null } });
       this.auth.forgetUser(id);
       await this.activity.record('reactivated', { userId: id, actorId, ...meta });
     }
     return this.getUser(id);
+  }
+
+  /* ---------- Approving sign-ups ---------- */
+
+  /** Let a waiting (or declined) account in. A waiting account's open page notices within seconds. */
+  async approve(id: string, actorId: string, meta: RequestMeta): Promise<AdminUserDetail> {
+    const user = await this.target(id);
+    if (user.status === 'pending' || user.status === 'rejected') {
+      await this.prisma.user.update({ where: { id }, data: { status: 'active', reviewedAt: new Date() } });
+      this.auth.forgetUser(id);
+      await this.activity.record('approved', { userId: id, actorId, ...meta, detail: user.status === 'rejected' ? { wasDeclined: true } : undefined });
+    }
+    return this.getUser(id);
+  }
+
+  /** Turn a sign-up down: the account is signed out and can't sign in. It can still be approved later. */
+  async decline(id: string, actorId: string, meta: RequestMeta): Promise<AdminUserDetail> {
+    const user = await this.target(id);
+    if (user.role === 'super_admin') throw new BadRequestException('The super admin can’t be declined.');
+    if (user.status === 'active' || user.status === 'suspended') {
+      throw new BadRequestException('This account is already approved. Suspend it instead.');
+    }
+    if (user.status === 'pending') {
+      await this.prisma.user.update({ where: { id }, data: { status: 'rejected', reviewedAt: new Date() } });
+      await this.auth.endAllSessions(id);
+      await this.activity.record('declined', { userId: id, actorId, ...meta });
+    }
+    return this.getUser(id);
+  }
+
+  /** Approve every sign-up that is waiting, e.g. after a whole class has signed up. */
+  async approveAll(actorId: string, meta: RequestMeta): Promise<AdminApproveAllResponse> {
+    const waiting = await this.prisma.user.findMany({ where: { status: 'pending' }, select: { id: true } });
+    if (!waiting.length) return { approved: 0 };
+    const ids = waiting.map((u) => u.id);
+    const { count } = await this.prisma.user.updateMany({ where: { id: { in: ids }, status: 'pending' }, data: { status: 'active', reviewedAt: new Date() } });
+    for (const id of ids) {
+      this.auth.forgetUser(id);
+      await this.activity.record('approved', { userId: id, actorId, ...meta, detail: { all: true } });
+    }
+    return { approved: count };
+  }
+
+  async pendingCount(): Promise<number> {
+    return this.prisma.user.count({ where: { status: 'pending' } });
   }
 
   /** Lift the pause that wrong passwords put on signing in to an account. */
@@ -274,10 +328,11 @@ export class AdminService {
     const today = days[days.length - 1]!;
     const weekAgo = minusDays(today, 6);
 
-    const [[totals], signups, usage, topToday, newest, recent, signupsOpen] = await Promise.all([
+    const [[totals], signups, usage, topToday, newest, pending, recent, signupsOpen] = await Promise.all([
       this.prisma.$queryRaw<Record<string, number>[]>`
         SELECT
           (SELECT COUNT(*) FROM users)::int AS users,
+          (SELECT COUNT(*) FROM users WHERE status = 'pending')::int AS pending,
           (SELECT COUNT(*) FROM users WHERE status = 'suspended')::int AS suspended,
           (SELECT COUNT(*) FROM users WHERE (created_at AT TIME ZONE ${tz})::date = ${today}::date)::int AS new_today,
           (SELECT COUNT(*) FROM users WHERE (created_at AT TIME ZONE ${tz})::date >= ${weekAgo}::date)::int AS new_7d,
@@ -305,6 +360,7 @@ export class AdminService {
         WHERE d.day = ${today}::date
         GROUP BY u.id ORDER BY lookups DESC, throttled DESC LIMIT 6`,
       this.queryUsers(Prisma.empty, Prisma.sql`u.created_at DESC`, 6),
+      this.queryUsers(Prisma.sql`WHERE u.status = 'pending'`, Prisma.sql`u.created_at ASC`, 50),
       this.findEvents({}, 0, 12),
       this.settings.signupsOpen(),
     ]);
@@ -321,6 +377,7 @@ export class AdminService {
       signupsOpen,
       totals: {
         users: t['users'] ?? 0,
+        pending: t['pending'] ?? 0,
         suspended: t['suspended'] ?? 0,
         newToday: t['new_today'] ?? 0,
         new7d: t['new_7d'] ?? 0,
@@ -335,6 +392,7 @@ export class AdminService {
       daily,
       topToday,
       newest: newest.map(toRow),
+      pending: pending.map(toRow),
       recent,
     };
   }

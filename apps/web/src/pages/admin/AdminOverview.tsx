@@ -1,14 +1,17 @@
-import type { AdminOverview } from '@siyasat/core';
-import { ArrowRight, DoorClosed, Gauge, KeyRound, RefreshCw, TriangleAlert, UserPlus, Users, Zap } from 'lucide-react';
+import type { AdminOverview, AdminUserRow } from '@siyasat/core';
+import { ArrowRight, CircleCheck, DoorClosed, Gauge, Hourglass, KeyRound, RefreshCw, TriangleAlert, Users, Zap } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Empty, Spinner } from '../../components/bits';
+import { ApprovalButtons } from '../../components/admin/Approval';
 import { BarChart, SERIES_COLORS, type ChartSeries } from '../../components/admin/BarChart';
 import { Ago, Avatar, EventList, UserPills } from '../../components/admin/parts';
 import { useLoad } from '../../components/admin/useLoad';
-import { adminApi } from '../../lib/api';
+import { adminApi, ApiError } from '../../lib/api';
 import { paths } from '../../lib/nav';
-import { toggleSignups, useAdminSettings } from '../../store/admin';
+import { refreshPending, toggleSignups, useAdminSettings } from '../../store/admin';
+import { confirmDialog } from '../../store/dialog';
+import { toast } from '../../store/toast';
 
 type Metric = 'signups' | 'lookups' | 'active';
 
@@ -54,8 +57,13 @@ function Stat({ icon: Icon, value, label, sub, tone }: { icon: typeof Users; val
 function Tiles({ t }: { t: AdminOverview['totals'] }) {
   return (
     <div className="stats astats">
-      <Stat icon={Users} value={t.users} label="Accounts" sub={`${t.new7d.toLocaleString()} new this week${t.suspended ? ` · ${t.suspended} suspended` : ''}`} />
-      <Stat icon={UserPlus} value={t.newToday} label="New today" sub="Accounts created" />
+      <Stat
+        icon={Users}
+        value={t.users}
+        label="Accounts"
+        sub={`${t.newToday.toLocaleString()} new today · ${t.new7d.toLocaleString()} this week${t.suspended ? ` · ${t.suspended} suspended` : ''}`}
+      />
+      <Stat icon={Hourglass} value={t.pending} label="Waiting for approval" sub={t.pending ? 'Sign-ups to review' : 'Nobody waiting'} tone={t.pending ? 'warn' : undefined} />
       <Stat icon={Gauge} value={t.activeToday} label="Active today" sub={`${t.activeSessions.toLocaleString()} signed-in sessions`} />
       <Stat icon={Zap} value={t.lookupsToday} label="Lookups today" sub={`${t.checks.toLocaleString()} checks saved in all`} />
       <Stat icon={TriangleAlert} value={t.throttledToday} label="Rate-limited today" sub="Requests refused" tone={t.throttledToday ? 'warn' : undefined} />
@@ -67,6 +75,92 @@ function Tiles({ t }: { t: AdminOverview['totals'] }) {
         tone={t.failedSignIns24h + t.blockedSignUps24h ? 'bad' : undefined}
       />
     </div>
+  );
+}
+
+/**
+ * Sign-ups waiting for the super admin, oldest first, each with Approve and Decline. Approved and declined
+ * rows leave the list at once; the rest of the page catches up on its next refresh.
+ */
+function ApprovalQueue({ pending, onChange }: { pending: AdminUserRow[]; onChange: () => void }) {
+  const [done, setDone] = useState<Set<string>>(new Set());
+  const [busyAll, setBusyAll] = useState(false);
+  const waiting = pending.filter((u) => !done.has(u.id));
+
+  const approveAll = async () => {
+    const sure = await confirmDialog({
+      title: `Approve all ${waiting.length} sign-ups?`,
+      body: 'Everyone waiting gets in at once and can start checking references. Look through the list first if any address or device seems off.',
+      confirmLabel: `Approve all ${waiting.length}`,
+    });
+    if (!sure) return;
+    setBusyAll(true);
+    try {
+      const { approved } = await adminApi.approveAll();
+      toast(`Approved ${approved} sign-up${approved === 1 ? '' : 's'}`);
+      setDone(new Set(pending.map((u) => u.id)));
+      void refreshPending();
+      onChange();
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : "Couldn't do that. Check your connection.");
+    } finally {
+      setBusyAll(false);
+    }
+  };
+
+  return (
+    <section className={`card queue${waiting.length ? ' has-waiting' : ''}`} aria-labelledby="queue-h">
+      <div className="rowh">
+        <div className="queue-title">
+          <span className="queue-ic" aria-hidden="true">
+            {waiting.length ? <Hourglass /> : <CircleCheck />}
+          </span>
+          <div>
+            <h2 className="card-h" id="queue-h">
+              {waiting.length ? `Waiting for approval (${waiting.length})` : 'No sign-ups waiting'}
+            </h2>
+            <p className="help">
+              {waiting.length
+                ? 'New accounts can sign in but can’t check references until you approve them.'
+                : 'Every new account needs your approval. New sign-ups appear here.'}
+            </p>
+          </div>
+        </div>
+        {waiting.length > 1 && (
+          <button type="button" className="approve sm" onClick={() => void approveAll()} disabled={busyAll}>
+            {busyAll ? <Spinner /> : <CircleCheck className="ic" aria-hidden="true" />} Approve all {waiting.length}
+          </button>
+        )}
+      </div>
+      {waiting.length > 0 && (
+        <ul className="people queue-list">
+          {waiting.map((u) => (
+            <li key={u.id}>
+              <Avatar name={u.name} />
+              <div className="who">
+                <Link to={paths.adminUser(u.id)}>
+                  <b>{u.name}</b>
+                </Link>
+                <small>{u.email}</small>
+                <small className="queue-meta">
+                  Signed up <Ago iso={u.createdAt} inline />
+                  {' · '}
+                  {u.signupIp ? <span className="mono">{u.signupIp}</span> : 'unknown address'}
+                  {u.signupDevice ? ` · ${u.signupDevice}` : ''}
+                </small>
+              </div>
+              <ApprovalButtons
+                user={u}
+                onDone={() => {
+                  setDone((d) => new Set(d).add(u.id));
+                  onChange();
+                }}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -108,6 +202,8 @@ export function AdminOverviewPage() {
           </button>
         </div>
       )}
+
+      <ApprovalQueue pending={data.pending} onChange={() => void reload()} />
 
       <Tiles t={data.totals} />
 

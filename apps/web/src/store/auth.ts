@@ -4,7 +4,7 @@
  */
 import type { SessionUser } from '@siyasat/core';
 import { create } from 'zustand';
-import { ApiError, authApi, forgetLegacyWorkspace, legacyWorkspaceToken } from '../lib/api';
+import { ApiError, authApi, forgetLegacyWorkspace, legacyWorkspaceToken, type SessionProblem } from '../lib/api';
 import { clearChecks } from './checks';
 import { stopJob } from './jobs';
 import { toast } from './toast';
@@ -19,6 +19,9 @@ interface AuthState {
 export const useAuth = create<AuthState>(() => ({ status: 'loading', user: null, ended: false }));
 
 export const isSuperAdmin = (user: SessionUser | null): boolean => user?.role === 'super_admin';
+
+/** Signed in, but the super admin has not approved the account yet. */
+export const isWaiting = (user: SessionUser | null): boolean => user?.status === 'pending';
 
 export async function initAuth(): Promise<void> {
   useAuth.setState({ status: 'loading' });
@@ -63,6 +66,30 @@ export async function signOut(): Promise<void> {
   }
   // A fresh page load clears everything the last account left in memory.
   window.location.assign('/signin');
+}
+
+/** Ask the server again who is signed in. The waiting page calls this to notice when the account is approved. */
+export async function refreshMe(): Promise<void> {
+  try {
+    const { user } = await authApi.me();
+    const before = useAuth.getState().user;
+    useAuth.setState({ status: 'signed-in', user, ended: false });
+    if (before?.status === 'pending' && user.status === 'active') {
+      toast(`You’re approved. Welcome to Siyasat, ${user.name.split(/\s+/)[0]}!`);
+    }
+  } catch (e) {
+    // Declined, or signed out elsewhere: back to the sign-in page. A dropped connection just waits for the next try.
+    if (e instanceof ApiError && e.status === 401) {
+      clearChecks();
+      useAuth.setState({ status: 'signed-out', user: null, ended: true });
+    }
+  }
+}
+
+/** What to do when the server turns a request away. */
+export function sessionProblem(problem: SessionProblem): void {
+  if (problem === 'pending') void refreshMe();
+  else sessionEnded();
 }
 
 /** The server no longer accepts this browser's session: it expired, was ended by an admin, or the account was suspended. */

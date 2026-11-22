@@ -2,6 +2,7 @@ import { LogOut, ShieldCheck } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { paths } from '../lib/nav';
+import { useAdminSettings } from '../store/admin';
 import { isSuperAdmin, signOut, useAuth } from '../store/auth';
 import { Avatar } from './admin/parts';
 
@@ -26,6 +27,7 @@ export function SideAccount() {
 /** On small screens: the account's initials in the top bar, opening a menu. */
 export function TopAccount() {
   const user = useAuth((s) => s.user);
+  const pending = useAdminSettings((s) => s.pending);
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const location = useLocation();
@@ -48,8 +50,16 @@ export function TopAccount() {
   if (!user) return null;
   return (
     <div className="top-account" ref={box}>
-      <button type="button" className="avatar-btn" aria-expanded={open} aria-haspopup="true" aria-label={`Account: ${user.name}`} onClick={() => setOpen((o) => !o)}>
+      <button
+        type="button"
+        className="avatar-btn"
+        aria-expanded={open}
+        aria-haspopup="true"
+        aria-label={`Account: ${user.name}${isSuperAdmin(user) && pending ? `, ${pending} sign-ups waiting for approval` : ''}`}
+        onClick={() => setOpen((o) => !o)}
+      >
         <Avatar name={user.name} admin={isSuperAdmin(user)} size={32} />
+        {isSuperAdmin(user) && pending > 0 && <span className="avatar-dot" aria-hidden="true" />}
       </button>
       {open && (
         <div className="acct-pop">
@@ -60,6 +70,7 @@ export function TopAccount() {
           {isSuperAdmin(user) && (
             <Link to={paths.admin}>
               <ShieldCheck className="ic" aria-hidden="true" /> Admin dashboard
+              {pending > 0 && <span className="count-badge">{pending} waiting</span>}
             </Link>
           )}
           <button type="button" onClick={() => void signOut()}>

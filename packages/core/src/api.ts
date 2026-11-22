@@ -8,7 +8,11 @@ import type { AbstractInfo, Check, CheckSummary, FullText, RefResult, SourceInpu
 /* ---------- Accounts ---------- */
 
 export type UserRole = 'user' | 'super_admin';
-export type UserStatus = 'active' | 'suspended';
+/**
+ * pending: signed up and waiting for the super admin's approval; signed in, but can't use anything yet.
+ * active: approved. suspended: stopped by the super admin. rejected: the super admin declined the sign-up.
+ */
+export type UserStatus = 'pending' | 'active' | 'suspended' | 'rejected';
 
 /** The signed-in account, as GET /api/auth/me and the sign-in routes describe it. */
 export interface SessionUser {
@@ -16,6 +20,8 @@ export interface SessionUser {
   email: string;
   name: string;
   role: UserRole;
+  /** `pending` until the super admin approves the account; only `active` accounts can use Siyasat. */
+  status: Extract<UserStatus, 'pending' | 'active'>;
   createdAt: string;
 }
 
@@ -69,6 +75,8 @@ export type ActivityType =
   | 'locked'
   | 'suspended'
   | 'reactivated'
+  | 'approved'
+  | 'declined'
   | 'unlocked'
   | 'signed_out_everywhere'
   | 'signups_paused'
@@ -89,6 +97,8 @@ export interface AdminUserRow {
   signupDevice: string | null;
   /** Set while too many wrong passwords keep the account locked. */
   lockedUntil: string | null;
+  /** When the super admin approved or declined the sign-up. */
+  reviewedAt: string | null;
   checks: number;
   /** Lookups in the last seven days. */
   lookups7d: number;
@@ -161,6 +171,16 @@ export interface AdminEventList {
 /** Which events the activity log shows. */
 export type AdminEventFilter = 'all' | 'signups' | 'signins' | 'failed' | 'admin';
 
+/** GET /api/admin/pending: how many sign-ups are waiting, for the badge beside "Admin". */
+export interface AdminPendingCount {
+  pending: number;
+}
+
+/** POST /api/admin/users/approve-all */
+export interface AdminApproveAllResponse {
+  approved: number;
+}
+
 export interface AdminDay {
   day: string;
   signups: number;
@@ -177,6 +197,8 @@ export interface AdminOverview {
   signupsOpen: boolean;
   totals: {
     users: number;
+    /** Sign-ups waiting for approval. */
+    pending: number;
     suspended: number;
     newToday: number;
     new7d: number;
@@ -193,6 +215,8 @@ export interface AdminOverview {
   /** The accounts that made the most lookups today. */
   topToday: { id: string; name: string; email: string; lookups: number; throttled: number }[];
   newest: AdminUserRow[];
+  /** Sign-ups waiting for approval, oldest first (at most 50). */
+  pending: AdminUserRow[];
   recent: AdminEvent[];
 }
 

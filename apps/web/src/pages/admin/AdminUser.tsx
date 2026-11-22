@@ -1,8 +1,9 @@
 import { LOOKUP_KINDS, type AdminUserDetail, type UsageKind } from '@siyasat/core';
-import { ArrowLeft, Ban, LockOpen, LogOut, MonitorSmartphone, TriangleAlert, UserCheck } from 'lucide-react';
+import { ArrowLeft, Ban, CircleX, Hourglass, LockOpen, LogOut, MonitorSmartphone, TriangleAlert, UserCheck } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { Empty, Spinner } from '../../components/bits';
+import { ApprovalButtons } from '../../components/admin/Approval';
 import { BarChart, SERIES_COLORS } from '../../components/admin/BarChart';
 import { Ago, Avatar, EventList, UserPills } from '../../components/admin/parts';
 import { useLoad } from '../../components/admin/useLoad';
@@ -83,34 +84,38 @@ export function AdminUserPage() {
           <UserPills user={user} />
         </div>
         <div className="uhead-actions">
+          {(user.status === 'pending' || user.status === 'rejected') && <ApprovalButtons user={user} onDone={setData} size="md" />}
           {user.lockedUntil && (
             <button type="button" className="ghost sm" disabled={!!busy} onClick={() => void run('unlock', `Unlocked sign-in for ${user.name}`)}>
               <LockOpen className="ic" aria-hidden="true" /> Unlock sign-in
             </button>
           )}
-          <button
-            type="button"
-            className="ghost sm"
-            disabled={!!busy || !sessions.length}
-            title={sessions.length ? undefined : 'Not signed in anywhere'}
-            onClick={() =>
-              void run('signOutEverywhere', `Signed ${user.name} out everywhere`, {
-                title: isMe ? 'Sign yourself out everywhere?' : `Sign ${user.name} out everywhere?`,
-                body: isMe
-                  ? 'You will be signed out on every device, including this one.'
-                  : `This ends ${sessions.length === 1 ? 'their one session' : `all ${sessions.length} of their sessions`}. They can sign in again with their password.`,
-                confirmLabel: 'Sign out everywhere',
-              })
-            }
-          >
-            {busy === 'signOutEverywhere' ? <Spinner /> : <LogOut className="ic" aria-hidden="true" />} Sign out everywhere
-          </button>
+          {(user.status === 'active' || user.status === 'suspended') && (
+            <button
+              type="button"
+              className="ghost sm"
+              disabled={!!busy || !sessions.length}
+              title={sessions.length ? undefined : 'Not signed in anywhere'}
+              onClick={() =>
+                void run('signOutEverywhere', `Signed ${user.name} out everywhere`, {
+                  title: isMe ? 'Sign yourself out everywhere?' : `Sign ${user.name} out everywhere?`,
+                  body: isMe
+                    ? 'You will be signed out on every device, including this one.'
+                    : `This ends ${sessions.length === 1 ? 'their one session' : `all ${sessions.length} of their sessions`}. They can sign in again with their password.`,
+                  confirmLabel: 'Sign out everywhere',
+                })
+              }
+            >
+              {busy === 'signOutEverywhere' ? <Spinner /> : <LogOut className="ic" aria-hidden="true" />} Sign out everywhere
+            </button>
+          )}
           {user.status === 'suspended' ? (
             <button type="button" className="primary sm" disabled={!!busy} onClick={() => void run('reactivate', `Reactivated ${user.name}`)}>
               {busy === 'reactivate' ? <Spinner /> : <UserCheck className="ic" aria-hidden="true" />} Reactivate
             </button>
           ) : (
-            !isAdmin && (
+            !isAdmin &&
+            user.status === 'active' && (
               <button
                 type="button"
                 className="ghost sm danger-btn"
@@ -131,9 +136,24 @@ export function AdminUserPage() {
         </div>
       </section>
 
+      {user.status === 'pending' && (
+        <div className="oneline admin-alert" role="status">
+          <Hourglass className="ic" aria-hidden="true" />
+          <span>
+            Signed up <Ago iso={user.createdAt} inline /> and waiting for your approval. They can sign in, but can’t check references until you approve
+            them.
+          </span>
+        </div>
+      )}
+      {user.status === 'rejected' && (
+        <div className="msg err admin-alert" role="status">
+          <CircleX className="ic" aria-hidden="true" /> Sign-up declined {user.reviewedAt ? <Ago iso={user.reviewedAt} inline /> : ''}. They can’t sign in unless you
+          approve them.
+        </div>
+      )}
       {user.status === 'suspended' && (
         <div className="msg err admin-alert" role="status">
-          <Ban className="ic" aria-hidden="true" /> Suspended {user.suspendedAt ? <Ago iso={user.suspendedAt} /> : ''}. This account can’t sign in or run
+          <Ban className="ic" aria-hidden="true" /> Suspended {user.suspendedAt ? <Ago iso={user.suspendedAt} inline /> : ''}. This account can’t sign in or run
           checks.
         </div>
       )}
@@ -177,7 +197,7 @@ export function AdminUserPage() {
             <dt>Saved checks</dt>
             <dd>
               {user.checks.toLocaleString()}
-              <small>{data.lastCheckAt ? <>Last saved <Ago iso={data.lastCheckAt} /></> : 'None yet'}</small>
+              <small>{data.lastCheckAt ? <>Last saved <Ago iso={data.lastCheckAt} inline /></> : 'None yet'}</small>
             </dd>
           </div>
           <div>

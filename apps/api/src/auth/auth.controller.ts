@@ -4,7 +4,7 @@ import { PASSWORD, type AuthConfig, type AuthResponse, type MeResponse } from '@
 import type { CookieOptions, Request, Response } from 'express';
 import { z } from 'zod';
 import { AppConfig } from '../config.js';
-import { CurrentAuth, SessionGuard, sessionToken } from './auth.guard.js';
+import { CurrentAuth, SignedInGuard, sessionToken } from './auth.guard.js';
 import { type AuthContext, AuthService, SESSION_COOKIE, SESSION_MS, toSessionUser, type AuthResult } from './auth.service.js';
 import { requestMeta } from './request-info.js';
 import { SettingsService } from './settings.service.js';
@@ -82,8 +82,9 @@ export class AuthController {
     return { ok: true };
   }
 
+  /** The signed-in account, including one still waiting for approval: its page checks back here. */
   @Get('me')
-  @UseGuards(SessionGuard)
+  @UseGuards(SignedInGuard)
   me(@CurrentAuth() ctx: AuthContext): MeResponse {
     return { user: toSessionUser(ctx.user) };
   }

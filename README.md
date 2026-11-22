@@ -60,6 +60,11 @@ cached, and all users together stay inside each database's rate limit (`apps/api
 Every lookup costs requests to Crossref, OpenAlex and the other databases, which all users share, so Siyasat needs
 an account: nothing but the sign-in and sign-up pages works without one (`apps/api/src/auth`).
 
+**Every new account waits for the super admin's approval.** Someone who signs up can sign in, but sees only a page
+saying the account is waiting; every lookup and saved-check route answers 403 (`reason: "pending_approval"`). That
+page checks back every 15 seconds and lets them in as soon as they are approved. A declined sign-up can't sign in
+at all, though the super admin can still approve it later.
+
 - **Sessions.** Signing in sets an httpOnly, SameSite=Lax cookie holding a random token; the database keeps only
   its hash. Sessions last 30 days. Passwords are hashed with scrypt.
 - **Rate limits.** Lookups are limited per account (per IP address before signing in). Sign-ups are limited to 30
@@ -73,8 +78,10 @@ storage. Signing up or in from that browser moves those checks into the account.
 
 ### The admin dashboard
 
-The super admin opens **Admin** in the sidebar (`/admin`). It shows:
+The super admin opens **Admin** in the sidebar (`/admin`); a badge beside it counts the sign-ups waiting. It shows:
 
+- **Waiting for approval**: the sign-ups to review, oldest first, with the address and browser each came from,
+  and **Approve**, **Decline** and **Approve all** (for when a whole class signs up at once).
 - **Overview**: accounts, sign-ups, active accounts, lookups, rate-limited requests and failed sign-ins, today and
   for the last 30 days, with the newest accounts and the heaviest users today.
 - **Accounts**: every account with where it signed up from (IP address and browser), when it was last active, its
@@ -176,7 +183,8 @@ is marked Secure, so the site must be served over HTTPS (Railway does this).
 ## API
 
 Every route is under `/api`. All but the health check and the first three auth routes need a signed-in session
-(the cookie the sign-in routes set), and the `/admin` routes need the super admin.
+(the cookie the sign-in routes set) of an approved account; `GET /auth/me` and sign-out also work while the account
+waits for approval. The `/admin` routes need the super admin.
 `packages/core/src/api.ts` has the request and response types.
 
 | Route | Purpose |
@@ -197,6 +205,8 @@ Every route is under `/api`. All but the health check and the first three auth r
 | `DELETE /checks`, `POST /checks/restore` | Delete every check; bring deleted checks back (for Undo) |
 | `GET /admin/overview` | The admin dashboard's numbers and 30-day series |
 | `GET /admin/users`, `GET /admin/users/:id` | Accounts, with usage; one account in full |
+| `GET /admin/pending` | How many sign-ups are waiting for approval |
+| `POST /admin/users/:id/approve`, `/decline`, `POST /admin/users/approve-all` | Approve or decline sign-ups |
 | `POST /admin/users/:id/suspend`, `/reactivate`, `/unlock`, `/sign-out` | Act on an account |
 | `GET /admin/events` | The activity log |
 | `GET`, `PUT /admin/settings` | Whether new sign-ups are open |

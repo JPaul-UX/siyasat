@@ -33,9 +33,27 @@ export async function authOf(req: AuthedRequest, auth: AuthService): Promise<Aut
   return req.auth;
 }
 
-/** Requires a signed-in account. */
+/** What a 403 says when the account is still waiting for approval, so the app can show its waiting page. */
+export const PENDING_APPROVAL = 'pending_approval';
+
+/** Requires a signed-in account that the super admin has approved. */
 @Injectable()
 export class SessionGuard implements CanActivate {
+  constructor(private readonly auth: AuthService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const ctx = await authOf(context.switchToHttp().getRequest<AuthedRequest>(), this.auth);
+    if (!ctx) throw new UnauthorizedException('Sign in to continue.');
+    if (ctx.user.status !== 'active') {
+      throw new ForbiddenException({ statusCode: 403, message: 'Your account is waiting for approval.', reason: PENDING_APPROVAL });
+    }
+    return true;
+  }
+}
+
+/** Requires a signed-in account, approved or still waiting. Only for routes about the account itself. */
+@Injectable()
+export class SignedInGuard implements CanActivate {
   constructor(private readonly auth: AuthService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -54,7 +72,7 @@ export class SuperAdminGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const ctx = await authOf(context.switchToHttp().getRequest<AuthedRequest>(), this.auth);
     if (!ctx) throw new UnauthorizedException('Sign in to continue.');
-    if (ctx.user.role !== 'super_admin') throw new ForbiddenException('Only the super admin can see this.');
+    if (ctx.user.role !== 'super_admin' || ctx.user.status !== 'active') throw new ForbiddenException('Only the super admin can see this.');
     return true;
   }
 }

@@ -27,9 +27,12 @@ enum UserRole {
   super_admin
 }
 
+/// pending: signed up, waiting for the super admin to approve. rejected: the super admin declined the sign-up.
 enum UserStatus {
+  pending
   active
   suspended
+  rejected
 }
 
 /// An account. The email is stored in lower case; the password only as a scrypt hash.
@@ -39,7 +42,7 @@ model User {
   name            String
   passwordHash    String          @map("password_hash")
   role            UserRole        @default(user)
-  status          UserStatus      @default(active)
+  status          UserStatus      @default(pending)
   workspaceId     String          @unique @map("workspace_id") @db.Uuid
   workspace       Workspace       @relation(fields: [workspaceId], references: [id])
   /// Where the account was created from, for spotting several accounts made by one person.
@@ -49,6 +52,8 @@ model User {
   failedSignIns   Int             @default(0) @map("failed_sign_ins")
   lockedUntil     DateTime?       @map("locked_until") @db.Timestamptz(3)
   suspendedAt     DateTime?       @map("suspended_at") @db.Timestamptz(3)
+  /// When the super admin approved or declined the sign-up.
+  reviewedAt      DateTime?       @map("reviewed_at") @db.Timestamptz(3)
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   lastSignInAt    DateTime?       @map("last_sign_in_at") @db.Timestamptz(3)
   lastSeenAt      DateTime?       @map("last_seen_at") @db.Timestamptz(3)
@@ -58,6 +63,7 @@ model User {
   usage           UsageDaily[]
 
   @@index([createdAt(sort: Desc)])
+  @@index([status])
   @@map("users")
 }
 

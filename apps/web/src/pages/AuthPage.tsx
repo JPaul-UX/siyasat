@@ -42,7 +42,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
   );
 }
 
-function AuthArt() {
+export function AuthArt() {
   return (
     <aside className="auth-art">
       <Link className="brand" to={paths.signIn}>
@@ -342,7 +342,7 @@ function SignUpForm({ nextQuery }: { nextQuery: string }) {
   return (
     <>
       <h1 className="auth-h">Create your account</h1>
-      <p className="auth-lead">It takes a minute, and your checks are saved to your account from then on.</p>
+      <p className="auth-lead">An administrator approves every new account. Once yours is approved, you can check references and your checks are saved to it.</p>
       {closed && (
         <div className="msg info auth-alert" role="status">
           <Info className="ic" aria-hidden="true" />
@@ -392,11 +392,11 @@ function SignUpForm({ nextQuery }: { nextQuery: string }) {
         <button type="submit" className="primary lg auth-submit" disabled={busy || closed || open === null}>
           {busy ? (
             <>
-              <Spinner /> Creating your account…
+              <Spinner /> Sending your request…
             </>
           ) : (
             <>
-              Create account <ArrowRight className="ic" aria-hidden="true" />
+              Request access <ArrowRight className="ic" aria-hidden="true" />
             </>
           )}
         </button>

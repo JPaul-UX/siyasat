@@ -4,7 +4,17 @@ import { adminApi, ApiError } from '../lib/api';
 import { confirmDialog } from './dialog';
 import { toast } from './toast';
 
-export const useAdminSettings = create<{ signupsOpen: boolean | null }>(() => ({ signupsOpen: null }));
+export const useAdminSettings = create<{ signupsOpen: boolean | null; pending: number }>(() => ({ signupsOpen: null, pending: 0 }));
+
+/** How many sign-ups are waiting for approval, for the badge beside "Admin". */
+export async function refreshPending(): Promise<void> {
+  try {
+    const { pending } = await adminApi.pendingCount();
+    useAdminSettings.setState({ pending });
+  } catch (e) {
+    console.error(e);
+  }
+}
 
 export async function loadAdminSettings(): Promise<void> {
   try {

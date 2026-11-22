@@ -4865,3 +4865,241 @@ textarea.hw-input {
     text-align: center;
   }
 }
+
+/* ---------- Approval ---------- */
+/* The waiting page */
+.wait-ic {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 18px;
+  border-radius: 16px;
+  background: var(--gold-soft);
+  color: var(--gold-dark);
+  box-shadow: inset 0 0 0 1px var(--gold-line);
+}
+.wait-ic svg {
+  width: 26px;
+  height: 26px;
+}
+.wait-steps {
+  position: relative;
+  display: grid;
+  gap: 0;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.wait-steps li {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding: 0 0 20px;
+}
+/* The line joining one step to the next. */
+.wait-steps li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 34px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--line);
+}
+.wait-steps li.done::after {
+  background: #b9dcc6;
+}
+.step-ic {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 50%;
+  background: #efede5;
+  color: var(--ink-soft);
+}
+.step-ic svg {
+  width: 17px;
+  height: 17px;
+}
+.wait-steps li.done .step-ic {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.wait-steps li.now .step-ic {
+  background: var(--gold-soft);
+  box-shadow: inset 0 0 0 1px var(--gold-line);
+}
+.wait-steps b {
+  display: block;
+  font-size: 15px;
+  line-height: 1.3;
+  margin-top: 5px;
+}
+.wait-steps li:not(.done):not(.now) b {
+  color: var(--ink-soft);
+}
+.wait-steps small {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+.pulse {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--gold-dark);
+}
+.pulse::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2px solid var(--gold-dark);
+  opacity: 0;
+  animation: pulse 1.8s ease-out infinite;
+}
+@keyframes pulse {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+.wait-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+.wait-actions button {
+  flex: 1;
+}
+/* Approve: green, the one affirmative action in the admin. */
+.approve {
+  background: var(--ok);
+  color: #fff;
+  font-weight: 600;
+  padding: 9px 16px;
+  box-shadow: 0 1px 2px rgba(15, 80, 40, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+.approve:hover:not(:disabled) {
+  background: #125d31;
+}
+.approve.sm {
+  min-height: 34px;
+  padding: 5px 12px;
+  font-size: 13.5px;
+  border-radius: 8px;
+}
+.approve .spin {
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+}
+.approval {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: none;
+}
+/* The queue on the overview */
+.queue.has-waiting {
+  border-color: var(--gold-line);
+  box-shadow: 0 0 0 3px rgba(243, 213, 88, 0.22), var(--shadow);
+}
+.queue-title {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.queue-ic {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 11px;
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.queue.has-waiting .queue-ic {
+  background: var(--gold-soft);
+  color: var(--gold-dark);
+}
+.queue-ic svg {
+  width: 20px;
+  height: 20px;
+}
+.queue .help {
+  margin-bottom: 0;
+}
+.queue-list {
+  margin-top: 12px;
+}
+.queue-list li {
+  flex-wrap: wrap;
+}
+.queue-list .queue-meta {
+  margin-top: 2px;
+}
+/* Counts beside "Admin" and in filters */
+.nav-badge {
+  margin-left: auto;
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: var(--gold);
+  color: var(--maroon-deep);
+  font-size: 12px;
+  font-weight: 750;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.count-badge {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 7px;
+  border-radius: 99px;
+  background: var(--gold-soft);
+  color: var(--gold-dark);
+  box-shadow: inset 0 0 0 1px var(--gold-line);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.acct-pop a .count-badge {
+  margin-left: auto;
+}
+.avatar-btn {
+  position: relative;
+}
+.avatar-dot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 2px var(--maroon-dark);
+}
+
+@media (max-width: 900px) {
+  .queue-list .approval {
+    width: 100%;
+  }
+  .queue-list .approval button {
+    flex: 1;
+  }
+  .queue .rowh > .approve {
+    width: 100%;
+  }
+}

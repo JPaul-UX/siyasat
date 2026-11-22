@@ -64,8 +64,13 @@ export const toSessionUser = (u: AuthUser): SessionUser => ({
   email: u.email,
   name: u.name,
   role: u.role,
+  // Only active and pending accounts have sessions (see resolve).
+  status: u.status === 'active' ? 'active' : 'pending',
   createdAt: u.createdAt.toISOString(),
 });
+
+/** Statuses that can hold a session. A pending account can sign in, but only to see that it is waiting. */
+const CAN_SIGN_IN: ReadonlySet<UserStatus> = new Set(['active', 'pending']);
 
 /** Accounts and their sessions. */
 @Injectable()
@@ -135,6 +140,8 @@ export class AuthService implements OnApplicationBootstrap, OnModuleDestroy {
             email,
             name: input.name.trim(),
             passwordHash,
+            // Every new account waits for the super admin's approval.
+            status: 'pending',
             signupIp: meta.ip,
             signupUserAgent: meta.userAgent,
             lastSignInAt: new Date(),
@@ -152,8 +159,8 @@ export class AuthService implements OnApplicationBootstrap, OnModuleDestroy {
     }
 
     const token = await this.createSession(user.id, meta);
-    await this.activity.record('sign_up', { userId: user.id, ...meta, detail: claimedChecks ? { claimedChecks } : undefined });
-    this.log.log(`New account ${user.email} from ${meta.ip ?? 'unknown address'}`);
+    await this.activity.record('sign_up', { userId: user.id, ...meta, detail: { pending: true, ...(claimedChecks ? { claimedChecks } : {}) } });
+    this.log.log(`New account ${user.email} from ${meta.ip ?? 'unknown address'}, waiting for approval`);
     return { token, user: toSessionUser(user), ...(claimedChecks ? { claimedChecks } : {}) };
   }
 
@@ -193,10 +200,14 @@ export class AuthService implements OnApplicationBootstrap, OnModuleDestroy {
       throw new UnauthorizedException(WRONG_CREDENTIALS);
     }
 
-    // Only someone with the right password learns that the account is suspended.
+    // Only someone with the right password learns that the account is suspended or was declined.
     if (user.status === 'suspended') {
       await this.activity.record('sign_in_failed', { userId: user.id, ...meta, detail: { reason: 'suspended' } });
       throw new ForbiddenException('This account has been suspended. If you think this is a mistake, contact the site’s administrator.');
+    }
+    if (user.status === 'rejected') {
+      await this.activity.record('sign_in_failed', { userId: user.id, ...meta, detail: { reason: 'declined' } });
+      throw new ForbiddenException('Your sign-up wasn’t approved. If you think this is a mistake, contact the site’s administrator.');
     }
 
     await this.prisma.user.update({
@@ -234,7 +245,10 @@ export class AuthService implements OnApplicationBootstrap, OnModuleDestroy {
     return token;
   }
 
-  /** The session a cookie's token opens, or null when it is unknown, ended, expired, or its account is suspended. */
+  /**
+   * The session a cookie's token opens, or null when it is unknown, ended or expired, or its account is
+   * suspended or declined. A pending account's session is returned: guards decide what it may open.
+   */
   async resolve(token: string): Promise<AuthContext | null> {
     const tokenHash = sha256(token);
     const now = Date.now();
@@ -248,7 +262,7 @@ export class AuthService implements OnApplicationBootstrap, OnModuleDestroy {
       select: { id: true, expiresAt: true, revokedAt: true, user: { select: USER_FIELDS } },
     });
     const ctx =
-      session && !session.revokedAt && session.expiresAt.getTime() > now && session.user.status === 'active'
+      session && !session.revokedAt && session.expiresAt.getTime() > now && CAN_SIGN_IN.has(session.user.status)
         ? { sessionId: session.id, user: session.user }
         : null;
     if (this.cache.size > 20_000) this.cache.clear();
@@ -318,7 +332,14 @@ export class AuthService implements OnApplicationBootstrap, OnModuleDestroy {
     const existing = await this.prisma.user.findUnique({ where: { email: admin.email }, select: { id: true, role: true, status: true, passwordHash: true } });
     if (!existing) {
       await this.prisma.user.create({
-        data: { email: admin.email, name: 'Super admin', role: 'super_admin', passwordHash: await hashPassword(admin.password), workspace: { create: {} } },
+        data: {
+          email: admin.email,
+          name: 'Super admin',
+          role: 'super_admin',
+          status: 'active',
+          passwordHash: await hashPassword(admin.password),
+          workspace: { create: {} },
+        },
       });
       this.log.log(`Created the super admin account ${admin.email}`);
       return;
