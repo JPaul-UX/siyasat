@@ -9,6 +9,7 @@ import { Toast } from './components/Toast';
 import { setSessionProblemHandler } from './lib/api';
 import { backTarget, paths, safeNext, setNavigate, trackVisit, typeName } from './lib/nav';
 import { AuthPage } from './pages/AuthPage';
+import { Landing } from './pages/Landing';
 import { PendingApproval } from './pages/PendingApproval';
 import { Dashboard } from './pages/Dashboard';
 import { NewCheck } from './pages/NewCheck';
@@ -111,9 +112,11 @@ function SignedOut() {
   const location = useLocation();
   if (location.pathname === paths.signUp) return <AuthPage mode="signup" />;
   if (location.pathname === paths.signIn) return <AuthPage mode="signin" />;
+  // The front page says what Siyasat is, and how to get in.
+  if (location.pathname === '/') return <Landing />;
   // Remember where they were going, and go there once they have signed in.
   const here = location.pathname + location.search;
-  return <Navigate to={paths.signIn + (here === '/' ? '' : `?next=${encodeURIComponent(here)}`)} replace />;
+  return <Navigate to={`${paths.signIn}?next=${encodeURIComponent(here)}`} replace />;
 }
 
 function NotAllowed() {

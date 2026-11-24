@@ -58,7 +58,8 @@ cached, and all users together stay inside each database's rate limit (`apps/api
 ## Accounts and abuse protection
 
 Every lookup costs requests to Crossref, OpenAlex and the other databases, which all users share, so Siyasat needs
-an account: nothing but the sign-in and sign-up pages works without one (`apps/api/src/auth`).
+an account: nothing but a front page saying what Siyasat does and the sign-in and sign-up pages works without one
+(`apps/api/src/auth`).
 
 **Every new account waits for the super admin's approval.** Someone who signs up can sign in, but sees only a page
 saying the account is waiting; every lookup and saved-check route answers 403 (`reason: "pending_approval"`). That

@@ -45,7 +45,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
 export function AuthArt() {
   return (
     <aside className="auth-art">
-      <Link className="brand" to={paths.signIn}>
+      <Link className="brand" to="/">
         <Logo size={42} />
         <div>
           <b>Siyasat</b>
