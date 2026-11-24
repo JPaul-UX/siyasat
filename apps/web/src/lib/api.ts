@@ -9,6 +9,7 @@ import type {
   AdminUserDetail,
   AdminUserList,
   AdminUserSort,
+  AiStatus,
   AuthConfig,
   AuthResponse,
   Check,
@@ -27,6 +28,8 @@ import type {
   SignUpRequest,
   UserStatus,
   VerifyResponse,
+  WebCheckRequest,
+  WebCheckResponse,
 } from '@siyasat/core';
 
 export class ApiError extends Error {
@@ -107,10 +110,12 @@ const jsonHeaders = (body: unknown): HeadersInit => (body !== undefined ? { 'Con
 interface RequestOptions {
   body?: unknown;
   timeoutMs?: number;
+  /** Wait and try again when rate-limited. */
+  retry?: boolean;
 }
 
 /** A request that needs a session. Waits and retries when rate-limited; reports a lost session. */
-async function request<T>(method: string, path: string, { body, timeoutMs = 30_000 }: RequestOptions = {}): Promise<T> {
+async function request<T>(method: string, path: string, { body, timeoutMs = 30_000, retry = true }: RequestOptions = {}): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     const res = await fetch('/api' + path, {
       method,
@@ -130,7 +135,7 @@ async function request<T>(method: string, path: string, { body, timeoutMs = 30_0
       throw error;
     }
     // Going faster than the API allows: wait as long as it asks, then carry on.
-    if (res.status === 429 && attempt < 4) {
+    if (res.status === 429 && retry && attempt < 4) {
       await sleep(Math.min(30, Number(res.headers.get('retry-after')) || 5) * 1000);
       continue;
     }
@@ -167,6 +172,9 @@ export const api = {
   enrich: (doi: string) => request<EnrichResponse>('GET', `/enrich?doi=${enc(doi)}`),
   journalAbbreviations: (issns: string[]) => request<JournalAbbreviationsResponse>('POST', '/journals/abbreviations', { body: { issns }, timeoutMs: 60_000 }),
   fullText: (doi: string) => request<FullText>('GET', `/fulltext?doi=${enc(doi)}`, { timeoutMs: 45_000 }),
+  aiStatus: () => request<AiStatus>('GET', '/ai/status'),
+  // An AI web search takes up to a minute and a half; it is not retried on a rate limit, since it costs money.
+  webCheck: (req: WebCheckRequest) => request<WebCheckResponse>('POST', '/ai/web-check', { body: req, timeoutMs: 150_000, retry: false }),
 
   listChecks: () => request<CheckSummary[]>('GET', '/checks'),
   getCheck: (id: string) => request<Check>('GET', `/checks/${id}`, { timeoutMs: 60_000 }),

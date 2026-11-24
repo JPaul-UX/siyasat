@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AdminModule } from './admin/admin.module.js';
+import { AiModule } from './ai/ai.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { ChecksModule } from './checks/checks.module.js';
 import { AccountThrottlerGuard } from './common/throttler.guard.js';
@@ -18,6 +19,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
     ThrottlerModule.forRoot({ throttlers: [{ ttl: 60_000, limit: 600 }] }),
     AuthModule,
     LookupModule,
+    AiModule,
     ChecksModule,
     AdminModule,
   ],

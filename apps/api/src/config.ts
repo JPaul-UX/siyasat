@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { aiEnvShape, readAiSettings, type AiSettings } from './ai/ai.config.js';
 
 /** An unset variable and an empty one mean the same thing. */
 const optional = <T extends z.ZodType>(schema: T) => z.preprocess((v) => (v === '' ? undefined : v), schema.optional());
@@ -43,10 +44,16 @@ const envSchema = z.object({
         }
       }, 'STATS_TIMEZONE is not a time zone'),
   ),
-}).refine((env) => !env.SUPER_ADMIN_EMAIL === !env.SUPER_ADMIN_PASSWORD, {
-  message: 'Set SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD together',
-  path: ['SUPER_ADMIN_PASSWORD'],
-});
+  /** The optional AI web search. See ai/ai.config.ts. */
+  ...aiEnvShape,
+})
+  .refine((env) => !env.SUPER_ADMIN_EMAIL === !env.SUPER_ADMIN_PASSWORD, {
+    message: 'Set SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD together',
+    path: ['SUPER_ADMIN_PASSWORD'],
+  })
+  .superRefine((env, ctx) => {
+    for (const { variable, message } of readAiSettings(env).problems) ctx.addIssue({ code: 'custom', path: [variable], message });
+  });
 
 export type Env = z.infer<typeof envSchema>;
 
@@ -62,6 +69,8 @@ export class AppConfig {
   readonly publicUrl?: string;
   readonly superAdmin?: { email: string; password: string };
   readonly statsTimeZone: string;
+  /** The optional AI web search; undefined when it is off. */
+  readonly ai?: AiSettings;
 
   constructor(env: Env) {
     this.nodeEnv = env.NODE_ENV;
@@ -76,6 +85,7 @@ export class AppConfig {
       this.superAdmin = { email: env.SUPER_ADMIN_EMAIL.trim().toLowerCase(), password: env.SUPER_ADMIN_PASSWORD };
     }
     this.statsTimeZone = env.STATS_TIMEZONE;
+    this.ai = readAiSettings(env).settings;
   }
 
   get isProduction(): boolean {

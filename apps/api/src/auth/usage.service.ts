@@ -35,6 +35,22 @@ export class UsageService implements OnModuleInit, OnModuleDestroy {
     this.pending.set(key, (this.pending.get(key) ?? 0) + 1);
   }
 
+  /** How many of one kind of lookup ran today: by one account, or by everyone when no account is given. */
+  async countToday(kind: UsageKind, userId?: string): Promise<number> {
+    const day = this.dayOf();
+    let pending = 0;
+    for (const [key, count] of this.pending) {
+      const [user, d, k] = key.split('|');
+      if (d === day && k === kind && (!userId || user === userId)) pending += count;
+    }
+    const rows = userId
+      ? await this.prisma.$queryRaw<{ n: number }[]>`
+          SELECT COALESCE(SUM(count), 0)::int AS n FROM usage_daily WHERE day = ${day}::date AND kind = ${kind} AND user_id = ${userId}::uuid`
+      : await this.prisma.$queryRaw<{ n: number }[]>`
+          SELECT COALESCE(SUM(count), 0)::int AS n FROM usage_daily WHERE day = ${day}::date AND kind = ${kind}`;
+    return (rows[0]?.n ?? 0) + pending;
+  }
+
   onModuleInit(): void {
     this.timer = setInterval(() => void this.flush(), FLUSH_EVERY_MS);
     this.timer.unref();

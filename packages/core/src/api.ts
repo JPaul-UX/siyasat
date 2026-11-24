@@ -3,7 +3,7 @@
  * and the sign-up and sign-in routes, each needs a signed-in session, which the browser carries as an
  * httpOnly cookie; the /admin routes also need a super admin.
  */
-import type { AbstractInfo, Check, CheckSummary, FullText, RefResult, SourceInput, VenueInfo } from './types.js';
+import type { AbstractInfo, AiFinding, Check, CheckSummary, FullText, RefResult, SourceInput, Verdict, VenueInfo } from './types.js';
 
 /* ---------- Accounts ---------- */
 
@@ -62,9 +62,12 @@ export interface MeResponse {
 
 /* ---------- Super admin ---------- */
 
-/** The kinds of lookup counted per account per day, and `throttled` for requests refused by a rate limit. */
-export type UsageKind = 'verify' | 'source' | 'enrich' | 'journals' | 'fulltext' | 'throttled';
-export const LOOKUP_KINDS = ['verify', 'source', 'enrich', 'journals', 'fulltext'] as const satisfies readonly UsageKind[];
+/**
+ * The kinds of lookup counted per account per day, and `throttled` for requests refused by a rate limit.
+ * `ai` counts AI web searches that actually ran (an answer served from the cache costs nothing and is not counted).
+ */
+export type UsageKind = 'verify' | 'source' | 'enrich' | 'journals' | 'fulltext' | 'ai' | 'throttled';
+export const LOOKUP_KINDS = ['verify', 'source', 'enrich', 'journals', 'fulltext', 'ai'] as const satisfies readonly UsageKind[];
 
 export type ActivityType =
   | 'sign_up'
@@ -124,6 +127,7 @@ export interface UsageDay {
   enrich: number;
   journals: number;
   fulltext: number;
+  ai: number;
   throttled: number;
 }
 
@@ -274,6 +278,36 @@ export interface JournalAbbreviationsResponse {
 
 /** GET /api/fulltext?doi= */
 export type FullTextResponse = FullText;
+
+/** GET /api/ai/status: whether the optional AI web search is switched on, and how much of it is left today. */
+export interface AiStatus {
+  enabled: boolean;
+  /** e.g. "anthropic/claude-opus-5-5". */
+  model?: string;
+  /** Where the AI searches: the model provider's own web search, or a search API. */
+  search?: 'native' | 'tavily' | 'brave';
+  /** AI web searches this account may still run today. */
+  remainingToday?: number;
+}
+
+/** POST /api/ai/web-check: look for a reference the databases could not find, on the open web. */
+export interface WebCheckRequest {
+  raw: string;
+  /** Siyasat's verdict, so the AI knows what the databases already said. */
+  verdict: Verdict;
+  note?: string;
+  /** Search again even when a recent answer for this reference is cached. */
+  fresh?: boolean;
+}
+export interface WebCheckResponse {
+  finding: AiFinding;
+  /** Whether the answer came from the cache, so it cost nothing. */
+  cached: boolean;
+  remainingToday: number;
+}
+
+/** Verdicts the AI web search is offered for: the ones where the databases could not confirm the work. */
+export const AI_CHECK_VERDICTS: readonly Verdict[] = ['not_found', 'uncertain'];
 
 /** GET /api/checks */
 export type ChecksListResponse = CheckSummary[];

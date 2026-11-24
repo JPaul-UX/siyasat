@@ -8,5 +8,6 @@ import { VerifyService } from './verify.service.js';
 @Module({
   controllers: [LookupController],
   providers: [UpstreamService, SourcesService, VerifyService, FullTextService],
+  exports: [SourcesService],
 })
 export class LookupModule {}

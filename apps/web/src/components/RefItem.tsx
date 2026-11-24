@@ -1,10 +1,12 @@
 /* One checked reference, and the corrected bibliography built from all of them. Also used in downloaded reports. */
-import { stripTags, styleInfo, type CitationStyle, type Match, type RefResult, type Verdict } from '@siyasat/core';
-import { ArrowRight, Copy, ExternalLink, FileText, Link2, SlidersHorizontal } from 'lucide-react';
+import { AI_CHECK_VERDICTS, stripTags, styleInfo, type AiFinding, type CitationStyle, type Match, type RefResult, type Verdict } from '@siyasat/core';
+import { ArrowRight, Copy, ExternalLink, FileText, Globe, Link2, RotateCw, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useState, type Ref } from 'react';
-import { EXPLAIN, LABEL, MAIN_VERDICTS } from '../lib/labels';
+import { ApiError } from '../lib/api';
+import { AI_OUTCOME, EXPLAIN, fmtDate, LABEL, MAIN_VERDICTS } from '../lib/labels';
 import { referenceIn } from '../lib/reference';
-import { ApaText, Badge, CopyButton, External, NewTab, plainApa, plainTitle, ReadButton } from './bits';
+import { toast } from '../store/toast';
+import { ApaText, Badge, CopyButton, External, NewTab, plainApa, plainTitle, ReadButton, Spinner } from './bits';
 
 /** Only link to web addresses: a record's "free PDF" link comes from a database, not from us. */
 const webUrl = (u?: string | null): string | null => (u && /^https?:\/\//i.test(u) ? u : null);
@@ -47,6 +49,126 @@ function Venue({ m }: { m: Match }) {
       {v?.oaVenue && <span className="vpill">Open-access venue</span>}
       {v?.isOa && !v.oaVenue && <span className="vpill">Free to read</span>}
     </div>
+  );
+}
+
+const hostOf = (url: string): string => {
+  try {
+    return new URL(url).host.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+};
+
+/** What the AI web search found, shown beside the verdict and never in place of it. */
+function AiFindingView({ f }: { f: AiFinding }) {
+  const w = f.work;
+  const workUrl = webUrl(w?.url);
+  const outcome = AI_OUTCOME[f.outcome];
+  return (
+    <>
+      <div className="ai-head">
+        <Sparkles className="ic" aria-hidden="true" />
+        <b>AI web search: {outcome.t}</b>
+        <span className="meta">
+          {f.model} · {fmtDate(f.date)}
+        </span>
+      </div>
+      <p className="ai-help">{outcome.help}</p>
+      <p>{f.summary}</p>
+      {w && (
+        <p className="ai-work">
+          <span className="sr">What it found: </span>
+          {workUrl ? (
+            <External href={workUrl}>
+              {w.title}
+              <NewTab />
+            </External>
+          ) : (
+            <i>{w.title}</i>
+          )}
+          {[w.authors, w.year, w.venue, w.kind].filter(Boolean).length > 0 && ' · ' + [w.authors, w.year, w.venue, w.kind].filter(Boolean).join(' · ')}
+          {w.doi && (
+            <>
+              {' · '}
+              <External href={`https://doi.org/${w.doi}`}>doi.org/{w.doi}</External> (checked in Crossref)
+            </>
+          )}
+        </p>
+      )}
+      {f.sources.length > 0 && (
+        <ul className="ai-sources" aria-label="Pages the AI found">
+          {f.sources.map((s) => (
+            <li key={s.url}>
+              <External href={s.url}>
+                {s.title}
+                <NewTab />
+              </External>{' '}
+              <span className="host">{hostOf(s.url)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {f.adjusted && <p className="note">Siyasat checked the AI’s answer: {f.adjusted}</p>}
+      {f.queries.length > 0 && (
+        <details className="ai-queries">
+          <summary>What it searched for</summary>
+          <ul>
+            {f.queries.map((q, i) => (
+              <li key={i}>{q}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </>
+  );
+}
+
+/** The AI web search for one reference: its finding, and the button that starts or repeats it. */
+function AiPanel({ r, report, onAiCheck, aiLeft }: { r: RefResult; report: boolean; onAiCheck?: (fresh: boolean) => Promise<void>; aiLeft?: number }) {
+  const [running, setRunning] = useState(false);
+  const offered = !report && !!onAiCheck && AI_CHECK_VERDICTS.includes(r.auto ?? r.verdict);
+  if (!r.ai && !offered) return null;
+  const run = async (fresh: boolean) => {
+    if (!onAiCheck || running) return;
+    setRunning(true);
+    try {
+      await onAiCheck(fresh);
+    } catch (e) {
+      toast(e instanceof ApiError || e instanceof Error ? e.message : 'The AI web search failed. Try again.');
+    } finally {
+      setRunning(false);
+    }
+  };
+  const left = aiLeft != null ? ` You have ${aiLeft} left today.` : '';
+  return (
+    <section className={`ai-find${r.ai ? ' ai-' + r.ai.outcome : ''}`} aria-label="AI web search" aria-busy={running}>
+      {r.ai && <AiFindingView f={r.ai} />}
+      {offered && !r.ai && (
+        <p className="ai-help">
+          Books, reports, theses and local journals are often missing from Crossref and OpenAlex. An AI can look for this one on the open web.
+          It only advises: the verdict stays as it is unless you change it.{left}
+        </p>
+      )}
+      {offered && (
+        <div className="ai-actions">
+          {running ? (
+            <span className="ai-running" role="status">
+              <Spinner /> Searching the web… this can take a minute.
+            </span>
+          ) : r.ai ? (
+            <button type="button" className="link" disabled={aiLeft === 0} onClick={() => void run(true)}>
+              <RotateCw className="ic" aria-hidden="true" /> Search again
+            </button>
+          ) : (
+            <button type="button" className="ghost sm" disabled={aiLeft === 0} onClick={() => void run(false)}>
+              <Globe className="ic" aria-hidden="true" /> Search the web with AI
+            </button>
+          )}
+          {aiLeft === 0 && <span className="meta">No AI web searches left today.</span>}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -93,9 +215,13 @@ interface RefItemProps {
   /** The citation style "Copy corrected reference" writes. */
   style?: CitationStyle;
   onOverride?: (to: Verdict, note: string) => void;
+  /** Look for this reference on the web with AI. Given only when the AI web search is on for this site. */
+  onAiCheck?: (fresh: boolean) => Promise<void>;
+  /** AI web searches the account has left today. */
+  aiLeft?: number;
 }
 
-export function RefItem({ r, number, duplicateOf, report = false, style = 'apa', onOverride }: RefItemProps) {
+export function RefItem({ r, number, duplicateOf, report = false, style = 'apa', onOverride, onAiCheck, aiLeft }: RefItemProps) {
   const [changing, setChanging] = useState(false);
   const m = r.match;
   const corrected = r.verdict === 'retracted' ? null : referenceIn(r, style);
@@ -195,6 +321,7 @@ export function RefItem({ r, number, duplicateOf, report = false, style = 'apa',
           </table>
         </div>
       )}
+      <AiPanel r={r} report={report} onAiCheck={onAiCheck} aiLeft={aiLeft} />
       {!report && (
         <div className="item-foot">
           {corrected && <CopyButton text={plainApa(corrected)} label={`Copy corrected reference (${styleInfo(style).name})`} />}

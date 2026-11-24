@@ -20,7 +20,8 @@ import { api } from '../lib/api';
 import { copyText, download } from '../lib/download';
 import { fetchAbbreviations, needingAbbreviation } from '../lib/journals';
 import { EXPLAIN, LABEL, MAIN_VERDICTS } from '../lib/labels';
-import { patchCheck, upsertResults } from '../store/checks';
+import { loadAiStatus, setAiRemaining, useAi } from '../store/ai';
+import { getCheck, patchCheck, upsertResults } from '../store/checks';
 import { eta, resumeJob, useJobs } from '../store/jobs';
 import { setStyle, usePrefs } from '../store/prefs';
 import { toast } from '../store/toast';
@@ -60,6 +61,22 @@ function setVerdict(view: RefsView, position: number, to: Verdict, note: string)
     label: `verdict on reference ${numberOf(r, position)}`,
     run: () => void upsertResults(view.id, [r], view.kind),
   });
+}
+
+/**
+ * Look for a reference on the web with AI, and keep what it found with the result. The search takes a while,
+ * so the finding is added to the result as it is then, not as it was when the search started.
+ */
+async function aiCheck(view: RefsView, position: number, fresh: boolean): Promise<void> {
+  const r = view.results[position];
+  if (!r || r.i == null) return;
+  const res = await api.webCheck({ raw: r.raw, verdict: r.auto ?? r.verdict, note: r.note, fresh });
+  setAiRemaining(res.remainingToday);
+  const check = getCheck(view.id);
+  const list = (view.kind === 'refResults' ? (check?.type === 'draft' ? check.refResults : undefined) : check?.results) ?? view.results;
+  const latest = list.find((x) => x.i === r.i) ?? r;
+  upsertResults(view.id, [{ ...latest, ai: res.finding }], view.kind);
+  if (res.cached) toast('Shown from a recent AI web search for the same reference, so it did not use one of yours');
 }
 
 /** One sentence on what the score means for this list. */
@@ -180,6 +197,10 @@ export function RefsResults({ view, header }: { view: RefsView; header: ReactNod
   const dups = useMemo(() => duplicates(view.results), [view.results]);
   useVenueBackfill(view, running);
   useJournalAbbreviations(view, style, running);
+  const ai = useAi((s) => s.status);
+  useEffect(() => {
+    void loadAiStatus();
+  }, []);
 
   const needle = query.trim().toLowerCase();
   const rows = view.results
@@ -393,6 +414,8 @@ export function RefsResults({ view, header }: { view: RefsView; header: ReactNod
                     duplicateOf={first === undefined ? undefined : numberOf(view.results[first]!, first)}
                     style={style}
                     onOverride={(to, note) => setVerdict(view, position, to, note)}
+                    onAiCheck={ai?.enabled ? (fresh) => aiCheck(view, position, fresh) : undefined}
+                    aiLeft={ai?.remainingToday}
                   />
                 );
               })}

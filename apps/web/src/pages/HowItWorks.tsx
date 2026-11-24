@@ -28,6 +28,7 @@ import {
   FileSearch,
   FlaskConical,
   Gauge,
+  Globe,
   Library,
   ListChecks,
   Quote,
@@ -588,6 +589,27 @@ export function HowItWorks() {
         </ul>
       </Step>
 
+      <Step n={9} id="ai" icon={Globe} title="An optional AI web search" lead="When the databases cannot confirm a reference, an AI can look for it on the open web.">
+        <ul className="hw-list">
+          <li>
+            Where the site has it switched on, a reference marked “{LABEL.not_found}” or “{LABEL.uncertain}” has a <b>Search the web with AI</b> button. The AI searches for the exact title, then
+            the title with the first author, then the authors with the year, and says whether it found the work, found no trace of it, or cannot tell.
+          </li>
+          <li>
+            <b>Siyasat checks the AI’s answer before you see it.</b> Only pages its searches really returned are shown. A DOI is kept only when Crossref has it for a work with the same title,
+            and then Crossref’s details are used. “Found” needs a page or a DOI to show for it, and a title like your reference’s; “no trace” counts only if the search itself worked. Anything
+            the AI said that fails these checks is dropped, and the answer says so.
+          </li>
+          <li>
+            <b>It never changes the verdict.</b> Open the pages it found, then change the verdict yourself if you are satisfied.
+          </li>
+          <li>
+            Only the reference itself is sent to the AI provider and its search, never the rest of your paper. Each search costs the site money, so every account has a daily allowance,
+            and a reference searched recently is answered again without using one.
+          </li>
+        </ul>
+      </Step>
+
       <section className="card hw-step hw-limits" id="limits" aria-labelledby="limits-h">
         <header className="hw-step-h">
           <span className="hw-num warn" aria-hidden="true">
@@ -601,7 +623,7 @@ export function HowItWorks() {
         <ul className="hw-list">
           <li>
             <b>Not everything is indexed.</b> Some books, theses, reports, and local or older journals are in neither database. A real source of that kind comes back as “{LABEL.not_found}”. Find it
-            yourself and overrule the verdict.
+            yourself, or with the AI web search where it is switched on, and overrule the verdict.
           </li>
           <li>
             <b>It does not read the paper.</b> It confirms that a source exists and is cited correctly, not that it says what you claim. That judgment is yours.

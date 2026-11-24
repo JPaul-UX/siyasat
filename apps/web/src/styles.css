@@ -2036,6 +2036,98 @@ button.vtile:hover:not(:disabled) {
   align-items: center;
   margin-top: 10px;
 }
+/* The optional AI web search: advice beside the verdict, so it is quieter than the verdict itself. */
+.ai-find {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r);
+  background: var(--surface-2);
+  border: 1px dashed var(--line-strong);
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+.ai-find.ai-found {
+  border: 1px solid #b9dcc6;
+  background: var(--ok-bg);
+}
+.ai-find.ai-not_found {
+  border: 1px solid #f1c3bf;
+  background: var(--bad-bg);
+}
+.ai-find.ai-inconclusive {
+  border: 1px solid #cfd8e3;
+  background: var(--unc-bg);
+}
+.ai-find p {
+  margin: 6px 0 0;
+}
+.ai-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  color: var(--ink);
+}
+.ai-head .meta {
+  font-size: 12px;
+  margin-left: auto;
+}
+.ai-found .ai-head b {
+  color: var(--ok);
+}
+.ai-not_found .ai-head b {
+  color: var(--bad);
+}
+.ai-inconclusive .ai-head b {
+  color: var(--unc);
+}
+.ai-help {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+.ai-work a {
+  font-weight: 600;
+}
+.ai-sources {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+.ai-sources li {
+  margin: 2px 0;
+  overflow-wrap: anywhere;
+}
+.ai-sources .host {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+.ai-queries {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+.ai-queries summary {
+  cursor: pointer;
+}
+.ai-queries ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-family: var(--mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.ai-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.ai-running {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+}
 .readbtn {
   display: inline-flex;
   align-items: center;

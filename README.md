@@ -100,6 +100,48 @@ it starts, and the password in the environment is always the one that works: if 
 first, the start-up takes the account back, replaces its password, and ends its sessions. Changing the email makes
 the old super admin an ordinary account.
 
+## The optional AI web search
+
+Books, reports, theses and small local journals are often missing from Crossref and OpenAlex, so a real source can
+come back as "AI-hallucination". Where the site has it switched on, such a reference (and one marked "Double-check")
+has a **Search the web with AI** button. An AI model searches the open web for it and answers *found on the web*,
+*no trace on the web* or *inconclusive*, with the pages it found. The answer is saved with the check and printed in
+the report. **It never changes the verdict**: the author opens the pages and overrules the verdict if satisfied.
+Only the reference's text (and Siyasat's note on it) is sent to the AI provider and the search service, never the
+rest of the paper or anything about the account.
+
+It lives in `apps/api/src/ai`:
+
+| File | What it does |
+| --- | --- |
+| `ai.config.ts` | Reads the settings below. With `AI_PROVIDER` unset the step is off; once it is set, a missing key or model stops the API at start-up with a message naming the variable. |
+| `model.ts` | The provider adapter: the only file that knows about providers. It turns the settings into an [AI SDK](https://ai-sdk.dev) model, so switching provider is a change of settings, not code. |
+| `web-search.ts` | Tavily and Brave search behind one interface, for providers that cannot search by themselves. |
+| `web-check.ts` | The workflow: the model gets a web search, a `check_doi` tool (Crossref) and a `report` tool it must finish with. At most eight steps and six searches, a time limit, and on the last step only `report` is offered. A model that answers in prose is asked once more for the report. |
+| `grounding.ts` | Checks the model's report before anyone sees it. Web addresses must have come back from a search in this run. A DOI is kept only when Crossref has it for a work with the same title, and Crossref's details then replace the model's. "Found" needs a page or a confirmed DOI, and a title as close to the reference's as the checker itself requires. "No trace" stands only if a search actually worked. Whatever fails is dropped, and the answer says what was changed. |
+| `ai.service.ts` | Cost control: a daily allowance per account (the super admin has none) and for the whole site, at most four searches at once (two per account), and a cache, so the same reference is answered again for free (a week for "found", a day for "no trace"). Logs the tokens each search used. |
+
+Every search counts as an `ai` lookup in the admin dashboard.
+
+### Choosing a provider
+
+| `AI_PROVIDER` | Key (`AI_API_KEY`, or the provider's own variable) | `AI_MODEL` | Web search |
+| --- | --- | --- | --- |
+| `anthropic` | `ANTHROPIC_API_KEY` | defaults to `claude-opus-5-5` | Claude's own web search, billed by Anthropic per search. Must be allowed in the Anthropic Console's privacy settings |
+| `openai` | `OPENAI_API_KEY` | required | OpenAI's own web search |
+| `gateway` (Vercel AI Gateway: any provider through one key) | `AI_GATEWAY_API_KEY` | required, e.g. `anthropic/claude-opus-5.5` | The gateway's Perplexity search |
+| `google` | `GOOGLE_GENERATIVE_AI_API_KEY` | required | Needs Tavily or Brave |
+| `openai-compatible` (Ollama, LM Studio, vLLM, OpenRouter…) | only if the server wants one | required | Needs Tavily or Brave; set `AI_BASE_URL` |
+
+The model has to support tool calling. To use a search API instead of the provider's own search, set
+`AI_WEB_SEARCH=tavily` or `brave` with its key.
+
+**What it costs.** Measured on 2026-11-24 with Claude Opus 5.5 and Claude's own web search, one AI web search took 6 to
+11 seconds and 15,000 to 50,000 input tokens: about $0.07 to $0.21, searches included. The defaults (20 a day for the
+whole site, 5 per account) keep that near $100 a month at most. A cheaper model (`AI_MODEL=claude-sonnet-5-5` or
+`claude-haiku-5-5`) lowers the cost per search; raise the limits to match. Set a monthly spend limit in the
+provider's console as well: the allowances bound how many searches run, not what each one costs.
+
 ## Look and feel
 
 The colours are MSU-IIT's maroon and gold, in the shades the institute's own website uses: maroon `#941A1E`
@@ -152,6 +194,14 @@ The API reads these from the environment (`apps/api/.env` in development).
 | `SUPER_ADMIN_EMAIL` | recommended | The super admin's email address. Without it nobody can open the admin dashboard |
 | `SUPER_ADMIN_PASSWORD` | with the email | The super admin's password, at least 12 characters. Change it here and restart to change it |
 | `STATS_TIMEZONE` | no | The time zone the admin dashboard counts days in. Defaults to `Asia/Manila` |
+| `AI_PROVIDER` | no | Switches on the AI web search: `anthropic`, `openai`, `google`, `gateway` or `openai-compatible`. Unset: off |
+| `AI_MODEL` | with some providers | The model, in the provider's naming. Defaults to `claude-opus-5-5` for Anthropic |
+| `AI_API_KEY` | with the provider | The provider's key. `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY` or `AI_GATEWAY_API_KEY` work too |
+| `AI_BASE_URL` | for `openai-compatible` | The server's address, e.g. `http://localhost:11434/v1` for Ollama. For the others, a proxy |
+| `AI_WEB_SEARCH` | no | `native` (the provider's own search, the default where there is one), `tavily` or `brave` |
+| `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY` | for that search | Keys for the search APIs |
+| `AI_DAILY_LIMIT_PER_USER` | no | AI web searches per account per day. Defaults to 5 |
+| `AI_DAILY_LIMIT` | no | AI web searches for the whole site per day. Defaults to 20, which keeps Claude Opus 5.5 near $100 a month at most |
 
 ## Tests
 
@@ -159,6 +209,11 @@ The API reads these from the environment (`apps/api/.env` in development).
 browser-only version of Siyasat (`test/fixtures/legacy-golden.json`), including the Crossref and OpenAlex
 responses it saw. A change that alters a verdict fails there, so it has to be deliberate; the few places where
 the engine now does better than the original on purpose are named in that file with the reason.
+
+The AI web search is tested without a model and without spending anything: `apps/api/src/ai/*.spec.ts` play
+scripted answers through the AI SDK's mock model, and check that invented pages and DOIs are dropped, that a failed
+search is not reported as "no trace", that the allowances and the cache hold, and that a provider's refusal of the
+key reaches the user as a plain message.
 
 `packages/core/test/citation-styles.test.ts` covers reading, checking and writing each citation style, for
 each kind of work. `casing.test.ts` and `journals.test.ts` cover capitalisation and journal abbreviation, with
@@ -199,6 +254,8 @@ waits for approval. The `/admin` routes need the super admin.
 | `GET /enrich?doi=` | Venue and open-access details for a DOI |
 | `POST /journals/abbreviations` | The NLM Catalog's abbreviations for journals, by ISSN |
 | `GET /fulltext?doi=` | A free full text for a DOI, when one exists |
+| `GET /ai/status` | Whether the AI web search is on, and how many searches the account has left today |
+| `POST /ai/web-check` | Look for a reference on the open web with AI |
 | `GET /checks` | Summaries of the workspace's saved checks |
 | `GET`, `PUT`, `PATCH`, `DELETE /checks/:id` | Read, save, change, or delete one check |
 | `POST /checks/:id/results` | Add results to a check, or replace the ones at the same positions |

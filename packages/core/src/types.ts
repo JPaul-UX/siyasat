@@ -134,6 +134,55 @@ export interface RefResult {
   linked?: 'author-year' | null;
   orphan?: boolean;
   weak?: boolean;
+  /** What the optional AI web search found, when the author asked for one. It never changes the verdict. */
+  ai?: AiFinding;
+}
+
+/* ---------- AI web search ---------- */
+
+/**
+ * found: a page that is the work itself, or a catalogue record of it, turned up on the web.
+ * not_found: the search turned up no trace of the work.
+ * inconclusive: something turned up, but not enough to say either way (or the search could not finish).
+ */
+export type AiOutcome = 'found' | 'not_found' | 'inconclusive';
+
+export const AI_OUTCOMES: readonly AiOutcome[] = ['found', 'not_found', 'inconclusive'];
+
+/** A web page the AI read. Only pages the search really returned are kept; the model cannot add its own. */
+export interface AiSource {
+  url: string;
+  title: string;
+}
+
+/** The work as the AI found it described on the web. */
+export interface AiWork {
+  title: string;
+  authors?: string;
+  year?: number;
+  /** The journal, publisher, website or institution. */
+  venue?: string;
+  /** e.g. "book", "report", "thesis", "web page". */
+  kind?: string;
+  /** Only when Crossref has it and its title matches the reference: a DOI the model merely wrote is dropped. */
+  doi?: string;
+  url?: string;
+}
+
+export interface AiFinding {
+  outcome: AiOutcome;
+  /** One to three plain sentences on what was found, for the author. */
+  summary: string;
+  work?: AiWork;
+  sources: AiSource[];
+  /** What was searched for. */
+  queries: string[];
+  /** Which model searched, e.g. "anthropic/claude-opus-5-5". */
+  model: string;
+  /** ISO timestamp. */
+  date: string;
+  /** Set when the server changed the model's answer, e.g. "found" without a page to show for it. */
+  adjusted?: string;
 }
 
 export interface AbstractInfo {

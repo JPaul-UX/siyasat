@@ -20,6 +20,7 @@ const KIND_LABEL: Record<UsageKind, string> = {
   enrich: 'Venue lookups',
   journals: 'Journal abbreviations',
   fulltext: 'Full texts opened',
+  ai: 'AI web searches',
   throttled: 'Rate-limited requests',
 };
 

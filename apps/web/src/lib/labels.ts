@@ -1,4 +1,4 @@
-import type { Judgment, Verdict } from '@siyasat/core';
+import type { AiOutcome, Judgment, Verdict } from '@siyasat/core';
 
 export const LABEL: Record<Verdict, string> = {
   verified: 'Looks good',
@@ -17,6 +17,13 @@ export const EXPLAIN: Record<Verdict, string> = {
     "We searched Crossref and OpenAlex and found no paper that matches. This is the classic sign of an AI hallucination (a made-up source). Don't cite it unless you can find the real source.",
   retracted: "This paper was officially withdrawn by its journal. Don't use it as evidence in your work.",
   error: "We couldn't reach the databases for this one. Check your internet connection and try again.",
+};
+
+/** What the optional AI web search concluded. It is advice next to the verdict, never a verdict. */
+export const AI_OUTCOME: Record<AiOutcome, { t: string; help: string }> = {
+  found: { t: 'Found on the web', help: 'The AI found a page that is this work, or a catalogue record of it. Open it and check before you rely on it.' },
+  not_found: { t: 'No trace on the web', help: 'The AI searched the web and found nothing that matches. Together with the databases, that is a strong sign the source does not exist.' },
+  inconclusive: { t: 'Inconclusive', help: 'The AI found something close, or could not search properly. Look this one up yourself.' },
 };
 
 /** The verdicts shown as tiles, legends and choices. `error` is not one a person picks. */

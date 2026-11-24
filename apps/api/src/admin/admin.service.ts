@@ -169,7 +169,7 @@ export class AdminService {
       this.prisma.check.findFirst({ where: { workspaceId: raw.workspace_id, deletedAt: null }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
     ]);
     const byDay = new Map<string, UsageDay>(
-      days.map((day) => [day, { day, verify: 0, source: 0, enrich: 0, journals: 0, fulltext: 0, throttled: 0 }]),
+      days.map((day) => [day, { day, verify: 0, source: 0, enrich: 0, journals: 0, fulltext: 0, ai: 0, throttled: 0 }]),
     );
     for (const r of usageRows) {
       const entry = byDay.get(r.day.toISOString().slice(0, 10));
